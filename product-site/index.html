@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Games Taste Engine Alpha | Try the MVP preview</title>
+    <meta
+      name="description"
+      content="Try the Games Taste Engine alpha preview: a local-first MVP that helps players decide what to continue, what to start next, and what to avoid."
+    />
+    <meta
+      property="og:title"
+      content="Games Taste Engine Alpha | Try the MVP preview"
+    />
+    <meta
+      property="og:description"
+      content="A usable alpha preview for players who want game recommendations based on personal fit, not hype."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="/product-site/" />
+    <meta property="og:image" content="/covers/games/kingdom_hearts_iii.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Games Taste Engine Alpha | Try the MVP preview"
+    />
+    <meta
+      name="twitter:description"
+      content="Try the alpha preview of a recommendation product that helps players choose games by fit, not hype."
+    />
+    <meta name="twitter:image" content="/covers/games/kingdom_hearts_iii.jpg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="#top">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-copy">
+            <strong>Games Taste Engine</strong>
+            <span>Alpha preview</span>
+          </span>
+        </a>
+
+        <nav class="site-nav" aria-label="Section navigation">
+          <a href="#problem">Problem</a>
+          <a href="#what-it-does">What it does</a>
+          <a href="#difference">Why it is different</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="#onboarding">Onboarding</a>
+          <a href="/app/">Open alpha</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section id="top" class="hero section reveal is-visible">
+        <div class="hero-copy">
+          <p class="eyebrow">For players who want better choices</p>
+          <h1>
+            Find the games that actually fit you.
+            <span>Try the alpha preview now.</span>
+          </h1>
+          <p class="hero-summary">
+            Games Taste Engine is an alpha preview for players who want help
+            deciding what to continue, what to start next, and what to avoid,
+            based on personal fit instead of popularity, critical hype, or
+            social pressure.
+          </p>
+
+          <div class="hero-actions">
+            <a class="button button-primary" href="/app/">Open the alpha preview</a>
+            <a class="button button-secondary" href="#how-it-works"
+              >See how it works</a
+            >
+          </div>
+
+          <div class="output-strip" aria-label="Core product outputs">
+            <article class="output-card">
+              <p class="output-label">Current run</p>
+              <h2>Keep momentum visible</h2>
+              <p>
+                The active game stays in focus instead of getting buried under
+                endless new suggestions.
+              </p>
+            </article>
+            <article class="output-card">
+              <p class="output-label">Next up</p>
+              <h2>Choose a safer next play</h2>
+              <p>
+                Surface stronger-fit options before you lose time on the wrong
+                kind of recommendation.
+              </p>
+            </article>
+            <article class="output-card">
+              <p class="output-label">Avoid for now</p>
+              <h2>Spot false fits early</h2>
+              <p>
+                Flag games that look attractive on paper but are likely to stall
+                or fail in practice.
+              </p>
+            </article>
+          </div>
+        </div>
+
+        <aside class="hero-media">
+          <div class="cover-stack" aria-label="Representative covers">
+            <figure class="cover-frame cover-frame-main">
+              <img
+                src="../covers/games/kingdom_hearts_iii.jpg"
+                alt="Kingdom Hearts III cover"
+                loading="eager"
+                decoding="async"
+              />
+            </figure>
+            <figure class="cover-frame cover-frame-secondary">
+              <img
+                src="../covers/games/chrono_trigger.jpg"
+                alt="Chrono Trigger cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <figure class="cover-frame cover-frame-tertiary">
+              <img
+                src="../covers/games/bayonetta_3.jpg"
+                alt="Bayonetta 3 cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          </div>
+          <div class="hero-note">
+            <p class="eyebrow">Alpha preview</p>
+            <p>
+              Move beyond “What should I play because everyone says it is good?”
+              and toward “What is actually likely to work for me?”
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section id="problem" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Problem</p>
+          <h2>Players often choose by hype, then lose time forcing the wrong fit.</h2>
+        </div>
+        <div class="two-column">
+          <div class="prose-card">
+            <p>
+              Popularity, review scores, and critical acclaim are useful for
+              discovery. They are much less useful for telling a specific player
+              what they are actually likely to enjoy and finish.
+            </p>
+            <p>
+              That gap creates a familiar pattern: start what feels culturally
+              important, push through because it is “supposed” to be good, then
+              stall, drop, or quietly move on.
+            </p>
+          </div>
+          <div class="signal-list-card">
+            <h3>What most discovery tools optimize for</h3>
+            <ul>
+              <li>Popularity</li>
+              <li>Review scores</li>
+              <li>Critical acclaim</li>
+              <li>Release visibility</li>
+            </ul>
+            <h3>What players actually need</h3>
+            <ul>
+              <li>What should I continue right now?</li>
+              <li>What should I start next?</li>
+              <li>What should I avoid even if it looks good?</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="what-it-does" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">What it does</p>
+          <h2>A recommendation product built around personal fit and follow-through.</h2>
+        </div>
+        <div class="stack-grid">
+          <article class="stack-card">
+            <h3>Prioritizes fit</h3>
+            <p>
+              It focuses on what is likely to work for a specific player, not on
+              what is considered universally important.
+            </p>
+          </article>
+          <article class="stack-card">
+            <h3>Explains its suggestions</h3>
+            <p>
+              Recommendations should be understandable, not magical. The product
+              highlights why something fits and why something may still be risky.
+            </p>
+          </article>
+          <article class="stack-card">
+            <h3>Respects real play behavior</h3>
+            <p>
+              It is designed to learn from liked games, dropped games, friction
+              patterns, and platform access instead of treating every player the
+              same.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="difference" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Why it is different</p>
+          <h2>It is not a backlog manager, a review site, or a popularity feed.</h2>
+        </div>
+        <div class="insight-grid">
+          <article class="insight-card">
+            <h3>Not a backlog dump</h3>
+            <p>
+              The product is centered on better decisions, not on collecting
+              endless lists of titles.
+            </p>
+          </article>
+          <article class="insight-card">
+            <h3>Not critic-first</h3>
+            <p>
+              A game can be acclaimed and still be the wrong fit for you. The
+              system treats those as separate truths.
+            </p>
+          </article>
+          <article class="insight-card">
+            <h3>Not “one more score”</h3>
+            <p>
+              It aims to answer concrete decisions like continue, next up,
+              resume, and avoid instead of hiding behind generic ratings.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="outputs" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Core outputs</p>
+          <h2>The product is designed around a small set of useful decisions.</h2>
+        </div>
+        <div class="decision-matrix">
+          <article>
+            <h3>Current run</h3>
+            <p>Keep the active game visible so momentum is not lost to recommendation churn.</p>
+          </article>
+          <article>
+            <h3>Next up</h3>
+            <p>Suggest the safest and strongest next candidate based on personal fit.</p>
+          </article>
+          <article>
+            <h3>Avoid for now</h3>
+            <p>Call out attractive-looking titles with a high chance of friction or abandonment.</p>
+          </article>
+          <article>
+            <h3>Upcoming</h3>
+            <p>Track future releases and surface which ones are worth paying attention to.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="how-it-works" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>A lightweight profile, a few signals, and explainable recommendation outputs.</h2>
+        </div>
+        <div class="flow-shell">
+          <div class="flow-row">
+            <article class="flow-card">
+              <p class="step-number">01</p>
+              <h3>Learn a few anchors</h3>
+              <p>
+                The product starts with a small number of liked and disliked
+                games instead of asking players to build a huge library.
+              </p>
+            </article>
+            <article class="flow-card">
+              <p class="step-number">02</p>
+              <h3>Build a taste profile</h3>
+              <p>
+                A short guided flow turns those anchors into clearer fit,
+                friction, and platform signals.
+              </p>
+            </article>
+            <article class="flow-card">
+              <p class="step-number">03</p>
+              <h3>Generate recommendations</h3>
+              <p>
+                The system identifies what to continue, what to start next, what
+                to avoid, and what upcoming titles deserve attention.
+              </p>
+            </article>
+            <article class="flow-card">
+              <p class="step-number">04</p>
+              <h3>Improve with feedback</h3>
+              <p>
+                Lightweight check-ins help the product refine confidence and
+                recommendation quality over time.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="onboarding" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Onboarding preview</p>
+          <h2>Getting started should feel like a guided interview, not setup work.</h2>
+        </div>
+        <div class="onboarding-shell">
+          <div class="onboarding-intro">
+            <p>
+              The alpha preview is designed to reach an initial recommendation
+              in a few minutes: platform access, a handful of game anchors, and
+              a short profile-building conversation.
+            </p>
+          </div>
+          <div class="onboarding-steps">
+            <article class="mini-step">
+              <span>1</span>
+              <h3>Choose platforms</h3>
+              <p>Only track what you can actually play.</p>
+            </article>
+            <article class="mini-step">
+              <span>2</span>
+              <h3>Add anchors</h3>
+              <p>Pick a few games you loved and a few that failed.</p>
+            </article>
+            <article class="mini-step">
+              <span>3</span>
+              <h3>Answer a few prompts</h3>
+              <p>Clarify what matters most and what tends to break momentum.</p>
+            </article>
+            <article class="mini-step">
+              <span>4</span>
+              <h3>Review your fit profile</h3>
+              <p>Confirm or correct what the system thinks you like.</p>
+            </article>
+            <article class="mini-step">
+              <span>5</span>
+              <h3>See first outputs</h3>
+              <p>Get an initial current run, next up, and avoid-for-now read.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="surfaces" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Product preview</p>
+          <h2>Three surfaces that define the experience.</h2>
+        </div>
+        <div class="surface-gallery">
+          <article class="surface-card">
+            <h3>Recommendation dashboard</h3>
+            <div class="surface-wireframe">
+              <div class="wireframe-bar"></div>
+              <div class="wireframe-panel wireframe-panel-hero"></div>
+              <div class="wireframe-grid">
+                <div class="wireframe-panel"></div>
+                <div class="wireframe-panel"></div>
+              </div>
+            </div>
+            <p>
+              A small decision layer that shows what to continue, what to start
+              next, and what to avoid.
+            </p>
+          </article>
+          <article class="surface-card">
+            <h3>Guided onboarding</h3>
+            <div class="surface-wireframe">
+              <div class="wireframe-chat-row">
+                <span></span>
+                <div class="wireframe-bubble"></div>
+              </div>
+              <div class="wireframe-chat-row wireframe-chat-row-user">
+                <div class="wireframe-bubble"></div>
+                <span></span>
+              </div>
+              <div class="wireframe-panel wireframe-panel-summary"></div>
+            </div>
+            <p>
+              A short, structured interview to turn game examples into a usable
+              taste profile.
+            </p>
+          </article>
+          <article class="surface-card">
+            <h3>Game finder</h3>
+            <div class="surface-wireframe">
+              <div class="wireframe-search"></div>
+              <div class="wireframe-grid wireframe-grid-wide">
+                <div class="wireframe-panel wireframe-panel-list"></div>
+                <div class="wireframe-panel wireframe-panel-detail"></div>
+              </div>
+            </div>
+            <p>
+              Search any title and inspect likely fit before committing time to
+              it.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="coming-soon" class="section reveal">
+        <div class="section-head">
+          <p class="eyebrow">Enter the alpha</p>
+          <h2>Use the MVP now, with the right expectations.</h2>
+        </div>
+        <div class="two-column">
+          <article class="prose-card accent-card">
+            <h3>What is already inside</h3>
+            <ul>
+              <li>Guided onboarding with a lightweight fit profile</li>
+              <li>Recommendation outputs for current run, next up, avoid, and resume</li>
+              <li>A searchable Game Finder over the active catalog and hidden universe seed data</li>
+              <li>Local-first persistence so the profile stays in your browser</li>
+            </ul>
+          </article>
+          <article class="prose-card coming-soon-card">
+            <h3>Open the alpha preview</h3>
+            <p>
+              The product is usable today, but still early. Expect a local-first
+              MVP: onboarding, Today, and Finder are live; broader product
+              surfaces will keep evolving after that.
+            </p>
+            <div class="hero-actions hero-actions-compact">
+              <a class="button button-primary" href="/app/">Launch the alpha preview</a>
+              <a class="button button-secondary" href="#how-it-works">Review the flow first</a>
+            </div>
+            <p id="interest-note" class="form-note">
+              This is an honest alpha. It is real, usable, and still narrowing toward the full public product.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
