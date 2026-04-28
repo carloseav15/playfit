@@ -1,0 +1,28 @@
+{
+  "name": "games-library-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev:public",
+    "dev:public": "BUILD_TARGET=public vite",
+    "dev:workbench": "BUILD_TARGET=workbench vite --open /workbench/",
+    "dev:proxy": "node server/ai-proxy.mjs",
+    "dev:product": "node scripts/dev-product.mjs",
+    "build": "npm run build:public",
+    "build:public": "BUILD_TARGET=public vite build && node scripts/copy-data.mjs public && node scripts/verify-public-build.mjs",
+    "build:workbench": "BUILD_TARGET=workbench vite build && node scripts/copy-data.mjs personal",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fuse.js": "^7.0.0",
+    "papaparse": "^5.5.3"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.3"
+  }
+}

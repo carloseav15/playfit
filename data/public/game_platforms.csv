@@ -1,0 +1,8 @@
+mapping_id,game_id,platform_id,availability_status,source_type,source_ref,notes
+GPM001,007_first_light,ps5,announced,official_site,https://ioi.dk/007firstlightgame/,Official platform availability from the game site.
+GPM002,007_first_light,xbox_series_xs,announced,official_site,https://ioi.dk/007firstlightgame/,Official platform availability from the game site.
+GPM003,007_first_light,switch_2,announced,official_site,https://ioi.dk/007firstlightgame/,Official platform availability from the game site.
+GPM004,007_first_light,pc,announced,official_site,https://ioi.dk/007firstlightgame/,Official platform availability from the game site.
+GPM005,pragmata,ps5,announced,official_site,https://www.capcom-games.com/pragmata/,Official platform availability from the game site.
+GPM006,pragmata,xbox_series_xs,announced,official_site,https://www.capcom-games.com/pragmata/,Official platform availability from the game site.
+GPM007,pragmata,pc,announced,official_site,https://www.capcom-games.com/pragmata/,Official platform availability from the game site.

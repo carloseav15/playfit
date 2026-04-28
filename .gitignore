@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build outputs and caches
+dist/
+.vite/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Private personal workbench data
+data/personal/*
+!data/personal/.gitkeep
+
+# OS/editor noise
+.DS_Store
+*.log
+
