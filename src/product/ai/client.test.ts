@@ -5,9 +5,19 @@ import { detectProductRuntimeMode } from "./client";
 describe("detectProductRuntimeMode", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("returns local-only by default without calling health", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(detectProductRuntimeMode()).resolves.toBe("local-only");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns ai-assisted when health is configured", async () => {
+    vi.stubEnv("VITE_ENABLE_AI", "true");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -20,6 +30,7 @@ describe("detectProductRuntimeMode", () => {
   });
 
   it("returns local-only when health is missing or disabled", async () => {
+    vi.stubEnv("VITE_ENABLE_AI", "true");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({

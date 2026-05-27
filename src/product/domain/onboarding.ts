@@ -1,4 +1,5 @@
 import type {
+  ProductAnchorReason,
   ProductInterviewAnswers,
   ProductOnboardingDraft,
   ProductPriority,
@@ -30,6 +31,21 @@ export const ONBOARDING_PLAY_PATTERN_CHIPS = [
   { id: "drop_quickly", label: "I drop quickly if it does not click" },
   { id: "watch_instead", label: "I watch the rest instead of playing" },
 ] as const;
+
+export const ONBOARDING_ANCHOR_REASON_CHIPS: Array<{
+  id: ProductAnchorReason;
+  label: string;
+}> = [
+  { id: "story", label: "Story" },
+  { id: "pace", label: "Pacing" },
+  { id: "combat", label: "Combat" },
+  { id: "repetition", label: "Repetition" },
+  { id: "grind", label: "Grind" },
+  { id: "confusion", label: "Confusing direction" },
+  { id: "difficulty", label: "Difficulty" },
+  { id: "aesthetic", label: "Aesthetic" },
+  { id: "emotion", label: "Emotional pull" },
+];
 
 function keywords(text: string) {
   return text.toLowerCase();
@@ -65,12 +81,29 @@ function countGenres(gameIds: string[], gamesById: Map<string, SeedGame>) {
     .map(([genre]) => genre);
 }
 
+function selectedRequiredAnchorIds(draft: ProductOnboardingDraft) {
+  return [...draft.likedGameIds, ...draft.dislikedGameIds];
+}
+
+export function hasRequiredAnchorDetails(draft: ProductOnboardingDraft) {
+  return selectedRequiredAnchorIds(draft).every((gameId) => {
+    return (
+      (draft.anchorReasons[gameId]?.length ?? 0) > 0 &&
+      Boolean(draft.anchorOwnership[gameId])
+    );
+  });
+}
+
 export function canAdvanceOnboarding(draft: ProductOnboardingDraft) {
   switch (draft.step) {
     case "platforms":
       return draft.platforms.length > 0;
     case "anchors":
-      return draft.likedGameIds.length >= 3 && draft.dislikedGameIds.length >= 3;
+      return (
+        draft.likedGameIds.length >= 3 &&
+        draft.dislikedGameIds.length >= 3 &&
+        hasRequiredAnchorDetails(draft)
+      );
     case "interview":
       return Boolean(
         draft.answers.selectedPriorities.length > 0 &&
@@ -126,6 +159,44 @@ export function buildFallbackProfile(
           : "medium",
     signals: [],
   };
+  const likedReasons = new Set(
+    draft.likedGameIds.flatMap((gameId) => draft.anchorReasons[gameId] ?? []),
+  );
+  const dislikedReasons = new Set(
+    draft.dislikedGameIds.flatMap((gameId) => draft.anchorReasons[gameId] ?? []),
+  );
+
+  if (likedReasons.has("story")) {
+    profile.priorities.story = "high";
+  }
+  if (likedReasons.has("pace")) {
+    profile.priorities.hook = "high";
+    profile.priorities.pace = bumpPriority(profile.priorities.pace, "high");
+  }
+  if (likedReasons.has("combat")) {
+    profile.priorities.combat = bumpPriority(profile.priorities.combat, "medium");
+  }
+  if (likedReasons.has("aesthetic")) {
+    profile.priorities.aesthetic = "high";
+  }
+  if (likedReasons.has("emotion")) {
+    profile.priorities.emotional = "high";
+  }
+  if (dislikedReasons.has("repetition") || dislikedReasons.has("grind")) {
+    profile.avoidPatterns.repetition = true;
+  }
+  if (dislikedReasons.has("confusion")) {
+    profile.avoidPatterns.confusingSystems = true;
+  }
+  if (dislikedReasons.has("difficulty")) {
+    profile.watchVsPlayRisk = bumpPriority(profile.watchVsPlayRisk, "medium");
+  }
+  if (dislikedReasons.has("story") || dislikedReasons.has("emotion")) {
+    profile.avoidPatterns.weakEmotionalPull = true;
+  }
+  if (dislikedReasons.has("combat")) {
+    profile.avoidPatterns.shallowCombat = true;
+  }
 
   if (draft.answers.selectedPriorities.includes("strong_story")) {
     profile.priorities.story = "high";

@@ -14,8 +14,8 @@ if (!root) {
 root.innerHTML = `
   <main class="product-boot">
     <div class="product-spinner" aria-hidden="true"></div>
-    <p class="product-eyebrow">Games Taste Engine</p>
-    <h1>Loading product workspace</h1>
+    <p class="product-eyebrow">Playfit</p>
+    <h1>Loading your game concierge</h1>
     <p>Reading seed catalog, local profile state, and recommendation logic.</p>
   </main>
 `;
@@ -32,8 +32,8 @@ try {
   console.error(error);
   root.innerHTML = `
     <main class="product-boot product-boot-error">
-      <p class="product-eyebrow">Games Taste Engine</p>
-      <h1>The product MVP could not be loaded</h1>
+      <p class="product-eyebrow">Playfit</p>
+      <h1>The game concierge could not be loaded</h1>
       <p>${error instanceof Error ? error.message : "Unexpected boot error."}</p>
       <p>Try <code>npm run dev:product</code> for the full local product setup.</p>
     </main>

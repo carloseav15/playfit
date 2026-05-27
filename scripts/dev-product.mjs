@@ -2,8 +2,12 @@ import { spawn } from "node:child_process";
 
 const processes = [];
 
-function run(command, args) {
+function run(command, args, env = {}) {
   const child = spawn(command, args, {
+    env: {
+      ...process.env,
+      ...env,
+    },
     stdio: "inherit",
     shell: process.platform === "win32",
   });
@@ -23,7 +27,7 @@ function shutdown(code = 0) {
 }
 
 run("npm", ["run", "dev:proxy"]);
-run("npm", ["run", "dev:public"]);
+run("npm", ["run", "dev:public"], { VITE_ENABLE_AI: "true" });
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));

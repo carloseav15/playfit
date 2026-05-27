@@ -22,8 +22,9 @@ export function serializeCsv(rows, columns) {
 }
 
 export function validateCsv(text, columns, filePath = "csv") {
-  const parsed = Papa.parse(text, {
+  const parsed = Papa.parse(text.replace(/\r\n?/g, "\n"), {
     header: true,
+    newline: "\n",
     skipEmptyLines: "greedy",
     transformHeader: (header) => header.trim(),
     transform: (value) => value.trim(),

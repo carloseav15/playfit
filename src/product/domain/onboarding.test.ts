@@ -10,6 +10,8 @@ function createDraft(): ProductOnboardingDraft {
     likedGameIds: [],
     dislikedGameIds: [],
     currentGameId: null,
+    anchorReasons: {},
+    anchorOwnership: {},
     answers: {
       love: "",
       frustration: "",
@@ -59,6 +61,10 @@ describe("onboarding domain", () => {
     expect(canAdvanceOnboarding(draft)).toBe(false);
     draft.likedGameIds = ["a", "b", "c"];
     draft.dislikedGameIds = ["d", "e", "f"];
+    [...draft.likedGameIds, ...draft.dislikedGameIds].forEach((gameId) => {
+      draft.anchorReasons[gameId] = ["story"];
+      draft.anchorOwnership[gameId] = "owned";
+    });
     expect(canAdvanceOnboarding(draft)).toBe(true);
 
     draft.step = "interview";
@@ -79,6 +85,22 @@ describe("onboarding domain", () => {
     const draft = createDraft();
     draft.likedGameIds = ["ff7", "ff9", "chrono"];
     draft.dislikedGameIds = ["boring-1", "boring-2", "boring-3"];
+    draft.anchorReasons = {
+      ff7: ["story", "emotion"],
+      ff9: ["story", "aesthetic"],
+      chrono: ["pace"],
+      "boring-1": ["repetition"],
+      "boring-2": ["confusion"],
+      "boring-3": ["grind"],
+    };
+    draft.anchorOwnership = {
+      ff7: "owned",
+      ff9: "owned",
+      chrono: "owned",
+      "boring-1": "owned",
+      "boring-2": "owned",
+      "boring-3": "owned",
+    };
     draft.answers = {
       love: "I care about story, emotion, atmosphere and clear progress",
       frustration: "Slow repetitive games with confusing systems",

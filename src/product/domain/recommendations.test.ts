@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTodayModel, scoreSeedGame } from "./recommendations";
+import { buildFinderIndex, buildTodayModel, findExactSeedGame, scoreSeedGame, searchSeedGames } from "./recommendations";
 import type { ProductProfile, ProductState, SeedGame } from "../types";
 import { createInitialState } from "../store/indexed-db";
 
@@ -88,6 +88,23 @@ describe("recommendations domain", () => {
     expect(ranked.fitReasons.length).toBeGreaterThan(0);
   });
 
+  it("keeps early recommendations low confidence until enough outcomes exist", () => {
+    const state = createState();
+    const gamesById = new Map<string, SeedGame>();
+    const strongFit = createGame("fit", "Strong Fit", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+      emotionalComplexity: "high",
+    });
+
+    gamesById.set(strongFit.gameId, strongFit);
+    const ranked = scoreSeedGame(strongFit, state, state.user.profile!, gamesById);
+
+    expect(ranked.confidence).toBe("low");
+    expect(ranked.affinityScore).toBeLessThanOrEqual(72);
+  });
+
   it("keeps current run separate from playable next up and wishlist fit", () => {
     const state = createState();
     const currentRun = createGame("current", "Current Run", {
@@ -114,13 +131,19 @@ describe("recommendations domain", () => {
       earlyHook: "high",
       emotionalComplexity: "high",
     });
+    const alternative = createGame("alternative", "Alternative", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "medium",
+      endgameRepetitionRisk: "low",
+    });
     const unreleased = createGame("future", "Future Game", {
       releaseState: "unreleased",
       storyStrength: "high",
       progressionClarity: "high",
       earlyHook: "high",
     });
-    const games = [currentRun, nextUp, avoid, wishlist, unreleased];
+    const games = [currentRun, nextUp, avoid, wishlist, alternative, unreleased];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[currentRun.gameId] = {
@@ -156,13 +179,21 @@ describe("recommendations domain", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
+    state.user.gameStates[alternative.gameId] = {
+      gameId: alternative.gameId,
+      title: alternative.title,
+      ownershipStatus: "owned",
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
     expect(model.currentRun?.game.gameId).toBe("current");
     expect(model.nextUp?.game.gameId).toBe("next");
     expect(model.wishlistFit?.game.gameId).toBe("wishlist");
-    expect(model.playableAlternative?.game.gameId).toBe("next");
+    expect(model.playableAlternative?.game.gameId).toBe("alternative");
     expect(model.avoid?.game.gameId).toBe("avoid");
     expect(model.nextUp?.game.gameId).not.toBe("future");
   });
@@ -359,5 +390,18 @@ describe("recommendations domain", () => {
     expect(model.nextUp?.game.gameId).toBe("next");
     expect(model.nextUp?.game.gameId).not.toBe("not-owned");
     expect(model.wishlistFit?.game.gameId).toBe("not-owned");
+  });
+
+  it("distinguishes exact title matches from nearby fuzzy results", () => {
+    const games = [
+      createGame("shadow_mordor", "Middle-earth: Shadow of Mordor", { series: "Middle-earth" }),
+      createGame("shadow_colossus", "Shadow of the Colossus", { series: "Team Ico" }),
+    ];
+    const index = buildFinderIndex(games);
+    const results = searchSeedGames(games, "Shadow of War", index);
+
+    expect(results.map((game) => game.gameId)).toContain("shadow_mordor");
+    expect(findExactSeedGame(games, "Shadow of War")).toBeNull();
+    expect(findExactSeedGame(games, "Shadow of the Colossus")?.gameId).toBe("shadow_colossus");
   });
 });
