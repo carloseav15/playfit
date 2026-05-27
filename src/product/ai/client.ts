@@ -66,6 +66,10 @@ export async function requestCheckinInterpretation(params: {
 }
 
 export async function detectProductRuntimeMode(): Promise<ProductRuntimeMode> {
+  if (import.meta.env.VITE_ENABLE_AI !== "true") {
+    return "local-only";
+  }
+
   try {
     const response = await fetch("/api/ai/health", { method: "GET" });
     const payload = (await response.json().catch(() => null)) as AiHealthResponse | null;

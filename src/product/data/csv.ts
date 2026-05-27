@@ -25,7 +25,8 @@ export async function loadCsvText(file: string) {
 }
 
 export function parseCsv<T>(text: string, file: string, requiredHeaders: string[]) {
-  const result = Papa.parse<ParsedRow>(text, {
+  const normalizedText = text.replace(/\r\n?/g, "\n");
+  const result = Papa.parse<ParsedRow>(normalizedText, {
     header: true,
     skipEmptyLines: "greedy",
     transformHeader: (header) => header.trim(),

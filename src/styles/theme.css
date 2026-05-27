@@ -1,0 +1,260 @@
+/* src/styles/theme.css - Universal Design System */
+
+:root, .theme-dark {
+  /* Core Palette - Premium Dark Mode (Workbench) */
+  --bg: #060913;
+  --bg-deep: #030509;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent-ui: #ff6d3a;
+  --ink-ui: #55c7ff;
+
+  /* Accent: Electric Tangerine */
+  --accent: #FF5A26;
+  --accent-a08: color-mix(in srgb, var(--accent), transparent 92%);
+  --accent-a12: color-mix(in srgb, var(--accent), transparent 88%);
+  --accent-a16: color-mix(in srgb, var(--accent), transparent 84%);
+  --accent-a24: color-mix(in srgb, var(--accent), transparent 76%);
+
+  /* Ink: Modern Cyan/Blue */
+  --ink: #38bdf8;
+  --ink-a12: color-mix(in srgb, var(--ink), transparent 88%);
+  --ink-a14: color-mix(in srgb, var(--ink), transparent 86%);
+  --ink-a24: color-mix(in srgb, var(--ink), transparent 76%);
+
+  /* Success: Vivid Emerald */
+  --success: #10b981;
+  --success-a06: color-mix(in srgb, var(--success), transparent 94%);
+  --success-a10: color-mix(in srgb, var(--success), transparent 90%);
+  --success-a15: color-mix(in srgb, var(--success), transparent 85%);
+  --success-a24: color-mix(in srgb, var(--success), transparent 76%);
+  --success-a28: color-mix(in srgb, var(--success), transparent 72%);
+
+  /* Warning: Bright Amber */
+  --warning: #f59e0b;
+  --warning-a10: color-mix(in srgb, var(--warning), transparent 90%);
+  --warning-a12: color-mix(in srgb, var(--warning), transparent 88%);
+  --warning-a16: color-mix(in srgb, var(--warning), transparent 84%);
+  --warning-a28: color-mix(in srgb, var(--warning), transparent 72%);
+
+  /* Danger: Vivid Red/Pink */
+  --danger: #f43f5e;
+  --danger-a15: color-mix(in srgb, var(--danger), transparent 85%);
+  --danger-a22: color-mix(in srgb, var(--danger), transparent 78%);
+  --danger-a28: color-mix(in srgb, var(--danger), transparent 72%);
+
+  /* Overlay Alphas */
+  --white-a03: rgba(255, 255, 255, 0.03);
+  --white-a04: rgba(255, 255, 255, 0.04);
+  --white-a05: rgba(255, 255, 255, 0.05);
+  --white-a08: rgba(255, 255, 255, 0.08);
+  --white-a10: rgba(255, 255, 255, 0.10);
+  --white-a20: rgba(255, 255, 255, 0.20);
+  --white-a24: rgba(255, 255, 255, 0.24);
+  --black-a50: rgba(0, 0, 0, 0.5);
+  --black-a82: rgba(0, 0, 0, 0.82);
+
+  /* Surfaces */
+  --surface-1: rgba(15, 23, 42, 0.68);
+  --surface-2: rgba(30, 41, 59, 0.56);
+  --surface-3: rgba(45, 59, 85, 0.66);
+  --surface-elevated: rgba(8, 12, 24, 0.92);
+  --surface-overlay: rgba(6, 9, 19, 0.74);
+  --field-fill: rgba(6, 9, 19, 0.5);
+  --table-fill: rgba(6, 9, 19, 0.3);
+  --table-head-fill: rgba(10, 15, 30, 0.88);
+  --border-soft: rgba(148, 163, 184, 0.15);
+  --border-strong: rgba(148, 163, 184, 0.3);
+  --hover-fill: rgba(255, 255, 255, 0.03);
+  --selected-fill: var(--accent-a08);
+  --pill-neutral-fill: rgba(255, 255, 255, 0.08);
+  --pill-neutral-text: var(--text-secondary);
+  --backdrop-fill: rgba(0, 0, 0, 0.82);
+  --cover-overlay: rgba(0, 0, 0, 0.82);
+  --cover-shadow: rgba(0, 0, 0, 0.72);
+  --cover-text: #ffffff;
+  --panel-highlight: rgba(255, 255, 255, 0.03);
+  --button-primary-bg: #f8fafc;
+  --button-primary-text: #060913;
+  --button-ghost-bg: rgba(255, 255, 255, 0.05);
+  --button-ghost-border: rgba(255, 255, 255, 0.1);
+  --button-ghost-hover: rgba(255, 255, 255, 0.1);
+  --button-subtle-hover: rgba(255, 255, 255, 0.05);
+
+  --dark-core: rgba(6, 9, 19, 0.98);
+  --dark-mid: rgba(10, 15, 30, 0.85);
+  --dark-upper: rgba(15, 22, 43, 0.75);
+  --dark-panel: rgba(22, 32, 60, 0.6);
+  --dark-input: rgba(6, 9, 19, 0.5);
+  --dark-table: rgba(6, 9, 19, 0.3);
+  --dark-tab: rgba(6, 9, 19, 0.7);
+  --surf-base: var(--surface-1);
+  --surf-panel: var(--surface-2);
+  --surf-border: var(--border-soft);
+  --surf-border-bright: var(--border-strong);
+
+  /* Shadows */
+  --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  --shadow-accent: 0 10px 25px -5px rgba(255, 90, 38, 0.4);
+  --shadow-accent-hover: 0 15px 35px -5px rgba(255, 90, 38, 0.6);
+
+  /* Spacing Scale */
+  --space-05: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --space-10: 64px;
+  --space-12: 80px;
+
+  /* Semantic Layout Rhythm */
+  --layout-gap-page: var(--space-8);
+  --layout-gap-section: var(--space-6);
+  --layout-gap-card: var(--space-4);
+  --layout-gap-tight: var(--space-3);
+
+  /* Radii */
+  --r-xl: 24px;
+  --r-lg: 16px;
+  --r-md: 12px;
+  --r-sm: 8px;
+  --r-full: 9999px;
+
+  /* Typography Scale */
+  --f-h1: clamp(2rem, 5vw, 4.5rem);
+  --f-h2: clamp(1.5rem, 3.5vw, 2.5rem);
+  --f-h3: clamp(1.2rem, 2.5vw, 1.75rem);
+  --f-lg: 1.15rem;
+  --f-md: 1.05rem;
+  --f-body: 0.95rem;
+  --f-small: 0.85rem;
+  --f-micro: 0.75rem;
+
+  --heading-font: "Outfit", "Inter", "Segoe UI", sans-serif;
+  --body-font: "Inter", "Segoe UI", system-ui, sans-serif;
+  --mono-font: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+
+  /* Component dimensions */
+  --control-height: 44px;
+  --control-height-compact: 40px;
+  --chip-height: 28px;
+  --button-height: 44px;
+  --spinner-size: 48px;
+
+  /* Z-Index Scale */
+  --z-base: 1;
+  --z-raised: 2;
+  --z-sticky: 40;
+  --z-modal: 1000;
+  --z-toast: 1100;
+
+  /* Transitions */
+  --trans-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-smooth: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light {
+  /* Paper & Ink Light Mode (Product Site) */
+  --bg: #f7f0e3;
+  --bg-deep: #efe3d0;
+  --text-primary: #1f1b17;
+  --text-secondary: #5b5045;
+  --text-tertiary: #807365;
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent-ui: #c75b2f;
+  --ink-ui: #2f7c80;
+  --accent: #c75b2f;
+  --ink: #2f7c80;
+  --success: #0f766e;
+  --warning: #b45309;
+  --danger: #be123c;
+
+  --accent-a08: color-mix(in srgb, var(--accent), transparent 92%);
+  --accent-a12: color-mix(in srgb, var(--accent), transparent 88%);
+  --accent-a16: color-mix(in srgb, var(--accent), transparent 84%);
+  --accent-a24: color-mix(in srgb, var(--accent), transparent 76%);
+
+  --ink-a12: color-mix(in srgb, var(--ink), transparent 88%);
+  --ink-a14: color-mix(in srgb, var(--ink), transparent 86%);
+  --ink-a24: color-mix(in srgb, var(--ink), transparent 76%);
+
+  --success-a06: color-mix(in srgb, var(--success), transparent 94%);
+  --success-a10: color-mix(in srgb, var(--success), transparent 90%);
+  --success-a15: color-mix(in srgb, var(--success), transparent 85%);
+  --success-a24: color-mix(in srgb, var(--success), transparent 76%);
+  --success-a28: color-mix(in srgb, var(--success), transparent 72%);
+
+  --warning-a10: color-mix(in srgb, var(--warning), transparent 90%);
+  --warning-a12: color-mix(in srgb, var(--warning), transparent 88%);
+  --warning-a16: color-mix(in srgb, var(--warning), transparent 84%);
+  --warning-a28: color-mix(in srgb, var(--warning), transparent 72%);
+
+  --danger-a15: color-mix(in srgb, var(--danger), transparent 85%);
+  --danger-a22: color-mix(in srgb, var(--danger), transparent 78%);
+  --danger-a28: color-mix(in srgb, var(--danger), transparent 72%);
+
+  --surface-1: rgba(255, 252, 246, 0.9);
+  --surface-2: rgba(255, 251, 244, 0.98);
+  --surface-3: rgba(251, 247, 239, 0.95);
+  --surface-elevated: rgba(255, 255, 255, 0.985);
+  --surface-overlay: rgba(251, 247, 239, 0.92);
+  --field-fill: rgba(255, 255, 255, 0.98);
+  --table-fill: rgba(251, 247, 239, 0.97);
+  --table-head-fill: rgba(247, 240, 227, 0.99);
+
+  --border-soft: rgba(56, 42, 28, 0.12);
+  --border-strong: rgba(56, 42, 28, 0.22);
+  --hover-fill: rgba(56, 42, 28, 0.045);
+  --selected-fill: rgba(199, 91, 47, 0.14);
+  --pill-neutral-fill: rgba(56, 42, 28, 0.08);
+  --pill-neutral-text: #5b5045;
+  --backdrop-fill: rgba(47, 26, 9, 0.28);
+  --cover-overlay: rgba(47, 26, 9, 0.78);
+  --cover-shadow: rgba(0, 0, 0, 0.75);
+  --cover-text: #ffffff;
+  --panel-highlight: rgba(56, 42, 28, 0.028);
+
+  --button-primary-bg: #1f1b17;
+  --button-primary-text: #fff;
+  --button-ghost-bg: rgba(56, 42, 28, 0.03);
+  --button-ghost-border: rgba(56, 42, 28, 0.10);
+  --button-ghost-hover: rgba(56, 42, 28, 0.07);
+  --button-subtle-hover: rgba(56, 42, 28, 0.05);
+
+  --dark-core: var(--surface-elevated);
+  --dark-mid: var(--surface-2);
+  --dark-upper: var(--surface-3);
+  --dark-panel: var(--surface-2);
+  --dark-input: var(--field-fill);
+  --dark-table: var(--table-fill);
+  --dark-tab: var(--surface-overlay);
+  --surf-base: var(--surface-1);
+  --surf-panel: var(--surface-2);
+  --surf-border: var(--border-soft);
+  --surf-border-bright: var(--border-strong);
+
+  --shadow-sm: 0 8px 18px -14px rgba(47, 26, 9, 0.18);
+  --shadow-glass: 0 20px 38px -28px rgba(47, 26, 9, 0.18);
+  --shadow-lg: 0 36px 70px -32px rgba(47, 26, 9, 0.22);
+  --shadow-accent: 0 12px 30px -16px rgba(199, 91, 47, 0.28);
+  --shadow-accent-hover: 0 18px 40px -18px rgba(199, 91, 47, 0.34);
+
+  --white-a03: rgba(56, 42, 28, 0.03);
+  --white-a04: rgba(56, 42, 28, 0.04);
+  --white-a05: rgba(56, 42, 28, 0.05);
+  --white-a08: rgba(56, 42, 28, 0.08);
+  --white-a10: rgba(56, 42, 28, 0.10);
+  --white-a20: rgba(56, 42, 28, 0.18);
+  --white-a24: rgba(56, 42, 28, 0.22);
+  --black-a50: rgba(0, 0, 0, 0.5);
+  --black-a82: rgba(0, 0, 0, 0.78);
+}

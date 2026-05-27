@@ -5,6 +5,16 @@ export type ProductPriority = "low" | "medium" | "high";
 export type ProductConfidence = "low" | "medium" | "high";
 export type ProductRuntimeMode = "ai-assisted" | "local-only";
 export type SeedSource = "catalog" | "universe";
+export type ProductAnchorReason =
+  | "story"
+  | "pace"
+  | "combat"
+  | "repetition"
+  | "grind"
+  | "confusion"
+  | "difficulty"
+  | "aesthetic"
+  | "emotion";
 export type ProductOnboardingStep =
   | "platforms"
   | "anchors"
@@ -106,6 +116,8 @@ export interface ProductOnboardingDraft {
   likedGameIds: string[];
   dislikedGameIds: string[];
   currentGameId: string | null;
+  anchorReasons: Record<string, ProductAnchorReason[]>;
+  anchorOwnership: Record<string, ProductOwnershipStatus>;
   answers: ProductInterviewAnswers;
   draftProfile: ProductProfile | null;
 }

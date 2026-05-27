@@ -62,6 +62,15 @@ function uniq(items: string[]) {
   return [...new Set(items)].filter(Boolean).slice(0, 4);
 }
 
+function normalizeSearchValue(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function getOwnershipStatus(state: ProductState, game: SeedGame): ProductOwnershipStatus {
   if (game.releaseState === "unreleased") {
     return "unknown";
@@ -135,15 +144,24 @@ function confidenceFromProfile(
   likedGenres: string[],
 ) {
   let score = 0;
+  const anchorCount =
+    state.user.onboarding.likedGameIds.length +
+    state.user.onboarding.dislikedGameIds.length;
+  const loggedOutcomeCount = Object.values(state.user.gameStates).filter(
+    (record) =>
+      Boolean(record.sentiment) &&
+      (record.status === "completed" || record.status === "dropped"),
+  ).length;
 
-  if (
-    state.user.onboarding.likedGameIds.length >= 3 &&
-    state.user.onboarding.dislikedGameIds.length >= 3
-  ) {
+  if (anchorCount >= 6 || loggedOutcomeCount >= 6) {
     score += 1;
   }
 
-  if (profile.signals.length >= 3) {
+  if (loggedOutcomeCount >= 10) {
+    score += 1;
+  }
+
+  if (profile.signals.length >= 4) {
     score += 1;
   }
 
@@ -155,9 +173,21 @@ function confidenceFromProfile(
     score += 1;
   }
 
-  if (score >= 4) return "high";
-  if (score >= 2) return "medium";
+  if (score >= 5) return "high";
+  if (score >= 3) return "medium";
   return "low";
+}
+
+function capAffinityByConfidence(score: number, confidence: RankedSeedGame["confidence"]) {
+  if (confidence === "low") {
+    return Math.min(score, 72);
+  }
+
+  if (confidence === "medium") {
+    return Math.min(score, 88);
+  }
+
+  return score;
 }
 
 export function scoreSeedGame(
@@ -269,11 +299,12 @@ export function scoreSeedGame(
     cautionReasons.push("Fit looks promising, but ownership is not confirmed yet");
   }
 
+  const confidence = confidenceFromProfile(game, state, profile, platformAvailability, likedGenres);
   return {
     game,
-    affinityScore: clamp(affinity),
+    affinityScore: capAffinityByConfidence(clamp(affinity), confidence),
     riskScore: clamp(risk),
-    confidence: confidenceFromProfile(game, state, profile, platformAvailability, likedGenres),
+    confidence,
     fitReasons: uniq(fitReasons).slice(0, 4),
     cautionReasons: uniq(cautionReasons).slice(0, 4),
     platformAvailability,
@@ -342,23 +373,25 @@ export function buildTodayModel(
     const stateEntry = state.user.gameStates[entry.game.gameId];
     return (
       isPlayableNow(entry) &&
+      entry.riskScore < 58 &&
       stateEntry?.status !== "playing" &&
       stateEntry?.status !== "on_hold" &&
       stateEntry?.status !== "dismissed"
     );
   });
 
-  const nextUp =
-    ownedPlayableCandidates
-      .sort((left, right) => {
-        const leftInterested = state.user.gameStates[left.game.gameId]?.status === "interested" ? 1 : 0;
-        const rightInterested = state.user.gameStates[right.game.gameId]?.status === "interested" ? 1 : 0;
-        return (
-          rightInterested - leftInterested ||
-          right.affinityScore - left.affinityScore ||
-          left.riskScore - right.riskScore
-        );
-      })[0] ?? null;
+  const sortedPlayable = ownedPlayableCandidates.sort((left, right) => {
+    const leftInterested = state.user.gameStates[left.game.gameId]?.status === "interested" ? 1 : 0;
+    const rightInterested = state.user.gameStates[right.game.gameId]?.status === "interested" ? 1 : 0;
+    return (
+      rightInterested - leftInterested ||
+      right.affinityScore - left.affinityScore ||
+      left.riskScore - right.riskScore
+    );
+  });
+
+  const nextUp = sortedPlayable[0] ?? null;
+  const playableAlternative = sortedPlayable[1] ?? null;
 
   const wishlistFit =
     ranked
@@ -377,9 +410,6 @@ export function buildTodayModel(
           left.riskScore - right.riskScore
         );
       })[0] ?? null;
-
-  const playableAlternative =
-    wishlistFit && nextUp ? nextUp : null;
 
   const avoid =
     ranked
@@ -426,4 +456,18 @@ export function searchSeedGames(
   }
 
   return index.search(normalized).map((result) => result.item).slice(0, 12);
+}
+
+export function findExactSeedGame(games: SeedGame[], query: string) {
+  const normalized = normalizeSearchValue(query);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return (
+    games.find((game) => normalizeSearchValue(game.title) === normalized) ??
+    games.find((game) => normalizeSearchValue(game.series) === normalized) ??
+    null
+  );
 }

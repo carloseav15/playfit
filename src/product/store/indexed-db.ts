@@ -14,6 +14,8 @@ export const DEFAULT_PRODUCT_STATE: ProductState = {
       likedGameIds: [],
       dislikedGameIds: [],
       currentGameId: null,
+      anchorReasons: {},
+      anchorOwnership: {},
       answers: {
         love: "",
         frustration: "",
@@ -89,6 +91,8 @@ export async function loadProductState() {
       onboarding: {
         ...defaultState.user.onboarding,
         ...state.user.onboarding,
+        anchorReasons: state.user.onboarding?.anchorReasons ?? {},
+        anchorOwnership: state.user.onboarding?.anchorOwnership ?? {},
         answers: {
           ...defaultState.user.onboarding.answers,
           ...state.user.onboarding?.answers,

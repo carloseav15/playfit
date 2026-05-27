@@ -1,6 +1,7 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import Papa from "papaparse";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,25 @@ if (leakedFiles.length > 0) {
   console.error("Public build contains private data files:");
   leakedFiles.forEach((file) => console.error(`- ${path.relative(distDir, file)}`));
   process.exit(1);
+}
+
+const publicDataDir = path.join(distDir, "data", "public");
+const publicCsvFiles = (await walk(publicDataDir)).filter((file) => file.endsWith(".csv"));
+
+for (const file of publicCsvFiles) {
+  const text = (await readFile(file, "utf8")).replace(/\r\n?/g, "\n");
+  const parsed = Papa.parse(text, {
+    header: true,
+    newline: "\n",
+    skipEmptyLines: "greedy",
+    transformHeader: (header) => header.trim(),
+    transform: (value) => value.trim(),
+  });
+
+  if (parsed.errors.length > 0) {
+    console.error(`${path.relative(distDir, file)} parse failed: ${parsed.errors[0].message}`);
+    process.exit(1);
+  }
 }
 
 console.log("Public build data check passed.");
