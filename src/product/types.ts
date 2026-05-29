@@ -4,7 +4,7 @@ export type ProductAccessStatus = "available" | "limited" | "planned";
 export type ProductPriority = "low" | "medium" | "high";
 export type ProductConfidence = "low" | "medium" | "high";
 export type ProductRuntimeMode = "ai-assisted" | "local-only";
-export type SeedSource = "catalog" | "universe";
+export type SeedSource = "catalog" | "universe" | "finder";
 export type ProductAnchorReason =
   | "story"
   | "pace"
@@ -22,14 +22,20 @@ export type ProductOnboardingStep =
   | "confirm";
 export type ProductGameStatus =
   | "playing"
+  | "backlog"
   | "on_hold"
+  | "shelved"
   | "interested"
+  | "beaten"
   | "completed"
   | "dropped"
+  | "abandoned"
   | "dismissed";
 export type ProductGameSentiment = "liked" | "mixed" | "disliked";
-export type FinderActionType = "saved" | "dismissed" | "current_run" | "dropped" | "not_owned";
+export type ProductCollectionStatus = "backlog" | "wishlist";
+export type FinderActionType = "saved" | "dismissed" | "current_run" | "abandoned" | "dropped" | "not_owned";
 export type PlatformAvailability = "available" | "unavailable" | "unknown";
+export type GameAccessStatus = "playable" | "not_on_platforms" | "unknown_platform" | "unreleased";
 export type ProfileSignalTone = "positive" | "negative";
 export type SeedReleaseState = "released" | "unreleased";
 export type ProductOwnershipStatus = "owned" | "wishlist" | "not_owned" | "unknown";
@@ -37,8 +43,10 @@ export type ProductOwnershipStatus = "owned" | "wishlist" | "not_owned" | "unkno
 export interface SeedGame {
   gameId: string;
   title: string;
+  aliases?: string[];
   series: string;
   source: SeedSource;
+  scoringStatus?: "scored" | "basic";
   primaryGenre: string;
   combatStyle: string;
   storyStrength: Level;
@@ -51,9 +59,14 @@ export interface SeedGame {
   pacingSpeed: Pace;
   notes: string;
   coverPath: string;
+  externalCoverUrl?: string;
+  releaseYear?: string;
+  sourceRef?: string;
   availablePlatformIds: string[];
   availablePlatformNames: string[];
   releaseState: SeedReleaseState;
+  sortDate?: string;
+  releaseLabel?: string;
 }
 
 export interface ProductPlatformOption {
@@ -95,6 +108,12 @@ export interface ProductProfile {
   signals: ProductProfileSignal[];
 }
 
+export interface ProductProfileOverrides {
+  priorities?: Partial<ProductProfile["priorities"]>;
+  avoidPatterns?: Partial<ProductProfile["avoidPatterns"]>;
+  watchVsPlayRisk?: ProductConfidence;
+}
+
 export interface ProductInterviewAnswers {
   love: string;
   frustration: string;
@@ -127,7 +146,9 @@ export interface ProductGameState {
   title: string;
   sentiment?: ProductGameSentiment;
   status?: ProductGameStatus;
+  collectionStatus?: ProductCollectionStatus;
   ownershipStatus?: ProductOwnershipStatus;
+  rating?: number;
   notes?: string;
   source: "onboarding" | "finder" | "manual";
   createdAt: string;
@@ -152,6 +173,7 @@ export interface ProductUserState {
   onboarding: ProductOnboardingDraft;
   onboardingCompletedAt: string | null;
   profile: ProductProfile | null;
+  profileOverrides: ProductProfileOverrides;
   gameStates: Record<string, ProductGameState>;
   checkins: ProductCheckin[];
   finderActions: Record<string, FinderActionRecord>;
@@ -178,15 +200,19 @@ export interface RankedSeedGame {
   fitReasons: string[];
   cautionReasons: string[];
   platformAvailability: PlatformAvailability;
+  accessStatus: GameAccessStatus;
   ownershipStatus: ProductOwnershipStatus;
+  collectionStatus: ProductCollectionStatus | null;
 }
 
 export interface ProductTodayModel {
   currentRun: RankedSeedGame | null;
+  playingNow: RankedSeedGame[];
   nextUp: RankedSeedGame | null;
   avoid: RankedSeedGame | null;
   resume: RankedSeedGame | null;
   wishlistFit: RankedSeedGame | null;
+  worthTracking: RankedSeedGame | null;
   playableAlternative: RankedSeedGame | null;
 }
 
