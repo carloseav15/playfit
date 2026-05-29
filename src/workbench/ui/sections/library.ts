@@ -28,9 +28,7 @@ function renderOptions(values: string[], selectedValue: string, allLabel: string
     ${values
       .map(
         (value) => `
-          <option value="${escapeHtml(value)}" ${
-            selectedValue === value ? "selected" : ""
-          }>
+          <option value="${escapeHtml(value)}" ${selectedValue === value ? "selected" : ""}>
             ${humanizeValue(value)}
           </option>
         `,
@@ -103,8 +101,7 @@ export function renderLibrarySection({
     },
     {
       header: "Watch Risk",
-      render: (record: GameRecord) =>
-        renderHundredPointScore(record.watchRiskScore, "watch"),
+      render: (record: GameRecord) => renderHundredPointScore(record.watchRiskScore, "watch"),
     },
     {
       header: "Traits",
@@ -175,9 +172,7 @@ export function renderLibrarySection({
             <option value="priority" ${
               filters.sortKey === "priority" ? "selected" : ""
             }>Backlog priority</option>
-            <option value="title" ${
-              filters.sortKey === "title" ? "selected" : ""
-            }>Title</option>
+            <option value="title" ${filters.sortKey === "title" ? "selected" : ""}>Title</option>
             <option value="overall" ${
               filters.sortKey === "overall" ? "selected" : ""
             }>Overall score</option>
@@ -187,9 +182,7 @@ export function renderLibrarySection({
             <option value="watch" ${
               filters.sortKey === "watch" ? "selected" : ""
             }>Watch risk</option>
-            <option value="trap" ${
-              filters.sortKey === "trap" ? "selected" : ""
-            }>Trap risk</option>
+            <option value="trap" ${filters.sortKey === "trap" ? "selected" : ""}>Trap risk</option>
             <option value="updated" ${
               filters.sortKey === "updated" ? "selected" : ""
             }>Recently updated</option>
@@ -215,7 +208,9 @@ export function renderLibrarySection({
         emptyMessage: "No games match the current filters.",
       })}
 
-      ${totalPages > 1 ? `
+      ${
+        totalPages > 1
+          ? `
         <div class="card-actions card-actions--pagination pagination-strip">
           <button
             type="button"
@@ -237,7 +232,9 @@ export function renderLibrarySection({
             Next
           </button>
         </div>
-      ` : ""}
+      `
+          : ""
+      }
     </section>
   `;
 }

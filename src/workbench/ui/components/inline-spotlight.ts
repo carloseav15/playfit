@@ -1,11 +1,9 @@
 import type { CollectionRailItem } from "../../data/schema";
-import {
-  renderStatusPill,
-} from "./chips";
-import { renderActionRow, renderGameBadgeGroup } from "./meta";
+import { escapeHtml, humanizeValue } from "../utils";
+import { renderStatusPill } from "./chips";
 import { renderCoverArt } from "./cover-art";
 import { renderFranchiseTimelineStrip } from "./franchise-timeline-strip";
-import { escapeHtml, humanizeValue } from "../utils";
+import { renderActionRow, renderGameBadgeGroup } from "./meta";
 
 function renderGameSpotlight(item: CollectionRailItem) {
   const record = item.record;
@@ -100,17 +98,19 @@ function renderEntrySpotlight(item: CollectionRailItem) {
           <dd>${escapeHtml(humanizeValue(entry.lifecycleStatus))}</dd>
         </div>
       </dl>
-      ${entry.gameRecord
-        ? renderActionRow(
-            [
-              {
-                label: "Open dossier",
-                actionId: entry.gameRecord.gameId,
-              },
-            ],
-            "card-actions card-actions--inline",
-          )
-        : ""}
+      ${
+        entry.gameRecord
+          ? renderActionRow(
+              [
+                {
+                  label: "Open dossier",
+                  actionId: entry.gameRecord.gameId,
+                },
+              ],
+              "card-actions card-actions--inline",
+            )
+          : ""
+      }
       ${renderFranchiseTimelineStrip(collection)}
     </div>
   `;

@@ -1,10 +1,6 @@
 import type { GameRecord } from "../../data/schema";
-import {
-  renderFivePointScore,
-  renderHundredPointScore,
-  renderStatusPill,
-} from "./chips";
 import { escapeHtml } from "../utils";
+import { renderFivePointScore, renderHundredPointScore, renderStatusPill } from "./chips";
 
 export type BadgeGroupSize = "sm" | "md" | "lg";
 export type ActionButtonVariant = "primary" | "ghost" | "subtle";
@@ -19,10 +15,7 @@ export interface ActionButtonConfig {
   attributes?: string;
 }
 
-export function renderGameBadgeGroup(
-  record: GameRecord,
-  size: BadgeGroupSize = "md"
-) {
+export function renderGameBadgeGroup(record: GameRecord, size: BadgeGroupSize = "md") {
   const containerClass = `badge-group badge-group--${size}`;
 
   return `
@@ -55,9 +48,7 @@ export function renderActionBtn({
   attributes = "",
 }: ActionButtonConfig) {
   const attr = [
-    actionId
-      ? `data-open-dossier="${escapeHtml(actionId)}" aria-haspopup="dialog"`
-      : "",
+    actionId ? `data-open-dossier="${escapeHtml(actionId)}" aria-haspopup="dialog"` : "",
     attributes,
   ]
     .filter(Boolean)
@@ -72,10 +63,7 @@ export function renderActionBtn({
   `;
 }
 
-export function renderActionRow(
-  actions: ActionButtonConfig[],
-  className = "card-actions",
-) {
+export function renderActionRow(actions: ActionButtonConfig[], className = "card-actions") {
   if (actions.length === 0) {
     return "";
   }

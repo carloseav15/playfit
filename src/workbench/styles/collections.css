@@ -12,8 +12,7 @@
   border: 1px solid var(--border-soft);
   background:
     radial-gradient(circle at top right, var(--ink-a12), transparent 34%),
-    radial-gradient(circle at top left, var(--accent-a08), transparent 38%),
-    var(--surface-1);
+    radial-gradient(circle at top left, var(--accent-a08), transparent 38%), var(--surface-1);
   box-shadow: var(--shadow-sm);
 }
 
@@ -57,8 +56,7 @@
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent-ui), transparent 52%);
   background:
-    radial-gradient(circle at top right, var(--accent-a12), transparent 42%),
-    var(--selected-fill);
+    radial-gradient(circle at top right, var(--accent-a12), transparent 42%), var(--selected-fill);
 }
 
 .collections-subtab-count {
@@ -211,8 +209,7 @@
   padding: clamp(10px, 3.5%, 16px);
   background:
     radial-gradient(circle at center, var(--panel-highlight), transparent 58%),
-    linear-gradient(180deg, var(--white-a03), transparent),
-    var(--surface-3);
+    linear-gradient(180deg, var(--white-a03), transparent), var(--surface-3);
 }
 
 .cover-art[data-cover-fit="wide"] img {
@@ -220,8 +217,7 @@
   padding: clamp(14px, 5%, 24px);
   background:
     radial-gradient(circle at center, var(--panel-highlight), transparent 58%),
-    linear-gradient(180deg, var(--white-a03), transparent),
-    var(--surface-3);
+    linear-gradient(180deg, var(--white-a03), transparent), var(--surface-3);
 }
 
 .cover-art-initials {
@@ -323,7 +319,6 @@
 }
 
 .cover-card-title {
-  display: block;
   color: var(--text-primary);
   font-size: var(--f-body);
   font-weight: 700;
@@ -359,8 +354,7 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--r-xl);
   background:
-    radial-gradient(circle at top right, var(--accent-a12), transparent 30%),
-    var(--surface-2);
+    radial-gradient(circle at top right, var(--accent-a12), transparent 30%), var(--surface-2);
   box-shadow: var(--shadow-glass);
 }
 

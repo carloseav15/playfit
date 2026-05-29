@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-
-import { buildFinderIndex, buildTodayModel, findExactSeedGame, scoreSeedGame, searchSeedGames } from "./recommendations";
-import type { ProductProfile, ProductState, SeedGame } from "../types";
 import { createInitialState } from "../store/indexed-db";
+import type { ProductGameState, ProductProfile, ProductState, SeedGame } from "../types";
+import {
+  buildFinderIndex,
+  buildTodayModel,
+  findExactSeedGame,
+  scoreSeedGame,
+  searchSeedGames,
+} from "./recommendations";
 
-function createGame(
-  gameId: string,
-  title: string,
-  overrides: Partial<SeedGame> = {},
-): SeedGame {
+function createGame(gameId: string, title: string, overrides: Partial<SeedGame> = {}): SeedGame {
   return {
     gameId,
     title,
@@ -64,8 +65,36 @@ function createState(): ProductState {
   state.user.profile = createProfile();
   state.user.onboarding.platforms = [{ platformId: "ps5", status: "available" }];
   state.user.onboarding.likedGameIds = ["liked-a", "liked-b", "liked-c"];
-  state.user.onboarding.dislikedGameIds = ["bad-a", "bad-b", "bad-c"];
   return state;
+}
+
+function makeGameState(
+  gameId: string,
+  title: string,
+  overrides: Partial<
+    Pick<
+      ProductGameState,
+      | "status"
+      | "rating"
+      | "inBacklog"
+      | "inWishlist"
+      | "storyCompleted"
+      | "source"
+      | "createdAt"
+      | "updatedAt"
+    >
+  > = {},
+): ProductGameState {
+  return {
+    gameId,
+    title,
+    inBacklog: false,
+    inWishlist: false,
+    source: "manual" as const,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
 }
 
 describe("recommendations domain", () => {
@@ -84,7 +113,8 @@ describe("recommendations domain", () => {
 
     expect(ranked.affinityScore).toBeGreaterThan(70);
     expect(ranked.platformAvailability).toBe("available");
-    expect(ranked.ownershipStatus).toBe("unknown");
+    expect(ranked.inBacklog).toBe(false);
+    expect(ranked.inWishlist).toBe(false);
     expect(ranked.fitReasons.length).toBeGreaterThan(0);
   });
 
@@ -121,8 +151,18 @@ describe("recommendations domain", () => {
     gamesById.set(available.gameId, available);
     gamesById.set(unavailable.gameId, unavailable);
 
-    const rankedAvailable = scoreSeedGame(available, availableState, availableState.user.profile!, gamesById);
-    const rankedUnavailable = scoreSeedGame(unavailable, unavailableState, unavailableState.user.profile!, gamesById);
+    const rankedAvailable = scoreSeedGame(
+      available,
+      availableState,
+      availableState.user.profile!,
+      gamesById,
+    );
+    const rankedUnavailable = scoreSeedGame(
+      unavailable,
+      unavailableState,
+      unavailableState.user.profile!,
+      gamesById,
+    );
 
     expect(rankedAvailable.accessStatus).toBe("playable");
     expect(rankedUnavailable.accessStatus).toBe("not_on_platforms");
@@ -178,57 +218,22 @@ describe("recommendations domain", () => {
     const games = [currentRun, sideRun, nextUp, avoid, wishlist, alternative, unreleased];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[currentRun.gameId] = {
-      gameId: currentRun.gameId,
-      title: currentRun.title,
+    state.user.gameStates[currentRun.gameId] = makeGameState(currentRun.gameId, currentRun.title, {
       status: "playing",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[sideRun.gameId] = {
-      gameId: sideRun.gameId,
-      title: sideRun.title,
+    });
+    state.user.gameStates[sideRun.gameId] = makeGameState(sideRun.gameId, sideRun.title, {
       status: "playing",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-02T00:00:00.000Z",
       updatedAt: "2026-01-02T00:00:00.000Z",
-    };
-    state.user.gameStates[nextUp.gameId] = {
-      gameId: nextUp.gameId,
-      title: nextUp.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[avoid.gameId] = {
-      gameId: avoid.gameId,
-      title: avoid.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[wishlist.gameId] = {
-      gameId: wishlist.gameId,
-      title: wishlist.title,
-      collectionStatus: "wishlist",
-      ownershipStatus: "wishlist",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[alternative.gameId] = {
-      gameId: alternative.gameId,
-      title: alternative.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    });
+    state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
+    state.user.gameStates[avoid.gameId] = makeGameState(avoid.gameId, avoid.title);
+    state.user.gameStates[wishlist.gameId] = makeGameState(wishlist.gameId, wishlist.title, {
+      inWishlist: true,
+    });
+    state.user.gameStates[alternative.gameId] = makeGameState(
+      alternative.gameId,
+      alternative.title,
+    );
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
@@ -266,37 +271,19 @@ describe("recommendations domain", () => {
     const games = [completed, nextUp, target, mixedAnchor];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[completed.gameId] = {
-      gameId: completed.gameId,
-      title: completed.title,
+    state.user.gameStates[completed.gameId] = makeGameState(completed.gameId, completed.title, {
       status: "completed",
-      sentiment: "liked",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[nextUp.gameId] = {
-      gameId: nextUp.gameId,
-      title: nextUp.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+      rating: 4,
+    });
+    state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
 
     const withoutMixed = scoreSeedGame(target, state, state.user.profile!, gamesById);
 
-    state.user.gameStates[mixedAnchor.gameId] = {
-      gameId: mixedAnchor.gameId,
-      title: mixedAnchor.title,
-      status: "completed",
-      sentiment: "mixed",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[mixedAnchor.gameId] = makeGameState(
+      mixedAnchor.gameId,
+      mixedAnchor.title,
+      { status: "completed", rating: 3 },
+    );
 
     const withMixed = scoreSeedGame(target, state, state.user.profile!, gamesById);
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
@@ -309,7 +296,7 @@ describe("recommendations domain", () => {
     expect(withMixed.riskScore).toBe(withoutMixed.riskScore);
   });
 
-  it("keeps mixed sentiment games out of positive Today slots", () => {
+  it("excludes mixed-rating games with terminal status from positive Today slots", () => {
     const state = createState();
     const mixed = createGame("mixed", "Mixed Result", {
       storyStrength: "high",
@@ -329,15 +316,10 @@ describe("recommendations domain", () => {
     const games = [mixed, nextUp, alternative];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[mixed.gameId] = {
-      gameId: mixed.gameId,
-      title: mixed.title,
-      sentiment: "mixed",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[mixed.gameId] = makeGameState(mixed.gameId, mixed.title, {
+      status: "completed",
+      rating: 3,
+    });
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
     const positiveIds = [model.nextUp, model.playableAlternative, model.wishlistFit]
@@ -359,15 +341,9 @@ describe("recommendations domain", () => {
     const games = [paused];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[paused.gameId] = {
-      gameId: paused.gameId,
-      title: paused.title,
+    state.user.gameStates[paused.gameId] = makeGameState(paused.gameId, paused.title, {
       status: "shelved",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    });
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
@@ -392,15 +368,11 @@ describe("recommendations domain", () => {
     const games = [inaccessibleWishlist, playable];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[inaccessibleWishlist.gameId] = {
-      gameId: inaccessibleWishlist.gameId,
-      title: inaccessibleWishlist.title,
-      collectionStatus: "wishlist",
-      ownershipStatus: "wishlist",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[inaccessibleWishlist.gameId] = makeGameState(
+      inaccessibleWishlist.gameId,
+      inaccessibleWishlist.title,
+      { inWishlist: true },
+    );
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
@@ -409,9 +381,9 @@ describe("recommendations domain", () => {
     expect(model.worthTracking?.game.gameId).toBe("wish");
   });
 
-  it("removes dropped games from Today and keeps their negative learning signal", () => {
+  it("removes abandoned games from Today and keeps their negative learning signal", () => {
     const state = createState();
-    const dropped = createGame("dropped", "Dropped Run", {
+    const abandoned = createGame("abandoned", "Abandoned Run", {
       primaryGenre: "action",
       series: "Series A",
       storyStrength: "high",
@@ -426,29 +398,16 @@ describe("recommendations domain", () => {
       progressionClarity: "high",
       earlyHook: "high",
     });
-    const games = [dropped, target, nextUp];
+    const games = [abandoned, target, nextUp];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     const withoutDrop = scoreSeedGame(target, state, state.user.profile!, gamesById);
 
-    state.user.gameStates[dropped.gameId] = {
-      gameId: dropped.gameId,
-      title: dropped.title,
-      status: "dropped",
-      sentiment: "disliked",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[nextUp.gameId] = {
-      gameId: nextUp.gameId,
-      title: nextUp.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[abandoned.gameId] = makeGameState(abandoned.gameId, abandoned.title, {
+      status: "abandoned",
+      rating: 1,
+    });
+    state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
 
     const withDrop = scoreSeedGame(target, state, state.user.profile!, gamesById);
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
@@ -458,84 +417,63 @@ describe("recommendations domain", () => {
     expect(model.nextUp?.game.gameId).toBe("target");
     expect(model.playableAlternative?.game.gameId).toBe("next");
     expect(model.wishlistFit).toBeNull();
-    expect(withDrop.cautionReasons).toContain("Shares genre overlap with games that already failed for you");
+    expect(withDrop.cautionReasons).toContain(
+      "Shares genre overlap with games that already failed for you",
+    );
     expect(withDrop.riskScore).toBeGreaterThanOrEqual(withoutDrop.riskScore);
   });
 
-  it("keeps ownership intact for dismissed games while excluding them from Today", () => {
+  it("excludes terminated-status games from Today slots", () => {
     const state = createState();
-    const dismissedOwned = createGame("dismissed-owned", "Dismissed Owned");
+    const terminated = createGame("terminated", "Terminated Game");
     const nextUp = createGame("next", "Next Up", {
       storyStrength: "high",
       progressionClarity: "high",
       earlyHook: "high",
     });
-    const games = [dismissedOwned, nextUp];
+    const games = [terminated, nextUp];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[dismissedOwned.gameId] = {
-      gameId: dismissedOwned.gameId,
-      title: dismissedOwned.title,
-      status: "dismissed",
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[nextUp.gameId] = {
-      gameId: nextUp.gameId,
-      title: nextUp.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[terminated.gameId] = makeGameState(terminated.gameId, terminated.title, {
+      status: "abandoned",
+    });
+    state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
 
-    const dismissedRanked = scoreSeedGame(dismissedOwned, state, state.user.profile!, gamesById);
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
-    expect(dismissedRanked.ownershipStatus).toBe("owned");
     expect(model.nextUp?.game.gameId).toBe("next");
-    expect(model.nextUp?.game.gameId).not.toBe("dismissed-owned");
+    expect(model.nextUp?.game.gameId).not.toBe("terminated");
   });
 
-  it("does not require ownership for a released game to be actionable", () => {
+  it("selects highest-scoring game for next up slot", () => {
     const state = createState();
-    const notOwned = createGame("not-owned", "Not Owned", {
+    const higherScored = createGame("higher", "Higher Scored", {
       storyStrength: "high",
       progressionClarity: "high",
       earlyHook: "high",
       emotionalComplexity: "high",
     });
-    const nextUp = createGame("next", "Next Up", {
+    const lowerScored = createGame("lower", "Lower Scored", {
       storyStrength: "high",
       progressionClarity: "high",
       earlyHook: "high",
     });
-    const games = [notOwned, nextUp];
+    const games = [higherScored, lowerScored];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    state.user.gameStates[notOwned.gameId] = {
-      gameId: notOwned.gameId,
-      title: notOwned.title,
-      ownershipStatus: "not_owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    state.user.gameStates[nextUp.gameId] = {
-      gameId: nextUp.gameId,
-      title: nextUp.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[higherScored.gameId] = makeGameState(
+      higherScored.gameId,
+      higherScored.title,
+    );
+    state.user.gameStates[lowerScored.gameId] = makeGameState(
+      lowerScored.gameId,
+      lowerScored.title,
+    );
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
-    expect(model.nextUp?.game.gameId).toBe("not-owned");
-    expect(model.playableAlternative?.game.gameId).toBe("next");
+    expect(model.nextUp?.game.gameId).toBe("higher");
+    expect(model.playableAlternative?.game.gameId).toBe("lower");
     expect(model.wishlistFit).toBeNull();
   });
 
@@ -553,14 +491,7 @@ describe("recommendations domain", () => {
     });
     const games = [scored, basic];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
-    state.user.gameStates[scored.gameId] = {
-      gameId: scored.gameId,
-      title: scored.title,
-      ownershipStatus: "owned",
-      source: "manual",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
+    state.user.gameStates[scored.gameId] = makeGameState(scored.gameId, scored.title);
 
     const rankedBasic = scoreSeedGame(basic, state, state.user.profile!, gamesById);
     const model = buildTodayModel(games, state, state.user.profile, gamesById);

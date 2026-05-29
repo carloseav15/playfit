@@ -30,12 +30,7 @@ export function renderCoverArt({
   variant = "media",
   decorative = false,
 }: CoverArtOptions) {
-  const classes = [
-    "cover-art",
-    `cover-art-${size}`,
-    `cover-art-${variant}`,
-    className,
-  ]
+  const classes = ["cover-art", `cover-art-${size}`, `cover-art-${variant}`, className]
     .filter(Boolean)
     .join(" ");
   const wrapperAttributes =

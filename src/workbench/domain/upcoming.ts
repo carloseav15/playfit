@@ -104,16 +104,12 @@ export function buildUpcomingReleaseRecords(
     collections
       .filter(
         (collection) =>
-          collection.playedCount > 0 ||
-          collection.resumeCount > 0 ||
-          collection.cautionCount > 0,
+          collection.playedCount > 0 || collection.resumeCount > 0 || collection.cautionCount > 0,
       )
       .map((collection) => normalizeKey(collection.series)),
   );
   const openRecommendationsById = new Map(
-    recommendations
-      .filter((row) => row.status === "open")
-      .map((row) => [row.game_id, row]),
+    recommendations.filter((row) => row.status === "open").map((row) => [row.game_id, row]),
   );
   const platformById = new Map(platforms.map((row) => [row.platform_id, row]));
   const knownReleaseIds = new Set(rows.map((row) => row.release_id));
@@ -123,21 +119,27 @@ export function buildUpcomingReleaseRecords(
       .map((row) => row.platform_id),
   );
   const releasePlatformsByReleaseId = new Map<string, UpcomingReleasePlatformRow[]>();
-  const unknownAccessPlatformIds = [...new Set(
-    userPlatformAccess
-      .map((row) => row.platform_id)
-      .filter((platformId) => !platformById.has(platformId)),
-  )];
-  const unknownUpcomingPlatformIds = [...new Set(
-    upcomingReleasePlatforms
-      .map((row) => row.platform_id)
-      .filter((platformId) => !platformById.has(platformId)),
-  )];
-  const unknownReleaseIds = [...new Set(
-    upcomingReleasePlatforms
-      .map((row) => row.release_id)
-      .filter((releaseId) => !knownReleaseIds.has(releaseId)),
-  )];
+  const unknownAccessPlatformIds = [
+    ...new Set(
+      userPlatformAccess
+        .map((row) => row.platform_id)
+        .filter((platformId) => !platformById.has(platformId)),
+    ),
+  ];
+  const unknownUpcomingPlatformIds = [
+    ...new Set(
+      upcomingReleasePlatforms
+        .map((row) => row.platform_id)
+        .filter((platformId) => !platformById.has(platformId)),
+    ),
+  ];
+  const unknownReleaseIds = [
+    ...new Set(
+      upcomingReleasePlatforms
+        .map((row) => row.release_id)
+        .filter((releaseId) => !knownReleaseIds.has(releaseId)),
+    ),
+  ];
 
   if (unknownAccessPlatformIds.length > 0) {
     throw new Error(
@@ -197,10 +199,7 @@ export function buildUpcomingReleaseRecords(
         gameId: row.game_id,
         title: row.title,
         series: row.series,
-        platforms:
-          derivedPlatforms !== "TBA"
-            ? derivedPlatforms
-            : row.platforms || "TBA",
+        platforms: derivedPlatforms !== "TBA" ? derivedPlatforms : row.platforms || "TBA",
         sortDate: primaryRelease?.sort_date || row.sort_date || "9999-12-31",
         releaseLabel: primaryRelease?.release_label || row.release_label || "TBA",
         sourceRef: row.source_ref,

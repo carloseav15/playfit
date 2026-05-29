@@ -13,9 +13,7 @@ export function humanizeValue(value: string) {
   }
 
   return escapeHtml(
-    value
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (character) => character.toUpperCase()),
+    value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase()),
   );
 }
 

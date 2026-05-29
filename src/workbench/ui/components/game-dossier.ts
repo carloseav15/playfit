@@ -1,4 +1,6 @@
 import type { GameRecord } from "../../data/schema";
+import { formatLongText } from "../utils";
+import { renderCoverArt } from "./cover-art";
 import {
   renderCatalogBlock,
   renderOpinionBlock,
@@ -7,9 +9,7 @@ import {
   renderSessionBlock,
   renderTraitBlock,
 } from "./game-analysis";
-import { renderCoverArt } from "./cover-art";
 import { renderGameBadgeGroup } from "./meta";
-import { formatLongText } from "../utils";
 
 function renderDossierCard(title: string, content: string) {
   return `
@@ -73,7 +73,9 @@ export function renderGameDossier(record: GameRecord | null) {
             <p class="eyebrow">Suggested move</p>
             <h3>${formatLongText(record.recommendedAction)}</h3>
             
-            ${['playing', 'on_hold'].includes(record.status) ? `
+            ${
+              ["playing", "on_hold"].includes(record.status)
+                ? `
               <div class="nlp-checkin">
                 <p class="eyebrow">Session check-in</p>
                 <div class="nlp-terminal">
@@ -93,7 +95,9 @@ export function renderGameDossier(record: GameRecord | null) {
                   </button>
                 </div>
               </div>
-            ` : ""}
+            `
+                : ""
+            }
           </article>
 
         </div>

@@ -1,27 +1,17 @@
 import { describe, expect, it } from "vitest";
-
+import type {
+  ProductGameState,
+  ProductOnboardingDraft,
+  ProductProfileOverrides,
+  SeedGame,
+} from "../types";
 import { buildAdaptiveProfile, buildFallbackProfile, canAdvanceOnboarding } from "./onboarding";
-import type { ProductGameState, ProductOnboardingDraft, ProductProfileOverrides, SeedGame } from "../types";
 
 function createDraft(): ProductOnboardingDraft {
   return {
     step: "platforms",
     platforms: [],
     likedGameIds: [],
-    dislikedGameIds: [],
-    currentGameId: null,
-    anchorReasons: {},
-    anchorOwnership: {},
-    answers: {
-      love: "",
-      frustration: "",
-      priorities: "",
-      playPattern: "",
-      selectedPriorities: [],
-      selectedFrictionSignals: [],
-      selectedPlayPattern: "",
-    },
-    draftProfile: null,
   };
 }
 
@@ -33,7 +23,7 @@ function createGame(gameId: string, title: string, primaryGenre: string): SeedGa
     source: "catalog",
     primaryGenre,
     combatStyle: "action",
-    storyStrength: "high",
+    storyStrength: "medium",
     progressionClarity: "medium",
     earlyHook: "medium",
     aestheticFit: "medium",
@@ -50,64 +40,20 @@ function createGame(gameId: string, title: string, primaryGenre: string): SeedGa
 }
 
 describe("onboarding domain", () => {
-  it("requires the expected minimum input per step", () => {
+  it("requires platforms and at least 3 liked games to advance", () => {
     const draft = createDraft();
     expect(canAdvanceOnboarding(draft)).toBe(false);
 
     draft.platforms.push({ platformId: "ps5", status: "available" });
-    expect(canAdvanceOnboarding(draft)).toBe(true);
-
-    draft.step = "anchors";
     expect(canAdvanceOnboarding(draft)).toBe(false);
+
     draft.likedGameIds = ["a", "b", "c"];
-    draft.likedGameIds.forEach((gameId) => {
-      draft.anchorReasons[gameId] = ["story"];
-      draft.anchorOwnership[gameId] = "owned";
-    });
-    expect(canAdvanceOnboarding(draft)).toBe(true);
-
-    draft.dislikedGameIds = ["d"];
-    expect(canAdvanceOnboarding(draft)).toBe(false);
-    draft.anchorReasons.d = ["repetition"];
-    draft.anchorOwnership.d = "owned";
-    expect(canAdvanceOnboarding(draft)).toBe(true);
-
-    draft.step = "interview";
-    expect(canAdvanceOnboarding(draft)).toBe(false);
-    draft.answers = {
-      love: "Strong stories",
-      frustration: "Slow starts",
-      priorities: "Story and progression",
-      playPattern: "If it drags I switch to YouTube",
-      selectedPriorities: ["strong_story"],
-      selectedFrictionSignals: ["slow_start"],
-      selectedPlayPattern: "watch_instead",
-    };
     expect(canAdvanceOnboarding(draft)).toBe(true);
   });
 
-  it("builds a fallback profile when negative anchors are omitted", () => {
+  it("builds a fallback profile from liked game genres", () => {
     const draft = createDraft();
     draft.likedGameIds = ["ff7", "ff9", "chrono"];
-    draft.anchorReasons = {
-      ff7: ["story", "emotion"],
-      ff9: ["story", "aesthetic"],
-      chrono: ["pace"],
-    };
-    draft.anchorOwnership = {
-      ff7: "owned",
-      ff9: "owned",
-      chrono: "owned",
-    };
-    draft.answers = {
-      love: "I care about story, emotion and clear progress",
-      frustration: "",
-      priorities: "Story and hook matter most",
-      playPattern: "I pause and retry later",
-      selectedPriorities: ["strong_story", "emotional_payoff", "clear_progression"],
-      selectedFrictionSignals: ["slow_start", "repetition_or_grind", "confusing_systems_or_direction"],
-      selectedPlayPattern: "pause_and_retry",
-    };
 
     const gamesById = new Map<string, SeedGame>([
       ["ff7", createGame("ff7", "Final Fantasy VII", "jrpg")],
@@ -119,84 +65,32 @@ describe("onboarding domain", () => {
 
     expect(profile.likedGenres[0]).toBe("jrpg");
     expect(profile.avoidedGenres).toEqual([]);
-    expect(profile.avoidPatterns.slowStart).toBe(true);
-    expect(profile.avoidPatterns.repetition).toBe(true);
-    expect(profile.avoidPatterns.confusingSystems).toBe(true);
+    expect(profile.signals[0]).toBeDefined();
+    expect(profile.signals[0].id).toBe("genre-fit");
   });
 
-  it("builds a fallback profile from anchors and natural-language answers", () => {
+  it("builds a fallback profile with default priorities", () => {
     const draft = createDraft();
     draft.likedGameIds = ["ff7", "ff9", "chrono"];
-    draft.dislikedGameIds = ["boring-1", "boring-2", "boring-3"];
-    draft.anchorReasons = {
-      ff7: ["story", "emotion"],
-      ff9: ["story", "aesthetic"],
-      chrono: ["pace"],
-      "boring-1": ["repetition"],
-      "boring-2": ["confusion"],
-      "boring-3": ["grind"],
-    };
-    draft.anchorOwnership = {
-      ff7: "owned",
-      ff9: "owned",
-      chrono: "owned",
-      "boring-1": "owned",
-      "boring-2": "owned",
-      "boring-3": "owned",
-    };
-    draft.answers = {
-      love: "I care about story, emotion, atmosphere and clear progress",
-      frustration: "Slow repetitive games with confusing systems",
-      priorities: "Story and hook matter most",
-      playPattern: "I often watch on YouTube when a game looks good but plays poorly",
-      selectedPriorities: ["strong_story", "emotional_payoff", "clear_progression"],
-      selectedFrictionSignals: ["slow_start", "repetition_or_grind", "confusing_systems_or_direction"],
-      selectedPlayPattern: "watch_instead",
-    };
 
     const gamesById = new Map<string, SeedGame>([
       ["ff7", createGame("ff7", "Final Fantasy VII", "jrpg")],
       ["ff9", createGame("ff9", "Final Fantasy IX", "jrpg")],
       ["chrono", createGame("chrono", "Chrono Trigger", "jrpg")],
-      ["boring-1", createGame("boring-1", "Game 1", "open world")],
-      ["boring-2", createGame("boring-2", "Game 2", "open world")],
-      ["boring-3", createGame("boring-3", "Game 3", "shooter")],
     ]);
 
     const profile = buildFallbackProfile(draft, gamesById);
 
-    expect(profile.priorities.story).toBe("high");
-    expect(profile.priorities.emotional).toBe("high");
-    expect(profile.avoidPatterns.slowStart).toBe(true);
-    expect(profile.avoidPatterns.repetition).toBe(true);
-    expect(profile.avoidPatterns.confusingSystems).toBe(true);
-    expect(profile.watchVsPlayRisk).toBe("high");
-    expect(profile.likedGenres[0]).toBe("jrpg");
-    expect(profile.signals.length).toBeGreaterThan(0);
+    expect(profile.priorities.story).toBe("medium");
+    expect(profile.priorities.combat).toBe("low");
+    expect(profile.avoidPatterns.slowStart).toBe(false);
+    expect(profile.watchVsPlayRisk).toBe("medium");
   });
 
   it("adapts profile signals from outcomes while preserving overrides", () => {
     const draft = createDraft();
     draft.likedGameIds = ["liked-a", "liked-b", "liked-c"];
-    draft.anchorReasons = {
-      "liked-a": ["story"],
-      "liked-b": ["story"],
-      "liked-c": ["pace"],
-    };
-    draft.anchorOwnership = {
-      "liked-a": "owned",
-      "liked-b": "owned",
-      "liked-c": "owned",
-    };
-    draft.answers = {
-      love: "",
-      frustration: "",
-      priorities: "",
-      playPattern: "I usually watch slow story games",
-      selectedPriorities: ["strong_story"],
-      selectedFrictionSignals: ["slow_start"],
-      selectedPlayPattern: "watch_instead",
-    };
+
     const slowStoryGames: SeedGame[] = [
       createGame("slow-1", "Slow Story 1", "adventure"),
       createGame("slow-2", "Slow Story 2", "adventure"),
@@ -220,8 +114,10 @@ describe("onboarding domain", () => {
           gameId: game.gameId,
           title: game.title,
           status: "completed",
-          sentiment: "liked",
-          ownershipStatus: "owned",
+          rating: 4,
+          inBacklog: false,
+          inWishlist: false,
+          storyCompleted: false,
           source: "manual",
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -239,5 +135,69 @@ describe("onboarding domain", () => {
     expect(profile.avoidPatterns.slowStart).toBe(false);
     expect(profile.signals.map((signal) => signal.id)).not.toContain("slow-start-risk");
     expect(profile.signals.map((signal) => signal.id)).toContain("watch-play-confidence");
+  });
+
+  it("raises watch risk when abandoned games have high rating and story completed", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["liked-a", "liked-b", "liked-c"];
+
+    const abandonedGame = createGame("abandoned-1", "Abandoned Story", "adventure");
+    const gamesById = new Map<string, SeedGame>([
+      ["liked-a", createGame("liked-a", "Liked A", "jrpg")],
+      ["liked-b", createGame("liked-b", "Liked B", "jrpg")],
+      ["liked-c", createGame("liked-c", "Liked C", "jrpg")],
+      [
+        abandonedGame.gameId,
+        { ...abandonedGame, storyStrength: "high", pacingSpeed: "slow", earlyHook: "low" },
+      ],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      [abandonedGame.gameId]: {
+        gameId: abandonedGame.gameId,
+        title: abandonedGame.title,
+        status: "abandoned",
+        rating: 4.5,
+        storyCompleted: true,
+        inBacklog: false,
+        inWishlist: false,
+        source: "manual",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    expect(profile.watchVsPlayRisk).toBe("high");
+    expect(profile.signals.map((signal) => signal.id)).toContain("watch-risk");
+  });
+
+  it("ignores unrated games when building adaptive profile", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["liked-a", "liked-b", "liked-c"];
+
+    const unrated = createGame("unrated-1", "Unrated Game", "action");
+    const gamesById = new Map<string, SeedGame>([
+      ["liked-a", createGame("liked-a", "Liked A", "jrpg")],
+      ["liked-b", createGame("liked-b", "Liked B", "jrpg")],
+      ["liked-c", createGame("liked-c", "Liked C", "jrpg")],
+      [unrated.gameId, { ...unrated, storyStrength: "high" }],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      [unrated.gameId]: {
+        gameId: unrated.gameId,
+        title: unrated.title,
+        inBacklog: false,
+        inWishlist: false,
+        source: "manual",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    expect(profile.priorities.story).toBe("medium");
+    expect(profile.signals.length).toBe(1);
   });
 });

@@ -37,7 +37,7 @@ The goal is to answer:
 
 ## What I Built
 
-I built a structured prototype that combines:
+I built a local-first browser app that combines:
 
 - game metadata
 - personal preferences
@@ -46,13 +46,14 @@ I built a structured prototype that combines:
 - platform access
 - upcoming release tracking
 
-The current app reads structured CSV data and turns it into recommendation surfaces such as:
+The app runs entirely client-side and surfaces:
 
 - current run
 - next up
 - best resume
 - avoid for now
-- upcoming releases with fit signals
+- searchable game finder with affinity scoring
+- upcoming releases with fit predictions
 
 ## How It Works
 
@@ -99,21 +100,22 @@ It demonstrates:
 
 ## Current State
 
-Right now, this works as an operator-assisted prototype:
+Right now, this works as a self-serve Next.js portfolio app:
 
-- structured data is maintained with Codex
-- the web app renders the current recommendation model
+- game metadata loads from CSV seed files at boot
+- user data persists in IndexedDB (no accounts, no backend)
+- the scoring engine runs client-side with deterministic rules
+- the visible stack is Next.js, React, TypeScript, Tailwind, shadcn/ui-style primitives, Zod, React Hook Form, and Motion
 
-It is already useful as a recommendation engine prototype, but it is not yet a self-serve product.
+It is a usable recommendation product with onboarding, library tracking, and explainable scoring.
 
 ## Next Step
 
-The next milestone is to turn the prototype into a product flow for new users:
+The next milestone is to integrate AI-assisted flows:
 
-- onboarding
-- AI-assisted profile building
-- searchable game finder
-- first recommendations with explicit confidence
+- AI-assisted onboarding to reduce cold-start friction
+- session check-ins for continuous profile refinement
+- expanded game catalog with richer metadata
 
 ## One-Line Framing
 

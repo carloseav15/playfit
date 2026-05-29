@@ -44,9 +44,10 @@ export function parseCsv<T>(text: string, file: string, requiredHeaders: string[
     throw new Error(`${file} is missing expected columns: ${missingHeaders.join(", ")}`);
   }
 
-  return result.data.map((row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [key.trim(), value?.trim?.() ?? ""]),
-    ) as T,
+  return result.data.map(
+    (row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [key.trim(), value?.trim?.() ?? ""]),
+      ) as T,
   );
 }

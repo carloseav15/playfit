@@ -1,11 +1,7 @@
-import type {
-  GameRecord,
-  ProfileRow,
-  RecommendationRow,
-} from "../../data/schema";
+import type { GameRecord, ProfileRow, RecommendationRow } from "../../data/schema";
 import { topProfileSignals } from "../../domain/summaries";
-import { renderSummarySection } from "./summary";
 import { humanizeValue } from "../utils";
+import { renderSummarySection } from "./summary";
 
 const PERSONA_CODEX = [
   {
@@ -43,24 +39,17 @@ export function renderPatternsSection(
     personaTitle = "The Adrenaline Chaser";
     personaDesc =
       "You prioritize pure gameplay momentum. If the combat loop is tight and the pacing is relentless, you will forgive almost any narrative flaw.";
-  } else if (
-    leadSignal.includes("story_high") ||
-    leadSignal.includes("payoff_high")
-  ) {
+  } else if (leadSignal.includes("story_high") || leadSignal.includes("payoff_high")) {
     personaTitle = "The Deep Storyteller";
     personaDesc =
       "You are looking for an arc. You are willing to endure mechanical friction or slow pacing as long as the world-building and narrative payoff are exceptional.";
-  } else if (
-    leadSignal.includes("challenge_high") ||
-    leadSignal.includes("systemic")
-  ) {
+  } else if (leadSignal.includes("challenge_high") || leadSignal.includes("systemic")) {
     personaTitle = "The Systems Optimizer";
     personaDesc =
       "You play to overcome complex friction. You don't just want to passively experience a game, you want to master its underlying math and systems.";
   }
 
-  let kryptoniteText =
-    "You don't have enough data yet to show strong aversion patterns.";
+  let kryptoniteText = "You don't have enough data yet to show strong aversion patterns.";
   if (avoidSignals.length > 0) {
     const avoidLabels = avoidSignals.map((signal) => humanizeValue(signal.value)).join(" and ");
     kryptoniteText = `Your data shows you consistently stall, pause, or drop titles when they rely heavily on <strong>${avoidLabels}</strong>. Beware of purchasing games where this is the core loop.`;

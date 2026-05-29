@@ -22,18 +22,12 @@ function humanizeValue(value: string) {
     return "";
   }
 
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusTone(status: string): CollectionRailItem["tone"] {
   if (["completed", "playing"].includes(status)) return "success";
-  if (
-    ["on_hold", "backlog", "interested_not_started", "open", "catalog_only"].includes(
-      status,
-    )
-  ) {
+  if (["on_hold", "backlog", "interested_not_started", "open", "catalog_only"].includes(status)) {
     return "warning";
   }
   if (["dropped", "dropped_then_watched", "bounced"].includes(status)) {
@@ -117,9 +111,7 @@ function buildEntryRailItem(
   const subtitle = isShelfRail ? "" : collection.series;
   const entryType = humanizeValue(entry.entryType);
   const metaSegments = isShelfRail
-    ? [entry.releaseYear || "TBD", entry.entryType !== "mainline" ? entryType : ""].filter(
-        Boolean,
-      )
+    ? [entry.releaseYear || "TBD", entry.entryType !== "mainline" ? entryType : ""].filter(Boolean)
     : [entry.releaseYear || "TBD", entryType].filter(Boolean);
 
   return {
@@ -197,9 +189,7 @@ export function buildCollectionsModel(
   gameCovers: GameCoverRow[],
 ) {
   const recordsById = new Map(records.map((record) => [record.gameId, record]));
-  const progressByEntryId = new Map(
-    franchiseProgress.map((row) => [row.entry_id, row]),
-  );
+  const progressByEntryId = new Map(franchiseProgress.map((row) => [row.entry_id, row]));
   const entryCoverById = new Map<string, string>();
   franchiseCovers.forEach((row) => {
     if (row.cover_path) {
@@ -234,9 +224,7 @@ export function buildCollectionsModel(
 
       const entries = orderedRows.map((row) => {
         const progress = progressByEntryId.get(row.entry_id);
-        const gameRecord = row.mapped_game_id
-          ? recordsById.get(row.mapped_game_id)
-          : undefined;
+        const gameRecord = row.mapped_game_id ? recordsById.get(row.mapped_game_id) : undefined;
 
         const entry: FranchiseEntryRecord = {
           entryId: row.entry_id,
@@ -278,17 +266,12 @@ export function buildCollectionsModel(
         .find((entry) => entry.progress && entry.userBucket !== "next");
 
       const playedCount = entries.filter((entry) => entry.userBucket === "played").length;
-      const completedCount = entries.filter(
-        (entry) => entry.userStatus === "completed",
-      ).length;
+      const completedCount = entries.filter((entry) => entry.userStatus === "completed").length;
       const resumeCount = entries.filter(
         (entry) =>
-          entry.userBucket === "resume" ||
-          ["playing", "on_hold"].includes(entry.userStatus),
+          entry.userBucket === "resume" || ["playing", "on_hold"].includes(entry.userStatus),
       ).length;
-      const cautionCount = entries.filter(
-        (entry) => entry.userBucket === "caution",
-      ).length;
+      const cautionCount = entries.filter((entry) => entry.userBucket === "caution").length;
       const progressCount = entries.filter((entry) => entry.progress).length;
 
       const collection: FranchiseCollection = {
@@ -300,13 +283,8 @@ export function buildCollectionsModel(
         resumeCount,
         cautionCount,
         progressPercent:
-          entries.length > 0
-            ? Math.round((progressCount / entries.length) * 100)
-            : 0,
-        affinityScore: entries.reduce(
-          (score, entry) => score + buildCollectionAffinity(entry),
-          0,
-        ),
+          entries.length > 0 ? Math.round((progressCount / entries.length) * 100) : 0,
+        affinityScore: entries.reduce((score, entry) => score + buildCollectionAffinity(entry), 0),
         entries,
         currentEntry,
         nextEntry: currentEntry ?? unreachedReleased ?? upcomingEntry,
@@ -376,14 +354,11 @@ export function buildCollectionsModel(
       )
       .sort((left, right) => {
         const leftRisk = left.watchRiskScore + left.trapRiskScore + left.profileMatchScore;
-        const rightRisk =
-          right.watchRiskScore + right.trapRiskScore + right.profileMatchScore;
+        const rightRisk = right.watchRiskScore + right.trapRiskScore + right.profileMatchScore;
         return rightRisk - leftRisk;
       })
       .slice(0, MIXED_RAIL_LIMIT)
-      .map((record) =>
-        buildGameRailItem("high-risk-temptations", record, trackedSeriesByGameId),
-      ),
+      .map((record) => buildGameRailItem("high-risk-temptations", record, trackedSeriesByGameId)),
   };
 
   const franchiseShelves = collections.map((collection) => ({

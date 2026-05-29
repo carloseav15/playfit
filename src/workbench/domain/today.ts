@@ -1,10 +1,7 @@
 import type { GameRecord } from "../data/schema";
 import { getContextualScore } from "./scoring";
 
-const FRESH_RECOMMENDATION_STATUSES = new Set([
-  "backlog",
-  "interested_not_started",
-]);
+const FRESH_RECOMMENDATION_STATUSES = new Set(["backlog", "interested_not_started"]);
 
 const RISK_THRESHOLD = 68;
 
@@ -33,9 +30,7 @@ function byRisk(left: GameRecord, right: GameRecord) {
 
 function byActiveRunPriority(left: GameRecord, right: GameRecord) {
   const touchCompare = (right.lastTouched ?? "").localeCompare(left.lastTouched ?? "");
-  return touchCompare !== 0
-    ? touchCompare
-    : right.gameId.localeCompare(left.gameId);
+  return touchCompare !== 0 ? touchCompare : right.gameId.localeCompare(left.gameId);
 }
 
 function isAvoidCandidate(record: GameRecord) {
@@ -51,17 +46,14 @@ export function buildTodayDecisionModel(
   energyLevel: "high" | "low" | "normal",
   ignoredGameIds: Set<string>,
 ): TodayDecisionModel {
-  const currentRun = [...records]
-    .filter(
-      (record) => record.status === "playing",
-    )
-    .sort(byActiveRunPriority)[0] ?? null;
+  const currentRun =
+    [...records].filter((record) => record.status === "playing").sort(byActiveRunPriority)[0] ??
+    null;
 
   const freshCandidates = [...records]
     .filter(
       (record) =>
-        FRESH_RECOMMENDATION_STATUSES.has(record.status) &&
-        !ignoredGameIds.has(record.gameId),
+        FRESH_RECOMMENDATION_STATUSES.has(record.status) && !ignoredGameIds.has(record.gameId),
     )
     .sort((left, right) => byContextualScore(left, right, energyLevel));
 
@@ -87,9 +79,7 @@ export function buildTodayDecisionModel(
   }
 
   const avoid =
-    [...avoidCandidates]
-      .filter((record) => !used.has(record.gameId))
-      .sort(byRisk)[0] ?? null;
+    [...avoidCandidates].filter((record) => !used.has(record.gameId)).sort(byRisk)[0] ?? null;
 
   return {
     currentRun,

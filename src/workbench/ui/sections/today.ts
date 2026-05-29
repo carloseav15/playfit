@@ -126,16 +126,13 @@ export function renderTodaySection(
     `;
   }
 
-  const questionContext = hasCurrentRun
-    ? "Continue your active run"
-    : "Best next pick";
+  const questionContext = hasCurrentRun ? "Continue your active run" : "Best next pick";
   const stageDescription = hasCurrentRun
     ? "Your active run stays pinned while one fresh recommendation, one resume lane, and one caution lane stay visible."
     : "One fresh recommendation, one resume lane, and one caution lane.";
   const heroActionText = hasCurrentRun
     ? heroRecord.recommendedAction || "Keep going. Momentum is already established."
-    : heroRecord.recommendedAction ||
-      "A highly rated game fitting your current energy context.";
+    : heroRecord.recommendedAction || "A highly rated game fitting your current energy context.";
 
   return `
     <section class="panel panel-wide section-theme-today zen-stage">

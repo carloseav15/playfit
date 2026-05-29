@@ -7,7 +7,12 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: linear-gradient(180deg, var(--bg-deep) 0%, var(--surface-overlay) 72%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    var(--bg-deep) 0%,
+    var(--surface-overlay) 72%,
+    transparent 100%
+  );
   backdrop-filter: blur(var(--header-blur));
   -webkit-backdrop-filter: blur(var(--header-blur));
   padding: var(--space-4) 0 var(--space-6);

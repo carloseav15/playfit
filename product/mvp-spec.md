@@ -6,12 +6,14 @@ Ship the smallest version that feels like a real product and can be shown in a p
 
 ## Product Surface
 
-The MVP should have four surfaces only:
+The MVP has six tabs:
 
-1. Today
-2. Game Finder
-3. Upcoming
-4. Profile Signals
+1. Onboarding (2-step: platforms + liked games)
+2. Today (current run, next up, resume, avoid)
+3. Finder (search + affinity scoring)
+4. Library (playing now, backlog, wishlist, shelved, beaten, completed, abandoned)
+5. Profile (taste profile, track record, export)
+6. Upcoming (radar for future releases)
 
 ## 1. Today
 

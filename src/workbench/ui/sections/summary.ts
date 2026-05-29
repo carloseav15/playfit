@@ -1,5 +1,5 @@
-import { buildSummaryStats, topProfileSignals } from "../../domain/summaries";
 import type { GameRecord, ProfileRow, RecommendationRow } from "../../data/schema";
+import { buildSummaryStats, topProfileSignals } from "../../domain/summaries";
 import { renderChip } from "../components/chips";
 import { renderSectionHead } from "../components/section-head";
 import { escapeHtml, humanizeValue } from "../utils";
@@ -109,11 +109,7 @@ export function renderSummarySection(
             ${renderChip("likes", "success")}
           </div>
           <div class="signal-grid">
-            ${renderSignalList(
-              positiveSignals,
-              "success",
-              "No standout positive signals yet.",
-            )}
+            ${renderSignalList(positiveSignals, "success", "No standout positive signals yet.")}
           </div>
         </section>
         <section class="subpanel" aria-labelledby="avoid-signals-heading">
@@ -122,11 +118,7 @@ export function renderSummarySection(
             ${renderChip("avoid", "danger")}
           </div>
           <div class="signal-grid">
-            ${renderSignalList(
-              avoidSignals,
-              "danger",
-              "No standout negative signals yet.",
-            )}
+            ${renderSignalList(avoidSignals, "danger", "No standout negative signals yet.")}
           </div>
         </section>
       </div>

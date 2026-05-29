@@ -1,22 +1,19 @@
 import type { AppData, AppTab, GameRecord, SortKey } from "../data/schema";
-import { buildTodayDecisionModel } from "../domain/today";
 import {
   buildSearchIndex,
   filterAndSortRecords,
+  type LibraryFilters,
   uniqueGenres,
   uniqueStatuses,
-  type LibraryFilters,
 } from "../domain/filters";
+import { buildTodayDecisionModel } from "../domain/today";
 import { hydrateCoverArt } from "./components/cover-art";
 import { renderGameDossier } from "./components/game-dossier";
-import { APP_TABS, renderAppShell } from "./shell";
-import {
-  renderCollectionsSection,
-  type CollectionsSubTab,
-} from "./sections/collections";
+import { type CollectionsSubTab, renderCollectionsSection } from "./sections/collections";
 import { renderLibrarySection } from "./sections/library";
 import { renderPatternsSection } from "./sections/patterns";
 import { renderTodaySection } from "./sections/today";
+import { APP_TABS, renderAppShell } from "./shell";
 
 interface AppControllerState {
   activeTab: AppTab;
@@ -245,10 +242,7 @@ class AppController {
     if (target.id === "library-search") {
       this.state.filters.query = target.value;
       this.state.archivePage = 1;
-      this.queueControlFocusRestore(
-        target.id,
-        target.selectionStart ?? target.value.length,
-      );
+      this.queueControlFocusRestore(target.id, target.selectionStart ?? target.value.length);
       this.render();
     }
   };
@@ -380,11 +374,7 @@ class AppController {
   }
 
   private getFilteredRecords() {
-    return filterAndSortRecords(
-      this.data.records,
-      this.searchIndex,
-      this.state.filters,
-    );
+    return filterAndSortRecords(this.data.records, this.searchIndex, this.state.filters);
   }
 
   private getRecordById(gameId: string | null) {
@@ -520,9 +510,7 @@ class AppController {
       return false;
     }
 
-    const control = this.root.querySelector<HTMLElement>(
-      `#${this.state.restoreControlId}`,
-    );
+    const control = this.root.querySelector<HTMLElement>(`#${this.state.restoreControlId}`);
 
     if (!control) {
       this.clearFocusRestore();
@@ -531,10 +519,7 @@ class AppController {
 
     control.focus();
 
-    if (
-      control instanceof HTMLInputElement &&
-      this.state.restoreSelectionStart !== null
-    ) {
+    if (control instanceof HTMLInputElement && this.state.restoreSelectionStart !== null) {
       const position = this.state.restoreSelectionStart;
       control.setSelectionRange(position, position);
     }
@@ -548,9 +533,7 @@ class AppController {
       return false;
     }
 
-    const focusTarget = this.root.querySelector<HTMLElement>(
-      this.state.returnFocusSelector,
-    );
+    const focusTarget = this.root.querySelector<HTMLElement>(this.state.returnFocusSelector);
 
     this.state.returnFocusSelector = null;
 
@@ -593,14 +576,12 @@ class AppController {
 
   render() {
     const previousRailOffsets = new Map<string, number>();
-    this.root
-      .querySelectorAll<HTMLElement>("[data-rail-track][data-rail-id]")
-      .forEach((track) => {
-        const railId = track.dataset.railId;
-        if (railId) {
-          previousRailOffsets.set(railId, track.scrollLeft);
-        }
-      });
+    this.root.querySelectorAll<HTMLElement>("[data-rail-track][data-rail-id]").forEach((track) => {
+      const railId = track.dataset.railId;
+      if (railId) {
+        previousRailOffsets.set(railId, track.scrollLeft);
+      }
+    });
 
     const records = this.getFilteredRecords();
     const dossierRecord = this.getRecordById(this.state.dossierGameId);
@@ -632,19 +613,17 @@ class AppController {
 
     hydrateCoverArt(this.root);
 
-    this.root
-      .querySelectorAll<HTMLElement>("[data-rail-track][data-rail-id]")
-      .forEach((track) => {
-        const railId = track.dataset.railId;
-        if (!railId) {
-          return;
-        }
+    this.root.querySelectorAll<HTMLElement>("[data-rail-track][data-rail-id]").forEach((track) => {
+      const railId = track.dataset.railId;
+      if (!railId) {
+        return;
+      }
 
-        const previous = previousRailOffsets.get(railId);
-        if (previous !== undefined) {
-          track.scrollLeft = previous;
-        }
-      });
+      const previous = previousRailOffsets.get(railId);
+      if (previous !== undefined) {
+        track.scrollLeft = previous;
+      }
+    });
 
     if (tabTransition) {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -667,11 +646,7 @@ class AppController {
   }
 }
 
-export function createApp(
-  root: HTMLElement,
-  data: AppData,
-  onRefresh: () => Promise<void>,
-) {
+export function createApp(root: HTMLElement, data: AppData, onRefresh: () => Promise<void>) {
   const controller = new AppController(root, data, onRefresh);
   controller.render();
 

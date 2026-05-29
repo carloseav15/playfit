@@ -82,20 +82,21 @@ That made it a good portfolio candidate because it goes beyond interface work in
 
 ## Current Prototype
 
-The current implementation is a CSV-backed recommendation prototype.
+The current implementation is a local-first browser app.
 
 ### How it works today
 
-- game metadata is stored in CSV files
-- personal opinions, statuses, and session data are also stored in CSV files
-- Codex is used as an operator layer to structure, enrich, and maintain the data
-- the web app reads those CSV files and renders the current state
+- game metadata is loaded from CSV seed files at boot
+- user profile, ratings, and game states are persisted in IndexedDB
+- the scoring engine runs entirely client-side with deterministic rules
+- the public surfaces run on Next.js App Router with React, TypeScript, Tailwind CSS, and shadcn/ui-style primitives
+- the product rules live in a framework-independent `@playfit/core` package
 
 In other words:
 
-The current version is operator-assisted, not yet a user-self-serve product.
+The current version is a self-serve product running entirely in the browser.
 
-That distinction matters.
+No accounts, no backend, no operator layer required.
 
 ## Key Product Insight
 
@@ -245,27 +246,26 @@ This project demonstrates:
 
 Today, the project functions as:
 
-- a working recommendation prototype
-- a structured data system
-- a product thesis with defined MVP and onboarding logic
+- a working browser-based recommendation app
+- a structured data system with IndexedDB persistence
+- a product thesis with implemented MVP surfaces
 
-It is not yet:
+Key active surfaces:
 
-- a self-serve application for new users
-- a live AI-native onboarding experience
-- a full productized backend
+- onboarding: platform selection + liked game anchors
+- today: current run, next up, resume, avoid signals
+- finder: search any game with affinity and risk scoring
+- library: track play status, backlog, wishlist, ratings
+- profile: inspect taste signals, track record, export data
+- upcoming: curated future releases with fit predictions
 
 ## Next Step
 
-The next product milestone is not “more data”.
+The next product milestone is:
 
-It is:
-
-- building a user-facing onboarding flow
-- adding a searchable game finder with predicted affinity
-- replacing manual operator actions with AI-assisted product flows
-
-That is the transition from internal prototype to actual product.
+- integrating AI-assisted onboarding to reduce cold-start friction
+- adding session check-ins for continuous profile refinement
+- expanding the game catalog with richer metadata
 
 ## Closing
 
