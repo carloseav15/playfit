@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFallbackProfile, canAdvanceOnboarding } from "./onboarding";
-import type { ProductOnboardingDraft, SeedGame } from "../types";
+import { buildAdaptiveProfile, buildFallbackProfile, canAdvanceOnboarding } from "./onboarding";
+import type { ProductGameState, ProductOnboardingDraft, ProductProfileOverrides, SeedGame } from "../types";
 
 function createDraft(): ProductOnboardingDraft {
   return {
@@ -60,11 +60,16 @@ describe("onboarding domain", () => {
     draft.step = "anchors";
     expect(canAdvanceOnboarding(draft)).toBe(false);
     draft.likedGameIds = ["a", "b", "c"];
-    draft.dislikedGameIds = ["d", "e", "f"];
-    [...draft.likedGameIds, ...draft.dislikedGameIds].forEach((gameId) => {
+    draft.likedGameIds.forEach((gameId) => {
       draft.anchorReasons[gameId] = ["story"];
       draft.anchorOwnership[gameId] = "owned";
     });
+    expect(canAdvanceOnboarding(draft)).toBe(true);
+
+    draft.dislikedGameIds = ["d"];
+    expect(canAdvanceOnboarding(draft)).toBe(false);
+    draft.anchorReasons.d = ["repetition"];
+    draft.anchorOwnership.d = "owned";
     expect(canAdvanceOnboarding(draft)).toBe(true);
 
     draft.step = "interview";
@@ -79,6 +84,44 @@ describe("onboarding domain", () => {
       selectedPlayPattern: "watch_instead",
     };
     expect(canAdvanceOnboarding(draft)).toBe(true);
+  });
+
+  it("builds a fallback profile when negative anchors are omitted", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["ff7", "ff9", "chrono"];
+    draft.anchorReasons = {
+      ff7: ["story", "emotion"],
+      ff9: ["story", "aesthetic"],
+      chrono: ["pace"],
+    };
+    draft.anchorOwnership = {
+      ff7: "owned",
+      ff9: "owned",
+      chrono: "owned",
+    };
+    draft.answers = {
+      love: "I care about story, emotion and clear progress",
+      frustration: "",
+      priorities: "Story and hook matter most",
+      playPattern: "I pause and retry later",
+      selectedPriorities: ["strong_story", "emotional_payoff", "clear_progression"],
+      selectedFrictionSignals: ["slow_start", "repetition_or_grind", "confusing_systems_or_direction"],
+      selectedPlayPattern: "pause_and_retry",
+    };
+
+    const gamesById = new Map<string, SeedGame>([
+      ["ff7", createGame("ff7", "Final Fantasy VII", "jrpg")],
+      ["ff9", createGame("ff9", "Final Fantasy IX", "jrpg")],
+      ["chrono", createGame("chrono", "Chrono Trigger", "jrpg")],
+    ]);
+
+    const profile = buildFallbackProfile(draft, gamesById);
+
+    expect(profile.likedGenres[0]).toBe("jrpg");
+    expect(profile.avoidedGenres).toEqual([]);
+    expect(profile.avoidPatterns.slowStart).toBe(true);
+    expect(profile.avoidPatterns.repetition).toBe(true);
+    expect(profile.avoidPatterns.confusingSystems).toBe(true);
   });
 
   it("builds a fallback profile from anchors and natural-language answers", () => {
@@ -130,5 +173,71 @@ describe("onboarding domain", () => {
     expect(profile.watchVsPlayRisk).toBe("high");
     expect(profile.likedGenres[0]).toBe("jrpg");
     expect(profile.signals.length).toBeGreaterThan(0);
+  });
+
+  it("adapts profile signals from outcomes while preserving overrides", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["liked-a", "liked-b", "liked-c"];
+    draft.anchorReasons = {
+      "liked-a": ["story"],
+      "liked-b": ["story"],
+      "liked-c": ["pace"],
+    };
+    draft.anchorOwnership = {
+      "liked-a": "owned",
+      "liked-b": "owned",
+      "liked-c": "owned",
+    };
+    draft.answers = {
+      love: "",
+      frustration: "",
+      priorities: "",
+      playPattern: "I usually watch slow story games",
+      selectedPriorities: ["strong_story"],
+      selectedFrictionSignals: ["slow_start"],
+      selectedPlayPattern: "watch_instead",
+    };
+    const slowStoryGames: SeedGame[] = [
+      createGame("slow-1", "Slow Story 1", "adventure"),
+      createGame("slow-2", "Slow Story 2", "adventure"),
+      createGame("slow-3", "Slow Story 3", "adventure"),
+    ].map((game) => ({
+      ...game,
+      storyStrength: "high",
+      pacingSpeed: "slow",
+      earlyHook: "low",
+    }));
+    const gamesById = new Map<string, SeedGame>([
+      ["liked-a", createGame("liked-a", "Liked A", "jrpg")],
+      ["liked-b", createGame("liked-b", "Liked B", "jrpg")],
+      ["liked-c", createGame("liked-c", "Liked C", "jrpg")],
+      ...slowStoryGames.map((game) => [game.gameId, game] as [string, SeedGame]),
+    ]);
+    const gameStates: Record<string, ProductGameState> = Object.fromEntries(
+      slowStoryGames.map((game) => [
+        game.gameId,
+        {
+          gameId: game.gameId,
+          title: game.title,
+          status: "completed",
+          sentiment: "liked",
+          ownershipStatus: "owned",
+          source: "manual",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ]),
+    );
+    const overrides: ProductProfileOverrides = {
+      avoidPatterns: { slowStart: false },
+      watchVsPlayRisk: "low",
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates, overrides);
+
+    expect(profile.watchVsPlayRisk).toBe("low");
+    expect(profile.avoidPatterns.slowStart).toBe(false);
+    expect(profile.signals.map((signal) => signal.id)).not.toContain("slow-start-risk");
+    expect(profile.signals.map((signal) => signal.id)).toContain("watch-play-confidence");
   });
 });

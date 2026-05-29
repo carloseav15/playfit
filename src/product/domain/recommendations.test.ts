@@ -105,12 +105,44 @@ describe("recommendations domain", () => {
     expect(ranked.affinityScore).toBeLessThanOrEqual(72);
   });
 
-  it("keeps current run separate from playable next up and wishlist fit", () => {
+  it("keeps platform access out of friction scoring", () => {
+    const availableState = createState();
+    const unavailableState = createState();
+    const gamesById = new Map<string, SeedGame>();
+    const available = createGame("available", "Available Fit", {
+      availablePlatformIds: ["ps5"],
+      availablePlatformNames: ["PS5"],
+    });
+    const unavailable = createGame("unavailable", "Unavailable Fit", {
+      availablePlatformIds: ["switch_1"],
+      availablePlatformNames: ["Switch"],
+    });
+
+    gamesById.set(available.gameId, available);
+    gamesById.set(unavailable.gameId, unavailable);
+
+    const rankedAvailable = scoreSeedGame(available, availableState, availableState.user.profile!, gamesById);
+    const rankedUnavailable = scoreSeedGame(unavailable, unavailableState, unavailableState.user.profile!, gamesById);
+
+    expect(rankedAvailable.accessStatus).toBe("playable");
+    expect(rankedUnavailable.accessStatus).toBe("not_on_platforms");
+    expect(rankedUnavailable.riskScore).toBe(rankedAvailable.riskScore);
+    expect(rankedUnavailable.cautionReasons.join(" ")).not.toContain("platform");
+  });
+
+  it("supports multiple playing games while choosing one main focus", () => {
     const state = createState();
     const currentRun = createGame("current", "Current Run", {
       storyStrength: "high",
       progressionClarity: "high",
       earlyHook: "high",
+    });
+    const sideRun = createGame("side", "Side Run", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+      aestheticFit: "high",
+      emotionalComplexity: "high",
     });
     const nextUp = createGame("next", "Next Up", {
       storyStrength: "high",
@@ -143,7 +175,7 @@ describe("recommendations domain", () => {
       progressionClarity: "high",
       earlyHook: "high",
     });
-    const games = [currentRun, nextUp, avoid, wishlist, alternative, unreleased];
+    const games = [currentRun, sideRun, nextUp, avoid, wishlist, alternative, unreleased];
     const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[currentRun.gameId] = {
@@ -154,6 +186,15 @@ describe("recommendations domain", () => {
       source: "manual",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    state.user.gameStates[sideRun.gameId] = {
+      gameId: sideRun.gameId,
+      title: sideRun.title,
+      status: "playing",
+      ownershipStatus: "owned",
+      source: "manual",
+      createdAt: "2026-01-02T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
     };
     state.user.gameStates[nextUp.gameId] = {
       gameId: nextUp.gameId,
@@ -174,6 +215,7 @@ describe("recommendations domain", () => {
     state.user.gameStates[wishlist.gameId] = {
       gameId: wishlist.gameId,
       title: wishlist.title,
+      collectionStatus: "wishlist",
       ownershipStatus: "wishlist",
       source: "manual",
       createdAt: "2026-01-01T00:00:00.000Z",
@@ -190,8 +232,11 @@ describe("recommendations domain", () => {
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
-    expect(model.currentRun?.game.gameId).toBe("current");
+    expect(model.playingNow.map((entry) => entry.game.gameId)).toEqual(["side", "current"]);
+    expect(model.currentRun?.game.gameId).toBe("side");
     expect(model.nextUp?.game.gameId).toBe("next");
+    expect(model.nextUp?.game.gameId).not.toBe("current");
+    expect(model.nextUp?.game.gameId).not.toBe("side");
     expect(model.wishlistFit?.game.gameId).toBe("wishlist");
     expect(model.playableAlternative?.game.gameId).toBe("alternative");
     expect(model.avoid?.game.gameId).toBe("avoid");
@@ -258,9 +303,110 @@ describe("recommendations domain", () => {
 
     expect(model.currentRun).toBeNull();
     expect(model.nextUp?.game.gameId).toBe("next");
-    expect(model.wishlistFit?.game.gameId).toBe("target");
+    expect(model.playableAlternative?.game.gameId).toBe("target");
+    expect(model.wishlistFit).toBeNull();
     expect(withMixed.affinityScore).toBe(withoutMixed.affinityScore);
     expect(withMixed.riskScore).toBe(withoutMixed.riskScore);
+  });
+
+  it("keeps mixed sentiment games out of positive Today slots", () => {
+    const state = createState();
+    const mixed = createGame("mixed", "Mixed Result", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+    });
+    const nextUp = createGame("next", "Next Up", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+    });
+    const alternative = createGame("alternative", "Alternative", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "medium",
+    });
+    const games = [mixed, nextUp, alternative];
+    const gamesById = new Map(games.map((game) => [game.gameId, game]));
+
+    state.user.gameStates[mixed.gameId] = {
+      gameId: mixed.gameId,
+      title: mixed.title,
+      sentiment: "mixed",
+      ownershipStatus: "owned",
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const positiveIds = [model.nextUp, model.playableAlternative, model.wishlistFit]
+      .map((entry) => entry?.game.gameId)
+      .filter(Boolean);
+
+    expect(positiveIds).not.toContain("mixed");
+    expect(model.nextUp?.game.gameId).toBe("next");
+  });
+
+  it("keeps paused high-friction games out of avoid while allowing resume", () => {
+    const state = createState();
+    const paused = createGame("paused", "Paused Risk", {
+      progressionClarity: "low",
+      earlyHook: "low",
+      endgameRepetitionRisk: "high",
+      pacingSpeed: "slow",
+    });
+    const games = [paused];
+    const gamesById = new Map(games.map((game) => [game.gameId, game]));
+
+    state.user.gameStates[paused.gameId] = {
+      gameId: paused.gameId,
+      title: paused.title,
+      status: "shelved",
+      ownershipStatus: "owned",
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+
+    expect(model.resume?.game.gameId).toBe("paused");
+    expect(model.avoid).toBeNull();
+  });
+
+  it("routes wishlist games without access to worth tracking instead of top pick", () => {
+    const state = createState();
+    const inaccessibleWishlist = createGame("wish", "Wishlist Switch Game", {
+      availablePlatformIds: ["switch_1"],
+      availablePlatformNames: ["Switch"],
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+    });
+    const playable = createGame("next", "Playable Next", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+    });
+    const games = [inaccessibleWishlist, playable];
+    const gamesById = new Map(games.map((game) => [game.gameId, game]));
+
+    state.user.gameStates[inaccessibleWishlist.gameId] = {
+      gameId: inaccessibleWishlist.gameId,
+      title: inaccessibleWishlist.title,
+      collectionStatus: "wishlist",
+      ownershipStatus: "wishlist",
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+
+    expect(model.nextUp?.game.gameId).toBe("next");
+    expect(model.wishlistFit?.game.gameId).not.toBe("wish");
+    expect(model.worthTracking?.game.gameId).toBe("wish");
   });
 
   it("removes dropped games from Today and keeps their negative learning signal", () => {
@@ -309,8 +455,9 @@ describe("recommendations domain", () => {
 
     expect(model.currentRun).toBeNull();
     expect(model.resume).toBeNull();
-    expect(model.nextUp?.game.gameId).toBe("next");
-    expect(model.wishlistFit?.game.gameId).toBe("target");
+    expect(model.nextUp?.game.gameId).toBe("target");
+    expect(model.playableAlternative?.game.gameId).toBe("next");
+    expect(model.wishlistFit).toBeNull();
     expect(withDrop.cautionReasons).toContain("Shares genre overlap with games that already failed for you");
     expect(withDrop.riskScore).toBeGreaterThanOrEqual(withoutDrop.riskScore);
   });
@@ -352,7 +499,7 @@ describe("recommendations domain", () => {
     expect(model.nextUp?.game.gameId).not.toBe("dismissed-owned");
   });
 
-  it("keeps not owned titles out of next up while allowing wishlist fit", () => {
+  it("does not require ownership for a released game to be actionable", () => {
     const state = createState();
     const notOwned = createGame("not-owned", "Not Owned", {
       storyStrength: "high",
@@ -387,9 +534,43 @@ describe("recommendations domain", () => {
 
     const model = buildTodayModel(games, state, state.user.profile, gamesById);
 
-    expect(model.nextUp?.game.gameId).toBe("next");
-    expect(model.nextUp?.game.gameId).not.toBe("not-owned");
-    expect(model.wishlistFit?.game.gameId).toBe("not-owned");
+    expect(model.nextUp?.game.gameId).toBe("not-owned");
+    expect(model.playableAlternative?.game.gameId).toBe("next");
+    expect(model.wishlistFit).toBeNull();
+  });
+
+  it("keeps basic Finder records searchable but out of Today scoring", () => {
+    const state = createState();
+    const scored = createGame("scored", "Scored Game", {
+      storyStrength: "high",
+      progressionClarity: "high",
+      earlyHook: "high",
+    });
+    const basic = createGame("steam-basic", "Steam Basic Game", {
+      source: "finder",
+      scoringStatus: "basic",
+      aliases: ["Basic Alias"],
+    });
+    const games = [scored, basic];
+    const gamesById = new Map(games.map((game) => [game.gameId, game]));
+    state.user.gameStates[scored.gameId] = {
+      gameId: scored.gameId,
+      title: scored.title,
+      ownershipStatus: "owned",
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const rankedBasic = scoreSeedGame(basic, state, state.user.profile!, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const index = buildFinderIndex(games);
+
+    expect(rankedBasic.confidence).toBe("low");
+    expect(rankedBasic.fitReasons[0]).toContain("Finder-only");
+    expect(model.nextUp?.game.gameId).toBe("scored");
+    expect(searchSeedGames(games, "Basic Alias", index)[0]?.gameId).toBe("steam-basic");
+    expect(findExactSeedGame(games, "Basic Alias")?.gameId).toBe("steam-basic");
   });
 
   it("distinguishes exact title matches from nearby fuzzy results", () => {
