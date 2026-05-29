@@ -19,3 +19,6 @@ data/personal/*
 .DS_Store
 *.log
 
+
+# Agent artifacts
+.claude/

@@ -68,6 +68,7 @@ describe("product indexeddb store", () => {
     expect(restored.user.onboarding.answers.selectedPlayPattern).toBe("");
     expect(restored.user.onboarding.anchorReasons).toEqual({});
     expect(restored.user.onboarding.anchorOwnership).toEqual({});
+    expect(restored.user.profileOverrides).toEqual({});
     expect(restored.user.gameStates).toEqual({});
   });
 });

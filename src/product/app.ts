@@ -1,12 +1,11 @@
+import { requestOnboardingProfile } from "./ai/client";
 import {
-  requestFinderInsight,
-  requestOnboardingProfile,
-} from "./ai/client";
-import {
-  buildFallbackProfile,
+  applyProfileOverrides,
+  buildAdaptiveProfile,
   canAdvanceOnboarding,
   hasRequiredAnchorDetails,
   nextOnboardingStep,
+  normalizeProfileSignals,
   ONBOARDING_ANCHOR_REASON_CHIPS,
   ONBOARDING_FRICTION_CHIPS,
   ONBOARDING_PLAY_PATTERN_CHIPS,
@@ -16,13 +15,17 @@ import {
   buildFinderIndex,
   buildTodayModel,
   findExactSeedGame,
+  HIGH_FRICTION_THRESHOLD,
+  PROMISING_FIT_THRESHOLD,
   scoreSeedGame,
   searchSeedGames,
+  STRONG_FIT_THRESHOLD,
 } from "./domain/recommendations";
 import { createInitialState, saveProductState, resetProductState } from "./store/indexed-db";
 import type {
-  FinderInsight,
+  FinderActionType,
   ProductAnchorReason,
+  ProductCollectionStatus,
   ProductConfidence,
   ProductGameSentiment,
   ProductGameStatus,
@@ -32,35 +35,41 @@ import type {
   ProductRuntimeMode,
   ProductState,
   ProductTodayModel,
+  ProductProfileOverrides,
   RankedSeedGame,
   SeedGame,
 } from "./types";
 
 type ProductTab = "onboarding" | "today" | "finder" | "library" | "profile" | "upcoming";
 type AnchorKind = "liked" | "disliked" | "current";
+type ProductModal = "history-log" | "library-edit" | "completion" | "drop" | "recalibrate" | "friction-confirm";
+type ProductProfileMode = "overview" | "edit";
+type FrictionGuardedAction = "set-current-run" | "add-backlog" | "mark-wishlist";
+
+interface ProductOutcomeNotice {
+  gameId: string;
+  title: string;
+  status: "beaten" | "completed" | "abandoned";
+  sentiment: ProductGameSentiment;
+}
 
 interface ProductUiState {
   activeTab: ProductTab;
   onboardingSearch: Record<AnchorKind, string>;
   finderQuery: string;
   finderSelectedGameId: string | null;
-  completionPickerGameId: string | null;
-  dropPickerGameId: string | null;
-  finderInsight:
-    | {
-        gameId: string;
-        status: "loading" | "ready" | "error";
-        insight?: FinderInsight;
-        error?: string;
-      }
-    | null;
   historyQuery: string;
   historySelectedGameId: string | null;
-  libraryEditGameId: string | null;
+  activeModal: ProductModal | null;
+  modalGameId: string | null;
+  profileMode: ProductProfileMode;
   dossierGameId: string | null;
   dossierReturnTab: ProductTab | null;
   statusMessage: string | null;
+  outcomeNotice: ProductOutcomeNotice | null;
+  pendingFrictionAction: { gameId: string; action: FrictionGuardedAction } | null;
   startBannerDismissed: boolean;
+  upcomingPlatformFilters: Set<string>;
 }
 
 interface FocusSnapshot {
@@ -150,43 +159,112 @@ function restoreFocusSnapshot(root: HTMLElement, snapshot: FocusSnapshot | null)
 function formatConfidence(value: ProductConfidence) {
   switch (value) {
     case "high":
-      return "High confidence";
+      return "Strong signal";
     case "medium":
-      return "Medium confidence";
+      return "Good signal";
     case "low":
     default:
-      return "Low confidence";
+      return "Early signal";
   }
 }
 
-function formatPlatformAvailability(entry: RankedSeedGame) {
-  switch (entry.platformAvailability) {
-    case "available":
-      return "Available on one of your platforms";
-    case "unavailable":
-      return "No mapped platform in your current setup";
-    case "unknown":
+const MODERATE_FRICTION_THRESHOLD = 35;
+const WEAK_FIT_THRESHOLD = 45;
+
+function formatAccessStatus(entry: RankedSeedGame) {
+  switch (entry.accessStatus) {
+    case "playable":
+      return "Playable for you";
+    case "not_on_platforms":
+      return "Not on your platforms";
+    case "unreleased":
+      return "Not playable yet";
+    case "unknown_platform":
     default:
-      return "Platform mapping still incomplete";
+      return "Check platform";
   }
+}
+
+function accessTone(entry: RankedSeedGame): StatusTone {
+  if (entry.accessStatus === "playable") return "positive";
+  if (entry.accessStatus === "not_on_platforms") return "negative";
+  return "warning";
 }
 
 function formatReleaseState(value: RankedSeedGame["game"]["releaseState"]) {
   return value === "unreleased" ? "Unreleased" : "Released";
 }
 
-function formatOwnershipStatus(value: ProductOwnershipStatus) {
+function isBasicCatalogGame(game: SeedGame) {
+  return game.scoringStatus === "basic";
+}
+
+function isPlayStatus(value: ProductGameStatus | undefined) {
+  return Boolean(
+    value &&
+      ["playing", "on_hold", "shelved", "beaten", "completed", "dropped", "abandoned", "dismissed"].includes(value),
+  );
+}
+
+function getCollectionStatus(gameState?: { status?: ProductGameStatus; collectionStatus?: ProductCollectionStatus; ownershipStatus?: ProductOwnershipStatus }) {
+  if (gameState?.collectionStatus) {
+    return gameState.collectionStatus;
+  }
+
+  if (gameState?.status === "backlog" || gameState?.status === "interested") {
+    return "backlog";
+  }
+
+  if (gameState?.ownershipStatus === "wishlist") {
+    return "wishlist";
+  }
+
+  return null;
+}
+
+function isSavedToMyGames(gameState?: {
+  status?: ProductGameStatus;
+  collectionStatus?: ProductCollectionStatus;
+  ownershipStatus?: ProductOwnershipStatus;
+  sentiment?: ProductGameSentiment;
+  rating?: number;
+}) {
+  if (!gameState) {
+    return false;
+  }
+
+  return Boolean(
+    [
+      "playing",
+      "backlog",
+      "interested",
+      "shelved",
+      "on_hold",
+      "beaten",
+      "completed",
+      "dropped",
+      "abandoned",
+      "dismissed",
+    ].includes(gameState.status ?? "") ||
+      getCollectionStatus(gameState) ||
+      gameState.sentiment ||
+      gameState.rating,
+  );
+}
+
+function formatCollectionStatus(value: ProductCollectionStatus | null | undefined) {
   switch (value) {
-    case "owned":
-      return "Owned";
+    case "backlog":
+      return "Backlog";
     case "wishlist":
       return "Wishlist";
-    case "not_owned":
-      return "Not owned";
-    case "unknown":
     default:
-      return "Ownership unknown";
+      return "";
   }
+}
+
+function collectionTone(value: ProductCollectionStatus | null | undefined): StatusTone {
+  return value === "wishlist" ? "accent" : "neutral";
 }
 
 function formatCompletionOutcome(value: ProductGameSentiment | undefined) {
@@ -198,24 +276,52 @@ function formatCompletionOutcome(value: ProductGameSentiment | undefined) {
     case "disliked":
       return "Didn't click";
     default:
-      return "Completed";
+      return "Completed 100%";
+  }
+}
+
+function formatGameStatus(value: ProductGameStatus | undefined) {
+  switch (value) {
+    case "playing":
+      return "Playing";
+    case "backlog":
+    case "interested":
+      return "Backlog";
+    case "on_hold":
+    case "shelved":
+      return "Shelved";
+    case "beaten":
+      return "Finished story";
+    case "completed":
+      return "Completed 100%";
+    case "dropped":
+    case "abandoned":
+      return "Abandoned";
+    case "dismissed":
+      return "Not for me";
+    default:
+      return "";
   }
 }
 
 function summarizeRankedGame(entry: RankedSeedGame) {
-  if (entry.affinityScore >= 78 && entry.riskScore <= 35) {
-    return "Strong fit with manageable risk based on the signals already captured.";
+  if (isBasicCatalogGame(entry.game)) {
+    return "I can save this to My Games, but I do not know enough about it yet.";
   }
 
-  if (entry.riskScore >= 58) {
-    return "Interesting on paper, but the current profile shows enough friction to be cautious.";
+  if (entry.affinityScore >= STRONG_FIT_THRESHOLD && entry.riskScore <= MODERATE_FRICTION_THRESHOLD) {
+    return "This looks like a strong next game for you.";
   }
 
-  if (entry.affinityScore >= 62) {
-    return "Promising, but still worth validating with a short first session.";
+  if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) {
+    return "There is a real chance this will frustrate you.";
   }
 
-  return "Early signal is mixed. This needs more profile data before it becomes a strong bet.";
+  if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) {
+    return "Worth trying, especially if you can sample the first hour.";
+  }
+
+  return "I would wait for more signals before calling this a strong pick.";
 }
 
 function createEmptyState(message: string, actionLabel?: string, action?: string) {
@@ -229,11 +335,6 @@ function createEmptyState(message: string, actionLabel?: string, action?: string
       }
     </div>
   `;
-}
-
-function renderChip(label: string, tone: "positive" | "negative" | "warning" | "neutral" = "positive") {
-  const cls = tone === "neutral" ? "product-chip" : `product-chip product-chip-${tone}`;
-  return `<span class="${cls}">${escapeHtml(label)}</span>`;
 }
 
 function renderSelectableChip(params: {
@@ -268,16 +369,12 @@ function getOnboardingGateMessage(state: ProductState) {
 
   if (draft.step === "anchors") {
     const likedLeft = Math.max(0, 3 - draft.likedGameIds.length);
-    const dislikedLeft = Math.max(0, 3 - draft.dislikedGameIds.length);
-    if (likedLeft === 0 && dislikedLeft === 0) {
+    if (likedLeft === 0) {
       return hasRequiredAnchorDetails(draft)
         ? "Great — that's enough to get started."
-        : "Add at least one reason and access status for each selected game.";
+        : "Add at least one reason and list status for each selected game.";
     }
-    const parts = [];
-    if (likedLeft > 0) parts.push(`${likedLeft} more game${likedLeft === 1 ? "" : "s"} you loved`);
-    if (dislikedLeft > 0) parts.push(`${dislikedLeft} more that didn't click`);
-    return `Add ${parts.join(" and ")} to continue.`;
+    return `Add ${likedLeft} more game${likedLeft === 1 ? "" : "s"} you loved to continue.`;
   }
 
   if (draft.step === "interview") {
@@ -302,16 +399,16 @@ function getOnboardingGateMessage(state: ProductState) {
 }
 
 function affinityLabel(score: number, confidence?: ProductConfidence): string {
-  if (score >= 78) return confidence === "low" ? "Promising" : "Very likely fit";
-  if (score >= 62) return "Promising";
-  if (score >= 45) return "Still learning";
-  return "Weak signal";
+  if (score >= STRONG_FIT_THRESHOLD) return confidence === "low" ? "Worth a look" : "Looks right for you";
+  if (score >= PROMISING_FIT_THRESHOLD) return "Worth a look";
+  if (score >= WEAK_FIT_THRESHOLD) return "Still learning";
+  return "Weak match";
 }
 
-function riskLabel(score: number): string {
-  if (score >= 58) return "Risky for your taste";
-  if (score >= 35) return "Some friction";
-  return "Low risk";
+function frictionLabel(score: number): string {
+  if (score >= HIGH_FRICTION_THRESHOLD) return "High friction";
+  if (score >= MODERATE_FRICTION_THRESHOLD) return "Possible friction";
+  return "Low friction";
 }
 
 type StatusTone = "positive" | "negative" | "warning" | "neutral" | "accent";
@@ -343,8 +440,8 @@ function renderCoverArt(game: SeedGame, variant: "hero" | "dossier" | "thumb" = 
   return `
     <div class="product-cover-shell product-cover-${variant}">
       ${
-        game.coverPath
-          ? `<img src="${escapeHtml(game.coverPath)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async">`
+        game.coverPath || game.externalCoverUrl
+          ? `<img src="${escapeHtml(game.coverPath || game.externalCoverUrl || "")}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async">`
           : `<span class="product-cover-initials product-cover-fallback"><strong>${escapeHtml(getCoverInitials(game))}</strong>${fallbackTitle}<em>${escapeHtml(game.primaryGenre.replaceAll("_", " "))}</em></span>`
       }
     </div>
@@ -352,19 +449,25 @@ function renderCoverArt(game: SeedGame, variant: "hero" | "dossier" | "thumb" = 
 }
 
 function getDecisionTone(entry: RankedSeedGame): StatusTone {
-  if (entry.riskScore >= 58) return "negative";
-  if (entry.affinityScore >= 78 && entry.riskScore <= 35) return "positive";
-  if (entry.affinityScore >= 62) return "accent";
+  if (isBasicCatalogGame(entry.game)) return "neutral";
+  if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) return "negative";
+  if (entry.affinityScore >= STRONG_FIT_THRESHOLD && entry.riskScore <= MODERATE_FRICTION_THRESHOLD) return "positive";
+  if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) return "accent";
   return "warning";
 }
 
 function getDecisionLabel(entry: RankedSeedGame) {
-  if (entry.riskScore >= 58) return "Risky for your taste";
+  if (isBasicCatalogGame(entry.game)) return "Needs more info";
+  if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) return "High friction";
   return affinityLabel(entry.affinityScore, entry.confidence);
 }
 
 function getPrimaryReason(entry: RankedSeedGame) {
-  if (entry.riskScore >= 58 && entry.cautionReasons.length > 0) {
+  if (isBasicCatalogGame(entry.game)) {
+    return "Need more info first";
+  }
+
+  if (entry.riskScore >= HIGH_FRICTION_THRESHOLD && entry.cautionReasons.length > 0) {
     return entry.cautionReasons[0];
   }
 
@@ -381,6 +484,25 @@ function renderStatusBadge(label: string, tone: StatusTone = "neutral", extraCla
 }
 
 function renderMetricStrip(entry: RankedSeedGame) {
+  if (isBasicCatalogGame(entry.game)) {
+    return `
+      <div class="product-metric-strip product-metric-strip-basic" aria-label="Catalog status">
+        <div class="product-metric">
+          <span>Detail</span>
+          <strong>Basic</strong>
+        </div>
+        <div class="product-metric">
+          <span>Source</span>
+          <strong>Finder</strong>
+        </div>
+        <div class="product-metric">
+          <span>Signal</span>
+          <strong>Not enough yet</strong>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="product-metric-strip" aria-label="Recommendation metrics">
       <div class="product-metric">
@@ -388,12 +510,12 @@ function renderMetricStrip(entry: RankedSeedGame) {
         <strong>${entry.affinityScore}</strong>
       </div>
       <div class="product-metric">
-        <span>Risk</span>
+        <span>Friction</span>
         <strong>${entry.riskScore}</strong>
       </div>
       <div class="product-metric">
-        <span>Confidence</span>
-        <strong>${escapeHtml(entry.confidence)}</strong>
+        <span>Signal</span>
+        <strong>${escapeHtml(formatConfidence(entry.confidence))}</strong>
       </div>
     </div>
   `;
@@ -417,18 +539,39 @@ function renderActionButtons(
 }
 
 function renderReasonsBlock(entry: RankedSeedGame, options: { fitTitle?: string; cautionTitle?: string } = {}) {
+  if (isBasicCatalogGame(entry.game)) {
+    return `
+      <div class="product-reason-grid">
+        <div class="product-reason-panel">
+          <strong>What I know</strong>
+          <ul>
+            <li>${escapeHtml(entry.game.primaryGenre ? `Genre: ${entry.game.primaryGenre.replaceAll("_", " ")}` : "Basic title metadata is available.")}</li>
+            <li>${escapeHtml(entry.game.availablePlatformNames.length > 0 ? `Platforms: ${entry.game.availablePlatformNames.join(", ")}` : "Platform data is incomplete.")}</li>
+          </ul>
+        </div>
+        <div class="product-reason-panel">
+          <strong>What I still need</strong>
+          <ul>
+            <li>I do not have enough detail to judge this yet.</li>
+            <li>Add it to My Games or log an outcome to make future picks sharper.</li>
+          </ul>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="product-reason-grid">
       <div class="product-reason-panel">
         <strong>${escapeHtml(options.fitTitle ?? "Why this could work")}</strong>
         <ul>
-          ${entry.fitReasons.length > 0 ? entry.fitReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("") : "<li>Still learning from your library and onboarding picks.</li>"}
+          ${entry.fitReasons.length > 0 ? entry.fitReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("") : "<li>I need more games from your history before I can explain this clearly.</li>"}
         </ul>
       </div>
       <div class="product-reason-panel">
-        <strong>${escapeHtml(options.cautionTitle ?? "Watch-outs")}</strong>
+        <strong>${escapeHtml(options.cautionTitle ?? "Watch out for")}</strong>
         <ul>
-          ${entry.cautionReasons.length > 0 ? entry.cautionReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("") : "<li>No major friction flagged by the local profile.</li>"}
+          ${entry.cautionReasons.length > 0 ? entry.cautionReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("") : "<li>Nothing major stands out as a warning.</li>"}
         </ul>
       </div>
     </div>
@@ -462,10 +605,10 @@ function renderGameDossier(
             <p class="product-tagline">${escapeHtml(summary)}</p>
           </div>
           <div class="product-chip-list product-chip-list-tight">
-            ${renderStatusBadge(riskLabel(entry.riskScore), entry.riskScore >= 58 ? "negative" : entry.riskScore >= 35 ? "warning" : "positive")}
-            ${renderStatusBadge(formatConfidence(entry.confidence), entry.confidence === "high" ? "positive" : entry.confidence === "medium" ? "accent" : "warning")}
-            ${renderStatusBadge(formatPlatformAvailability(entry), entry.platformAvailability === "unavailable" ? "negative" : entry.platformAvailability === "available" ? "positive" : "warning")}
-            ${renderStatusBadge(formatOwnershipStatus(entry.ownershipStatus), entry.ownershipStatus === "owned" ? "positive" : entry.ownershipStatus === "wishlist" ? "accent" : entry.ownershipStatus === "not_owned" ? "neutral" : "warning")}
+            ${isBasicCatalogGame(entry.game) ? renderStatusBadge("Needs more info", "neutral") : renderStatusBadge(frictionLabel(entry.riskScore), entry.riskScore >= HIGH_FRICTION_THRESHOLD ? "negative" : entry.riskScore >= MODERATE_FRICTION_THRESHOLD ? "warning" : "positive")}
+            ${isBasicCatalogGame(entry.game) ? "" : renderStatusBadge(formatConfidence(entry.confidence), entry.confidence === "high" ? "positive" : entry.confidence === "medium" ? "accent" : "warning")}
+            ${renderStatusBadge(formatAccessStatus(entry), accessTone(entry))}
+            ${entry.collectionStatus ? renderStatusBadge(formatCollectionStatus(entry.collectionStatus), collectionTone(entry.collectionStatus)) : ""}
             ${renderStatusBadge(formatReleaseState(entry.game.releaseState), entry.game.releaseState === "unreleased" ? "warning" : "positive")}
           </div>
           ${options.compact ? `<p class="product-primary-reason">${escapeHtml(getPrimaryReason(entry))}</p>` : renderMetricStrip(entry)}
@@ -490,7 +633,7 @@ function renderDecisionHero(
         <div class="product-dossier-main">
           <p class="product-eyebrow">${escapeHtml(title)}</p>
           <h1>Nothing ready yet</h1>
-          ${createEmptyState("Log a few games you've already played and the engine will start making recommendations.")}
+          ${createEmptyState("Log a few games you've already played and Playfit will start making recommendations.")}
         </div>
       </section>
     `;
@@ -504,14 +647,14 @@ function renderDecisionHero(
         <p class="product-eyebrow">${escapeHtml(title)}</p>
         <div class="product-decision-label-row">
           ${renderStatusBadge(getDecisionLabel(entry), statusTone, "product-status-large")}
-          ${renderStatusBadge(formatConfidence(entry.confidence), entry.confidence === "high" ? "positive" : entry.confidence === "medium" ? "accent" : "warning")}
+          ${isBasicCatalogGame(entry.game) ? "" : renderStatusBadge(formatConfidence(entry.confidence), entry.confidence === "high" ? "positive" : entry.confidence === "medium" ? "accent" : "warning")}
         </div>
         <h1>${escapeHtml(entry.game.title)}</h1>
         <p class="product-primary-reason">${escapeHtml(getPrimaryReason(entry))}</p>
         ${renderActionButtons(entry.game.gameId, options.primaryAction, options.secondaryActions)}
         <div class="product-decision-meta">
-          ${renderStatusBadge(formatPlatformAvailability(entry), entry.platformAvailability === "unavailable" ? "negative" : entry.platformAvailability === "available" ? "positive" : "warning")}
-          ${renderStatusBadge(formatOwnershipStatus(entry.ownershipStatus), entry.ownershipStatus === "owned" ? "positive" : entry.ownershipStatus === "wishlist" ? "accent" : entry.ownershipStatus === "not_owned" ? "neutral" : "warning")}
+          ${renderStatusBadge(formatAccessStatus(entry), accessTone(entry))}
+          ${entry.collectionStatus ? renderStatusBadge(formatCollectionStatus(entry.collectionStatus), collectionTone(entry.collectionStatus)) : ""}
           ${renderStatusBadge(formatReleaseState(entry.game.releaseState), entry.game.releaseState === "unreleased" ? "warning" : "positive")}
         </div>
         ${options.extraContent ?? ""}
@@ -533,12 +676,12 @@ function renderGameResultRow(game: SeedGame, ranked: RankedSeedGame, isSelected:
         <span class="product-meta">${escapeHtml(game.series || game.primaryGenre)}</span>
         <span class="product-result-badges">
           ${renderStatusBadge(getDecisionLabel(ranked), getDecisionTone(ranked))}
-          ${renderStatusBadge(riskLabel(ranked.riskScore), ranked.riskScore >= 58 ? "negative" : ranked.riskScore >= 35 ? "warning" : "positive")}
+          ${isBasicCatalogGame(game) ? "" : renderStatusBadge(frictionLabel(ranked.riskScore), ranked.riskScore >= HIGH_FRICTION_THRESHOLD ? "negative" : ranked.riskScore >= MODERATE_FRICTION_THRESHOLD ? "warning" : "positive")}
         </span>
       </span>
       <span class="product-result-side">
-        <span>${escapeHtml(formatOwnershipStatus(ranked.ownershipStatus))}</span>
-        <span>${escapeHtml(ranked.platformAvailability === "available" ? "Playable" : ranked.platformAvailability === "unavailable" ? "Unavailable" : "Check platform")}</span>
+        <span>${escapeHtml(ranked.collectionStatus ? formatCollectionStatus(ranked.collectionStatus) : isBasicCatalogGame(game) ? "Catalog only" : "Taste pick")}</span>
+        <span>${escapeHtml(isBasicCatalogGame(game) ? "Ready to save" : formatAccessStatus(ranked))}</span>
       </span>
     </button>
   `;
@@ -553,19 +696,19 @@ function renderLearningSignal(
   const reasons = anchorReasons[gameId] ?? [];
   const label =
     reasons.includes("repetition") || reasons.includes("grind")
-      ? "Taught the model: repetition risk"
+      ? "Learned: repetition can be a risk"
       : reasons.includes("confusion")
-        ? "Taught the model: confusing systems"
+        ? "Learned: confusing systems can hurt"
         : reasons.includes("story") || reasons.includes("emotion")
-          ? "Taught the model: story pull"
+          ? "Learned: story and emotion matter"
           : reasons.includes("combat")
-            ? "Taught the model: combat feel"
-            : status === "dropped" || sentiment === "disliked"
-              ? "Taught the model: fit breaker"
+            ? "Learned: combat feel matters"
+            : status === "dropped" || status === "abandoned" || sentiment === "disliked"
+              ? "Learned: this was a bad fit"
               : sentiment === "mixed"
-                ? "Taught the model: mixed signal"
+                ? "Learned: mixed signal"
                 : sentiment === "liked"
-                  ? "Taught the model: strong fit"
+                  ? "Learned: strong fit"
                   : "";
 
   return label ? `<span class="product-learning-signal">${escapeHtml(label)}</span>` : "";
@@ -583,6 +726,36 @@ function renderRankedGameCard(
   return options.emphasis === "hero"
     ? renderDecisionHero(title, entry, options)
     : renderGameDossier(title, entry, { ...options, compact: true });
+}
+
+function renderDecisionQueueItem(
+  label: string,
+  entry: RankedSeedGame | null,
+  primaryAction?: ProductCardAction,
+  secondaryAction: ProductCardAction = { label: "Details", action: "open-dossier" },
+) {
+  if (!entry) {
+    return "";
+  }
+
+  return `
+    <article class="product-compact-card product-decision-queue-item">
+      ${renderCoverArt(entry.game, "thumb")}
+      <div class="product-compact-main">
+        <p class="product-eyebrow">${escapeHtml(label)}</p>
+        <h3>${escapeHtml(entry.game.title)}</h3>
+        <p class="product-primary-reason">${escapeHtml(getPrimaryReason(entry))}</p>
+        <div class="product-chip-list product-chip-list-tight">
+          ${renderStatusBadge(getDecisionLabel(entry), getDecisionTone(entry))}
+          ${renderStatusBadge(frictionLabel(entry.riskScore), entry.riskScore >= HIGH_FRICTION_THRESHOLD ? "negative" : entry.riskScore >= MODERATE_FRICTION_THRESHOLD ? "warning" : "positive")}
+        </div>
+      </div>
+      <div class="product-compact-actions">
+        ${primaryAction ? `<button class="product-button product-button-secondary product-button-sm" data-action="${escapeHtml(primaryAction.action)}" data-game-id="${escapeHtml(entry.game.gameId)}">${escapeHtml(primaryAction.label)}</button>` : ""}
+        ${primaryAction?.action === secondaryAction.action ? "" : `<button class="product-button product-button-ghost product-button-sm" data-action="${escapeHtml(secondaryAction.action)}" data-game-id="${escapeHtml(entry.game.gameId)}">${escapeHtml(secondaryAction.label)}</button>`}
+      </div>
+    </article>
+  `;
 }
 
 function renderAnchorSelector(
@@ -634,7 +807,7 @@ function renderAnchorSelector(
                 </div>
               </div>
               <div class="product-anchor-detail-block">
-                <span class="product-field-hint">Access</span>
+                <span class="product-field-hint">List</span>
                 <div class="product-chip-list">
                   ${ANCHOR_OWNERSHIP_OPTIONS.map((option) => `
                     <button
@@ -665,7 +838,7 @@ function renderAnchorSelector(
             kind === "liked"
               ? "Games you enjoyed, finished, or would recommend."
               : kind === "disliked"
-                ? "Games you dropped, bounced off, or just didn't enjoy."
+                ? "Games you abandoned, bounced off, or just did not enjoy."
                 : "If you're in the middle of something right now, add it here."
           }</p>
         </div>
@@ -690,7 +863,7 @@ function renderAnchorSelector(
                       <h3>${escapeHtml(game.title)}</h3>
                       <p class="product-meta">${escapeHtml(game.series || game.primaryGenre)}</p>
                     </div>
-                    <span class="product-score">${escapeHtml(game.source === "universe" ? "Universe" : "Catalog")}</span>
+                    <span class="product-score">${escapeHtml(game.source === "universe" ? "Broad list" : "Curated")}</span>
                   </div>
                 </button>
               `,
@@ -712,9 +885,9 @@ const NAV_ICONS: Record<ProductTab, string> = {
 };
 
 const ANCHOR_OWNERSHIP_OPTIONS: Array<{ value: ProductOwnershipStatus; label: string }> = [
-  { value: "owned", label: "Owned" },
+  { value: "owned", label: "Logged" },
   { value: "wishlist", label: "Wishlist" },
-  { value: "not_owned", label: "Not owned" },
+  { value: "not_owned", label: "Not in library" },
   { value: "unknown", label: "Unknown" },
 ];
 
@@ -776,7 +949,7 @@ function renderProfileEditor(profile: ProductProfile) {
         </div>
       </section>
       <section class="product-card">
-        <h3>Risk patterns</h3>
+        <h3>Friction patterns</h3>
         <div class="product-chip-list">
           ${PROFILE_RISK_FIELDS.map((field) => `
             <button
@@ -787,6 +960,22 @@ function renderProfileEditor(profile: ProductProfile) {
               aria-pressed="${profile.avoidPatterns[field.key] ? "true" : "false"}"
             >
               ${escapeHtml(field.label)}
+            </button>
+          `).join("")}
+        </div>
+      </section>
+      <section class="product-card">
+        <h3>Watch vs play</h3>
+        <div class="product-segmented-control">
+          ${priorityOptions.map((value) => `
+            <button
+              type="button"
+              class="product-pill-button${profile.watchVsPlayRisk === value ? " is-selected" : ""}"
+              data-action="set-watch-risk"
+              data-profile-value="${escapeHtml(value)}"
+              aria-pressed="${profile.watchVsPlayRisk === value ? "true" : "false"}"
+            >
+              ${escapeHtml(value)}
             </button>
           `).join("")}
         </div>
@@ -813,16 +1002,22 @@ export function createProductApp(
     },
     finderQuery: "",
     finderSelectedGameId: null,
-    completionPickerGameId: null,
-    dropPickerGameId: null,
-    finderInsight: null,
     historyQuery: "",
     historySelectedGameId: null,
-    libraryEditGameId: null,
+    activeModal: null,
+    modalGameId: null,
+    profileMode: "overview",
     dossierGameId: null,
     dossierReturnTab: null,
     statusMessage: null,
+    outcomeNotice: null,
+    pendingFrictionAction: null,
     startBannerDismissed: false,
+    upcomingPlatformFilters: new Set(
+      state.user.onboarding.platforms
+        .filter((entry) => ["available", "limited"].includes(entry.status))
+        .map((entry) => entry.platformId)
+    ),
   };
 
   async function persistState() {
@@ -845,12 +1040,36 @@ export function createProductApp(
     return seedData.gamesById.get(gameId) ?? null;
   }
 
+  function buildProfileFromCurrentData() {
+    return buildAdaptiveProfile(
+      state.user.onboarding,
+      seedData.gamesById,
+      state.user.gameStates,
+      state.user.profileOverrides,
+    );
+  }
+
+  function refreshAdaptiveProfile() {
+    if (!state.user.profile || !state.user.onboardingCompletedAt) {
+      return;
+    }
+
+    state.user.profile = buildProfileFromCurrentData();
+  }
+
+  function ensureProfileOverrides(): ProductProfileOverrides {
+    state.user.profileOverrides ??= {};
+    return state.user.profileOverrides;
+  }
+
   function updateGameState(
     gameId: string,
     updates: {
-      status?: ProductGameStatus;
+      status?: ProductGameStatus | null;
       sentiment?: ProductGameSentiment;
+      collectionStatus?: ProductCollectionStatus | null;
       ownershipStatus?: ProductOwnershipStatus;
+      rating?: number;
       notes?: string;
       source?: "onboarding" | "finder" | "manual";
     },
@@ -860,20 +1079,33 @@ export function createProductApp(
       return;
     }
 
-    if (updates.status === "playing") {
-      Object.entries(state.user.gameStates).forEach(([entryGameId, entry]) => {
-        if (entry.status === "playing" && entryGameId !== gameId) {
-          state.user.gameStates[entryGameId] = {
-            ...entry,
-            status: "on_hold",
-            updatedAt: nowIso(),
-          };
-        }
-      });
-    }
-
     const existing = state.user.gameStates[gameId];
     const timestamp = nowIso();
+    const nextStatus = updates.status === null ? undefined : updates.status ?? existing?.status;
+    let nextCollectionStatus =
+      updates.collectionStatus !== undefined
+        ? updates.collectionStatus ?? undefined
+        : getCollectionStatus(existing) ?? undefined;
+    let nextOwnershipStatus = updates.ownershipStatus ?? existing?.ownershipStatus;
+
+    if (updates.status && isPlayStatus(updates.status) && nextCollectionStatus === "wishlist") {
+      nextCollectionStatus = undefined;
+    }
+
+    if (nextCollectionStatus === "wishlist" && isPlayStatus(nextStatus)) {
+      nextCollectionStatus = undefined;
+    }
+
+    if (nextCollectionStatus === "wishlist") {
+      nextOwnershipStatus = "wishlist";
+    } else if (nextCollectionStatus === "backlog") {
+      nextOwnershipStatus = nextOwnershipStatus === "wishlist" ? "owned" : nextOwnershipStatus ?? "owned";
+    }
+
+    if (updates.status && isPlayStatus(updates.status)) {
+      nextOwnershipStatus = "owned";
+    }
+
     state.user.gameStates[gameId] = {
       gameId,
       title: game.title,
@@ -881,18 +1113,38 @@ export function createProductApp(
       createdAt: existing?.createdAt ?? timestamp,
       updatedAt: timestamp,
       sentiment: updates.sentiment ?? existing?.sentiment,
-      status: updates.status ?? existing?.status,
-      ownershipStatus: updates.ownershipStatus ?? existing?.ownershipStatus,
+      status: nextStatus,
+      collectionStatus: nextCollectionStatus,
+      ownershipStatus: nextOwnershipStatus,
+      rating: updates.rating ?? existing?.rating,
       notes: updates.notes ?? existing?.notes,
     };
+
+    if (updates.sentiment || ["beaten", "completed", "dropped", "abandoned", "dismissed"].includes(nextStatus ?? "")) {
+      refreshAdaptiveProfile();
+    }
   }
 
-  function addFinderAction(gameId: string, action: "saved" | "dismissed" | "current_run" | "dropped" | "not_owned") {
+  function addFinderAction(gameId: string, action: FinderActionType) {
     state.user.finderActions[gameId] = {
       gameId,
       action,
       createdAt: nowIso(),
     };
+  }
+
+  function showOutcomeNotice(game: SeedGame, status: ProductOutcomeNotice["status"], sentiment: ProductGameSentiment) {
+    ui.outcomeNotice = {
+      gameId: game.gameId,
+      title: game.title,
+      status,
+      sentiment,
+    };
+    ui.activeTab = "today";
+    ui.dossierGameId = null;
+    ui.dossierReturnTab = null;
+    closeModal();
+    setStatusMessage(null);
   }
 
   function getAnchorOwnership(gameId: string) {
@@ -908,56 +1160,189 @@ export function createProductApp(
       : undefined;
   }
 
-  function closeCompletionPicker() {
-    ui.completionPickerGameId = null;
+  function openModal(modal: ProductModal, gameId: string | null = null) {
+    ui.activeModal = modal;
+    ui.modalGameId = gameId;
+    setStatusMessage(null);
   }
 
-  function closeDropPicker() {
-    ui.dropPickerGameId = null;
+  function closeModal() {
+    ui.activeModal = null;
+    ui.modalGameId = null;
+    ui.pendingFrictionAction = null;
   }
 
-  function renderCompletionPicker(gameId: string, sentiment?: ProductGameSentiment) {
-    if (ui.completionPickerGameId !== gameId) {
-      return "";
+  function getRankedGame(gameId: string) {
+    const profile = state.user.profile;
+    const game = getSeedGame(gameId);
+
+    if (!profile || !game) {
+      return null;
+    }
+
+    return scoreSeedGame(game, state, profile, seedData.gamesById);
+  }
+
+  function shouldConfirmFrictionAction(gameId: string) {
+    const ranked = getRankedGame(gameId);
+    return Boolean(ranked && !isBasicCatalogGame(ranked.game) && ranked.riskScore >= HIGH_FRICTION_THRESHOLD);
+  }
+
+  function openFrictionConfirmation(gameId: string, action: FrictionGuardedAction) {
+    ui.pendingFrictionAction = { gameId, action };
+    openModal("friction-confirm", gameId);
+  }
+
+  function renderFrictionConfirmContent() {
+    const pending = ui.pendingFrictionAction;
+    const ranked = pending ? getRankedGame(pending.gameId) : null;
+
+    if (!pending || !ranked) {
+      return createEmptyState("I cannot check this decision right now.");
+    }
+
+    const actionLabel: Record<FrictionGuardedAction, string> = {
+      "set-current-run": "set it as playing",
+      "add-backlog": "add it to backlog",
+      "mark-wishlist": "add it to wishlist",
+    };
+
+    return `
+      <div class="product-modal-body">
+        <div class="product-modal-game">
+          ${renderCoverArt(ranked.game, "thumb")}
+          <div>
+            <strong>${escapeHtml(ranked.game.title)}</strong>
+            <p class="product-note">This has high friction for your current profile. You can still ${escapeHtml(actionLabel[pending.action])}, but I want to make the tradeoff clear.</p>
+          </div>
+        </div>
+        <div class="product-chip-list product-chip-list-tight">
+          ${renderStatusBadge(frictionLabel(ranked.riskScore), "negative")}
+          ${renderStatusBadge(formatConfidence(ranked.confidence), ranked.confidence === "high" ? "positive" : ranked.confidence === "medium" ? "accent" : "warning")}
+        </div>
+        ${renderReasonsBlock(ranked, { cautionTitle: "Why I am cautious" })}
+        <div class="product-action-row">
+          <button class="product-button product-button-primary" data-action="confirm-friction-action">Do it anyway</button>
+          <button class="product-button product-button-ghost" data-action="close-modal">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderCompletionModalContent(gameId: string) {
+    const game = getSeedGame(gameId);
+    const sentiment = state.user.gameStates[gameId]?.sentiment;
+
+    if (!game) {
+      return createEmptyState("I cannot find this game in the catalog.");
     }
 
     return `
-      <div class="product-inline-picker">
-        <div class="product-grid">
-          <strong>How did it land?</strong>
-          <p class="product-note">${
-            sentiment
-              ? `Current outcome: ${escapeHtml(formatCompletionOutcome(sentiment))}.`
-              : "Choose the outcome that best matches the finished run."
-          }</p>
+      <div class="product-modal-body">
+        <div class="product-modal-game">
+          ${renderCoverArt(game, "thumb")}
+          <div>
+            <strong>${escapeHtml(game.title)}</strong>
+            <p class="product-note">${
+              sentiment
+                ? `Current note: ${escapeHtml(formatCompletionOutcome(sentiment))}.`
+                : "Choose the outcome that best matches how it landed for you."
+            }</p>
+          </div>
         </div>
-        <div class="product-actions">
+        <div class="product-action-row">
           <button class="product-button product-button-primary" data-action="complete-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="liked">Loved it</button>
           <button class="product-button product-button-secondary" data-action="complete-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="mixed">Mixed feelings</button>
           <button class="product-button product-button-ghost" data-action="complete-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="disliked">Didn't click</button>
-          <button class="product-button product-button-ghost" data-action="close-completion-picker" data-game-id="${escapeHtml(gameId)}">Cancel</button>
         </div>
       </div>
     `;
   }
 
-  function renderDropPicker(gameId: string) {
-    if (ui.dropPickerGameId !== gameId) {
-      return "";
+  function renderDropModalContent(gameId: string) {
+    const game = getSeedGame(gameId);
+
+    if (!game) {
+      return createEmptyState("I cannot find this game in the catalog.");
     }
 
     return `
-      <div class="product-inline-picker">
-        <div class="product-grid">
-          <strong>Giving up on this one?</strong>
-          <p class="product-note">We'll remember it didn't stick and factor it into future suggestions.</p>
+      <div class="product-modal-body">
+        <div class="product-modal-game">
+          ${renderCoverArt(game, "thumb")}
+          <div>
+            <strong>${escapeHtml(game.title)}</strong>
+            <p class="product-note">I will keep this in mind and avoid similar friction later.</p>
+          </div>
         </div>
-        <div class="product-actions">
-          <button class="product-button product-button-primary" data-action="confirm-drop-run" data-game-id="${escapeHtml(gameId)}">Yes, I'm done with it</button>
-          <button class="product-button product-button-ghost" data-action="close-drop-picker" data-game-id="${escapeHtml(gameId)}">Keep playing</button>
+        <div class="product-action-row">
+          <button class="product-button product-button-primary" data-action="confirm-drop-run" data-game-id="${escapeHtml(gameId)}">Mark abandoned</button>
+          <button class="product-button product-button-ghost" data-action="close-modal">Keep playing</button>
         </div>
       </div>
     `;
+  }
+
+  function renderRecalibrateModalContent() {
+    return `
+      <div class="product-modal-body">
+        <p class="product-tagline">This rebuilds your taste profile from setup answers, My Games outcomes, and your manual edits.</p>
+        <div class="product-action-row">
+          <button class="product-button product-button-primary" data-action="confirm-recalibrate-profile">Refresh profile</button>
+          <button class="product-button product-button-ghost" data-action="close-modal">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderModalShell(title: string, body: string, eyebrow = "Quick action") {
+    return `
+      <div class="product-modal-layer" role="presentation">
+        <button class="product-modal-backdrop" data-action="close-modal" aria-label="Close dialog"></button>
+        <section class="product-modal product-sheet" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+          <div class="product-modal-head">
+            <div>
+              <p class="product-eyebrow">${escapeHtml(eyebrow)}</p>
+              <h2>${escapeHtml(title)}</h2>
+            </div>
+            <button class="product-modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+          </div>
+          ${body}
+        </section>
+      </div>
+    `;
+  }
+
+  function renderActiveModal() {
+    if (!ui.activeModal) {
+      return "";
+    }
+
+    if (ui.activeModal === "history-log") {
+      return renderModalShell("Add a game", renderHistoryLogger({ framed: false }), "My Games");
+    }
+
+    if (ui.activeModal === "library-edit" && ui.modalGameId) {
+      return renderModalShell("Edit game", renderLibraryEditForm(ui.modalGameId), "My Games");
+    }
+
+    if (ui.activeModal === "completion" && ui.modalGameId) {
+      return renderModalShell("How did it end?", renderCompletionModalContent(ui.modalGameId), "Outcome");
+    }
+
+    if (ui.activeModal === "drop" && ui.modalGameId) {
+      return renderModalShell("Stop playing?", renderDropModalContent(ui.modalGameId), "Outcome");
+    }
+
+    if (ui.activeModal === "recalibrate") {
+      return renderModalShell("Refresh profile?", renderRecalibrateModalContent(), "Profile");
+    }
+
+    if (ui.activeModal === "friction-confirm") {
+      return renderModalShell("High friction", renderFrictionConfirmContent(), "Decision check");
+    }
+
+    return "";
   }
 
   function getAnchorResults(kind: AnchorKind) {
@@ -1023,7 +1408,7 @@ export function createProductApp(
           <div class="product-step-head">
             <p class="product-eyebrow">Choose by fit, not hype · Step 1 of 4</p>
             <h1>What are you gaming on?</h1>
-            <p class="product-tagline">Select the platforms you have access to right now. We'll only suggest games you can actually play.</p>
+            <p class="product-tagline">Pick the platforms you can use right now. Today will focus on games you can actually play.</p>
           </div>
           <div class="product-platform-grid">${platformRows}</div>
         </div>
@@ -1034,21 +1419,20 @@ export function createProductApp(
       const likedCount = draft.likedGameIds.length;
       const dislikedCount = draft.dislikedGameIds.length;
       const likedDone = likedCount >= 3;
-      const dislikedDone = dislikedCount >= 3;
       stepMarkup = `
         <div class="product-grid">
           <div class="product-step-head">
             <p class="product-eyebrow">Step 2 of 4</p>
-            <h1>Tell us about games you've already played</h1>
-            <p class="product-tagline">A few games you loved and a few that didn't click is all we need to get started.</p>
+            <h1>Tell me what has worked before</h1>
+            <p class="product-tagline">Add 3 games you loved. Optional: games that failed for you.</p>
             <div class="product-anchor-progress">
               <span class="product-chip ${likedDone ? "product-chip-positive" : ""}">${likedCount}/3 loved</span>
-              <span class="product-chip ${dislikedDone ? "product-chip-positive" : ""}">${dislikedCount}/3 didn't click</span>
+              <span class="product-chip ${dislikedCount > 0 ? "product-chip-positive" : ""}">${dislikedCount} optional not-for-me</span>
             </div>
           </div>
           <div class="product-anchor-grid">
             ${renderAnchorSelector("Games you loved or finished", "liked", ui.onboardingSearch.liked, draft.likedGameIds, seedData.gamesById, likedResults, draft.currentGameId, draft.anchorReasons, draft.anchorOwnership)}
-            ${renderAnchorSelector("Games that didn't click", "disliked", ui.onboardingSearch.disliked, draft.dislikedGameIds, seedData.gamesById, dislikedResults, draft.currentGameId, draft.anchorReasons, draft.anchorOwnership)}
+            ${renderAnchorSelector("Games that did not click", "disliked", ui.onboardingSearch.disliked, draft.dislikedGameIds, seedData.gamesById, dislikedResults, draft.currentGameId, draft.anchorReasons, draft.anchorOwnership)}
             ${renderAnchorSelector("Playing right now (optional)", "current", ui.onboardingSearch.current, [], seedData.gamesById, currentResults, draft.currentGameId, draft.anchorReasons, draft.anchorOwnership)}
           </div>
         </div>
@@ -1088,8 +1472,8 @@ export function createProductApp(
         <div class="product-grid">
           <div class="product-step-head">
             <p class="product-eyebrow">Step 3 of 4</p>
-            <h1>What makes a game work for you?</h1>
-            <p class="product-tagline">Pick what resonates. The more honest you are, the better the suggestions get.</p>
+            <h1>What makes a game worth your time?</h1>
+            <p class="product-tagline">Pick what matters most. In private mode, chips drive the profile; text is only context you can refine later.</p>
           </div>
           <div class="product-card-grid">
             <section class="product-card">
@@ -1125,14 +1509,14 @@ export function createProductApp(
             <div class="product-grid">
               <div class="product-step-head">
                 <p class="product-eyebrow">Step 4 of 4 · Almost there</p>
-                <h1>Here's your taste profile</h1>
+                <h1>Here is what I learned</h1>
                 <p class="product-tagline">${escapeHtml(profile.summary)}</p>
-                <p class="product-note">Adjust anything that feels off before the first recommendation.</p>
+                <p class="product-note">Adjust anything that feels off before you see your first picks.</p>
               </div>
               ${renderProfileEditor(profile)}
               <div class="product-actions">
                 <button class="product-button product-button-primary" data-action="confirm-profile">Let's go</button>
-                <button class="product-button product-button-secondary" data-action="generate-profile">Rebuild from answers</button>
+                <button class="product-button product-button-secondary" data-action="generate-profile">Refresh from answers</button>
               </div>
             </div>
           `
@@ -1140,8 +1524,8 @@ export function createProductApp(
             <div class="product-grid">
               <div class="product-step-head">
                 <p class="product-eyebrow">Step 4 of 4 · Last step</p>
-                <h1>Build your taste profile</h1>
-                <p class="product-tagline">We'll use everything you told us to create your personal game profile. Takes just a second.</p>
+                <h1>Build your starting profile</h1>
+                <p class="product-tagline">I will turn your answers into a first set of picks. Takes just a second.</p>
               </div>
               <div class="product-actions">
                 <button class="product-button product-button-primary" data-action="generate-profile">Build my profile</button>
@@ -1154,7 +1538,7 @@ export function createProductApp(
 
     return `
       <section class="product-step-card">
-        ${alreadyOnboarded ? `<p class="product-gate-message" style="border-color: rgba(91,211,208,0.3); background: rgba(91,211,208,0.06); color: var(--text-secondary);">You've already set up your profile. Any changes here only take effect if you reach the last step and regenerate.</p>` : ""}
+        ${alreadyOnboarded ? `<p class="product-gate-message" style="border-color: rgba(91,211,208,0.3); background: rgba(91,211,208,0.06); color: var(--text-secondary);">You already have a profile. To apply setup changes, go to the last step and refresh it.</p>` : ""}
         ${stepPills}
         ${stepMarkup}
         <div class="product-actions">
@@ -1177,7 +1561,8 @@ export function createProductApp(
     `;
   }
 
-  function renderHistoryLogger() {
+  function renderHistoryLogger(options: { framed?: boolean } = {}) {
+    const framed = options.framed ?? true;
     const results = ui.historyQuery.trim().length > 0
       ? searchSeedGames(seedData.allGames, ui.historyQuery, finderIndex).slice(0, 6)
       : [];
@@ -1187,13 +1572,13 @@ export function createProductApp(
       : null;
 
     const selectedState = selected ? state.user.gameStates[selected.gameId] : null;
-    const alreadyLogged = selectedState?.status === "completed" || selectedState?.status === "dropped";
+    const alreadyLogged = ["beaten", "completed", "dropped", "abandoned"].includes(selectedState?.status ?? "");
 
     return `
-      <section class="product-card product-history-logger">
+      <section class="${framed ? "product-card " : ""}product-history-logger${framed ? "" : " product-history-logger-modal"}">
         <div class="product-section-head">
           <h2>Log a game you've played</h2>
-          <p class="product-note">Every game you rate makes the suggestions smarter.</p>
+          <p class="product-note">Every result helps me understand what actually works for you.</p>
         </div>
         <label class="product-label">
           <span>Search title or series</span>
@@ -1210,10 +1595,10 @@ export function createProductApp(
           <ul class="product-history-results">
             ${results.map(game => {
               const gs = state.user.gameStates[game.gameId];
-              const badge = gs?.status === "completed"
+              const badge = gs?.status === "completed" || gs?.status === "beaten"
                 ? `<span class="product-chip product-chip-positive">Logged</span>`
-                : gs?.status === "dropped"
-                  ? `<span class="product-chip product-chip-negative">Dropped</span>`
+                : gs?.status === "dropped" || gs?.status === "abandoned"
+                  ? `<span class="product-chip product-chip-negative">Abandoned</span>`
                   : "";
               return `
                 <li>
@@ -1233,12 +1618,12 @@ export function createProductApp(
               <strong>${escapeHtml(selected.title)}</strong>
               ${alreadyLogged ? `<span class="product-note">Already logged — tap below to update.</span>` : ""}
             </div>
-            <p class="product-note">How did it go?</p>
+            <p class="product-note">How did it land?</p>
             <div class="product-actions">
-              <button class="product-button product-button-primary" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="liked" data-status="completed">Loved it</button>
-              <button class="product-button product-button-secondary" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="mixed" data-status="completed">Mixed feelings</button>
-              <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="disliked" data-status="completed">Didn't click</button>
-              <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="disliked" data-status="dropped">Gave up on it</button>
+              <button class="product-button product-button-primary" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="liked" data-status="completed">Completed 100%</button>
+              <button class="product-button product-button-secondary" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="liked" data-status="beaten">Finished story</button>
+              <button class="product-button product-button-secondary" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="mixed" data-status="completed">Mixed</button>
+              <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(selected.gameId)}" data-sentiment="disliked" data-status="abandoned">Abandoned</button>
             </div>
             <button class="product-button product-button-ghost" data-action="clear-history-selection">Cancel</button>
           </div>
@@ -1247,90 +1632,137 @@ export function createProductApp(
     `;
   }
 
+  function renderLibraryEditForm(gameId: string) {
+    const editGame = seedData.gamesById.get(gameId);
+    const editGs = state.user.gameStates[gameId];
+
+    if (!editGame) {
+      return createEmptyState("I cannot find this game in the catalog.");
+    }
+
+    const editCollectionStatus = getCollectionStatus(editGs);
+    const hasPlayState = isPlayStatus(editGs?.status);
+
+    return `
+      <div class="product-modal-body product-library-edit-body">
+        <div class="product-modal-game">
+          ${renderCoverArt(editGame, "thumb")}
+          <div>
+            <strong>${escapeHtml(editGame.title)}</strong>
+            <p class="product-meta">${escapeHtml(editGame.series || editGame.primaryGenre)}</p>
+          </div>
+        </div>
+        <p class="product-note">Update status, lists, and rating. Future picks will use this immediately.</p>
+        <span class="product-field-hint">Status</span>
+        <div class="product-action-row">
+          <button class="product-button product-button-primary" data-action="set-current-run" data-game-id="${escapeHtml(gameId)}">Playing</button>
+          <button class="product-button product-button-secondary" data-action="shelve-game" data-game-id="${escapeHtml(gameId)}">Shelve</button>
+          <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="liked" data-status="beaten">Finished story</button>
+          <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="liked" data-status="completed">Completed 100%</button>
+          <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(gameId)}" data-sentiment="disliked" data-status="abandoned">Abandoned</button>
+        </div>
+        <span class="product-field-hint">Lists</span>
+        <div class="product-action-row product-action-row-subtle">
+          <button class="product-button ${editCollectionStatus === "backlog" ? "product-button-secondary" : "product-button-ghost"}" data-action="${editCollectionStatus === "backlog" ? "remove-backlog" : "add-backlog"}" data-game-id="${escapeHtml(gameId)}">${editCollectionStatus === "backlog" ? "In backlog" : "Add to backlog"}</button>
+          ${
+            hasPlayState
+              ? ""
+              : `<button class="product-button ${editCollectionStatus === "wishlist" ? "product-button-secondary" : "product-button-ghost"}" data-action="${editCollectionStatus === "wishlist" ? "remove-wishlist" : "mark-wishlist"}" data-game-id="${escapeHtml(gameId)}">${editCollectionStatus === "wishlist" ? "In wishlist" : "Add to wishlist"}</button>`
+          }
+        </div>
+        <div class="product-rating-row" aria-label="Rating">
+          <span class="product-field-hint">Rating</span>
+          ${[1, 2, 3, 4, 5].map((rating) => `<button class="product-star-button${editGs?.rating === rating ? " is-active" : ""}" data-action="rate-game" data-game-id="${escapeHtml(gameId)}" data-rating="${rating}" aria-label="${rating} stars">${rating <= (editGs?.rating ?? 0) ? "★" : "☆"}</button>`).join("")}
+          ${editGs?.rating ? `<button class="product-button product-button-ghost product-button-sm" data-action="clear-rating" data-game-id="${escapeHtml(gameId)}">Clear</button>` : ""}
+        </div>
+        <div class="product-action-row product-action-row-subtle">
+          <button class="product-button product-button-ghost" data-action="remove-library-game" data-game-id="${escapeHtml(gameId)}">Remove from my games</button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderDossierActionPanel(entry: RankedSeedGame) {
     const gameState = state.user.gameStates[entry.game.gameId];
+    const isReleased = entry.game.releaseState === "released";
+    const statusLabel = formatGameStatus(gameState?.status);
+    const collectionStatus = getCollectionStatus(gameState);
+    const collectionLabel = formatCollectionStatus(collectionStatus);
+    const hasPlayState = isPlayStatus(gameState?.status);
+    const ratingLabel = gameState?.rating ? `★ ${gameState.rating}` : "";
 
     return `
       <div class="product-dossier-action-panel">
         <div class="product-chip-list product-chip-list-tight">
-          ${
-            gameState?.status === "dropped"
-              ? renderStatusBadge("Dropped", "negative")
-              : ""
-          }
-          ${
-            gameState?.status === "completed"
-              ? renderStatusBadge(
-                  `Completed - ${formatCompletionOutcome(gameState.sentiment)}`,
-                  gameState.sentiment === "liked"
-                    ? "positive"
-                    : gameState.sentiment === "disliked"
-                      ? "negative"
-                      : "warning",
-                )
-              : ""
-          }
+          ${statusLabel ? renderStatusBadge(statusLabel, gameState?.status === "abandoned" || gameState?.status === "dropped" || gameState?.status === "dismissed" ? "negative" : gameState?.status === "completed" || gameState?.status === "beaten" ? "positive" : "accent") : ""}
+          ${collectionLabel ? renderStatusBadge(collectionLabel, collectionTone(collectionStatus)) : ""}
+          ${ratingLabel ? renderStatusBadge(ratingLabel, "accent") : ""}
         </div>
         <div class="product-state-actions">
-          ${
-            entry.game.releaseState === "released" &&
-            entry.ownershipStatus === "owned" &&
-            gameState?.status === "playing"
-              ? `<button class="product-button product-button-primary" data-action="open-completion-picker" data-game-id="${escapeHtml(entry.game.gameId)}">Mark completed</button>`
-              : entry.game.releaseState === "released" &&
-                  entry.ownershipStatus === "owned" &&
-                  gameState?.status === "completed"
-                ? `<button class="product-button product-button-primary" data-action="open-completion-picker" data-game-id="${escapeHtml(entry.game.gameId)}">Update completion</button>`
-                : entry.game.releaseState === "released" &&
-                    entry.ownershipStatus === "owned" &&
-                    gameState?.status === "dropped"
-                  ? `<button class="product-button product-button-primary" data-action="retry-dropped-run" data-game-id="${escapeHtml(entry.game.gameId)}">Retry this run</button>`
-                  : entry.game.releaseState === "released" && entry.ownershipStatus === "owned"
-                    ? `<button class="product-button product-button-primary" data-action="set-current-run" data-game-id="${escapeHtml(entry.game.gameId)}">Start run</button>`
-                    : ""
-          }
-          ${
-            entry.game.releaseState === "unreleased"
-              ? `<button class="product-button product-button-secondary" data-action="track-release" data-game-id="${escapeHtml(entry.game.gameId)}">Track release</button>`
-              : entry.ownershipStatus !== "owned"
-                ? `<button class="product-button product-button-primary" data-action="mark-owned" data-game-id="${escapeHtml(entry.game.gameId)}">I own this</button>`
-                : ""
-          }
-          ${
-            entry.game.releaseState === "released" &&
-            entry.ownershipStatus === "owned" &&
-            gameState?.status !== "completed" &&
-            gameState?.status !== "dropped"
-              ? `<button class="product-button product-button-secondary" data-action="mark-interested" data-game-id="${escapeHtml(entry.game.gameId)}">Save for later</button>`
-              : entry.game.releaseState === "released" && entry.ownershipStatus !== "owned"
-                ? `<button class="product-button product-button-secondary" data-action="mark-wishlist" data-game-id="${escapeHtml(entry.game.gameId)}">Add to wishlist</button>`
-                : ""
-          }
-          ${
-            entry.game.releaseState === "released" &&
-            entry.ownershipStatus === "owned" &&
-            (gameState?.status === "playing" || gameState?.status === "on_hold")
-              ? `<button class="product-button product-button-secondary" data-action="open-drop-picker" data-game-id="${escapeHtml(entry.game.gameId)}">Drop this run</button>`
-              : ""
-          }
-          ${
-            entry.game.releaseState === "released" &&
-            entry.ownershipStatus !== "not_owned" &&
-            gameState?.status !== "playing" &&
-            gameState?.status !== "on_hold"
-              ? `<button class="product-button product-button-ghost" data-action="mark-not-owned" data-game-id="${escapeHtml(entry.game.gameId)}">I don't own this</button>`
-              : ""
-          }
-          ${
-            gameState?.status !== "completed"
-              ? `<button class="product-button product-button-ghost" data-action="dismiss-game" data-game-id="${escapeHtml(entry.game.gameId)}">Not for me</button>`
-              : ""
-          }
+          <div class="product-action-group">
+            <span class="product-field-hint">Status</span>
+            ${isReleased ? `<button class="product-button product-button-primary" data-action="set-current-run" data-game-id="${escapeHtml(entry.game.gameId)}">${gameState?.status === "playing" ? "Keep playing" : "Set as playing"}</button>` : ""}
+            ${isReleased ? `<button class="product-button product-button-ghost" data-action="shelve-game" data-game-id="${escapeHtml(entry.game.gameId)}">Shelve</button>` : ""}
+          </div>
+          <div class="product-action-group">
+            <span class="product-field-hint">Lists</span>
+            ${isReleased ? `<button class="product-button product-button-secondary" data-action="${collectionStatus === "backlog" ? "remove-backlog" : "add-backlog"}" data-game-id="${escapeHtml(entry.game.gameId)}">${collectionStatus === "backlog" ? "In backlog" : "Add to backlog"}</button>` : ""}
+            ${isReleased && !hasPlayState ? `<button class="product-button product-button-secondary" data-action="${collectionStatus === "wishlist" ? "remove-wishlist" : "mark-wishlist"}" data-game-id="${escapeHtml(entry.game.gameId)}">${collectionStatus === "wishlist" ? "In wishlist" : "Add to wishlist"}</button>` : ""}
+            ${!isReleased ? `<button class="product-button product-button-secondary" data-action="track-release" data-game-id="${escapeHtml(entry.game.gameId)}">Watch release</button>` : ""}
+          </div>
+          <div class="product-action-group">
+            <span class="product-field-hint">Outcome</span>
+            ${isReleased ? `<button class="product-button product-button-ghost" data-action="mark-beaten" data-game-id="${escapeHtml(entry.game.gameId)}">Finished story</button>` : ""}
+            ${isReleased ? `<button class="product-button product-button-ghost" data-action="open-completion-picker" data-game-id="${escapeHtml(entry.game.gameId)}">Completed 100%</button>` : ""}
+            ${isReleased ? `<button class="product-button product-button-ghost" data-action="open-drop-picker" data-game-id="${escapeHtml(entry.game.gameId)}">Abandoned</button>` : ""}
+            ${gameState?.status !== "completed" ? `<button class="product-button product-button-ghost" data-action="dismiss-game" data-game-id="${escapeHtml(entry.game.gameId)}">Not for me</button>` : ""}
+          </div>
         </div>
-        ${renderCompletionPicker(entry.game.gameId, gameState?.sentiment)}
-        ${renderDropPicker(entry.game.gameId)}
-        <p class="product-note">Local dossier: fit, risk, and confidence come from your profile, library history, and catalog metadata.</p>
+        <p class="product-note">${isBasicCatalogGame(entry.game) ? "Save it or log an outcome first. I need more detail before judging it." : "Actions here update My Games and shape future picks."}</p>
       </div>
+    `;
+  }
+
+  function renderOutcomeNotice(model: ProductTodayModel) {
+    const notice = ui.outcomeNotice;
+    if (!notice) {
+      return "";
+    }
+
+    const sentimentLabel = notice.sentiment === "liked"
+      ? "Loved"
+      : notice.sentiment === "mixed"
+        ? "Mixed"
+        : "Did not click";
+    const statusLabel = notice.status === "abandoned"
+      ? "Abandoned"
+      : notice.status === "beaten"
+        ? "Finished story"
+        : "Completed 100%";
+    const nextDecision = model.currentRun ?? model.nextUp ?? model.resume ?? model.wishlistFit ?? model.worthTracking ?? model.playableAlternative;
+    const nextCopy = nextDecision
+      ? `Your next best option is ${nextDecision.game.title}.`
+      : "Add another game when you are ready and the queue will get sharper.";
+
+    return `
+      <section class="product-outcome-panel">
+        <div class="product-outcome-main">
+          <p class="product-eyebrow">Saved to your games</p>
+          <h2>${escapeHtml(notice.title)} is now ${escapeHtml(statusLabel)}</h2>
+          <p class="product-tagline">${escapeHtml(sentimentLabel)} saved. I will use this to make the next picks more personal.</p>
+          <div class="product-chip-list product-chip-list-tight">
+            ${renderStatusBadge(statusLabel, notice.status === "abandoned" ? "negative" : "positive")}
+            ${renderStatusBadge(sentimentLabel, notice.sentiment === "liked" ? "positive" : notice.sentiment === "mixed" ? "warning" : "negative")}
+            ${renderStatusBadge("Next picks updated", "accent")}
+          </div>
+          <p class="product-note">${escapeHtml(nextCopy)}</p>
+        </div>
+        <div class="product-outcome-actions">
+          ${nextDecision ? `<button class="product-button product-button-primary" data-action="open-dossier" data-game-id="${escapeHtml(nextDecision.game.gameId)}">See next pick</button>` : ""}
+          <button class="product-button product-button-secondary" data-action="switch-tab" data-tab="library">View in My Games</button>
+          <button class="product-button product-button-ghost" data-action="dismiss-outcome-notice">Dismiss</button>
+        </div>
+      </section>
     `;
   }
 
@@ -1343,23 +1775,24 @@ export function createProductApp(
       : returnTab === "finder"
         ? "Finder"
         : returnTab === "library"
-          ? "Library"
+          ? "My Games"
           : returnTab === "upcoming"
             ? "Upcoming"
             : "Profile";
 
     if (!profile || !game) {
-      return createEmptyState("This dossier is not available yet.", `Back to ${returnLabel}`, "close-dossier");
+      return createEmptyState("I cannot open this game yet.", `Back to ${returnLabel}`, "close-dossier");
     }
 
     const ranked = scoreSeedGame(game, state, profile, seedData.gamesById);
+    const dossierMeta = `Platforms: ${ranked.game.availablePlatformNames.join(", ") || "Unknown"}${ranked.game.releaseYear ? ` · ${ranked.game.releaseYear}` : ""}${ranked.game.sourceRef ? ` · ${ranked.game.sourceRef}` : ""}`;
 
     return `
       <section class="product-grid product-dossier-screen">
         <button class="product-button product-button-ghost product-back-button" data-action="close-dossier">← Back to ${escapeHtml(returnLabel)}</button>
-        ${renderGameDossier("Decision dossier", ranked, {
+        ${renderGameDossier("Why this pick", ranked, {
           summary: summarizeRankedGame(ranked),
-          detailMeta: `Platforms: ${ranked.game.availablePlatformNames.join(", ") || "Unknown"}`,
+          detailMeta: dossierMeta,
           extraContent: renderDossierActionPanel(ranked),
         })}
       </section>
@@ -1373,86 +1806,110 @@ export function createProductApp(
       state.user.profile,
       seedData.gamesById,
     );
-    const heroIsWishlistFallback = !model.currentRun && !model.nextUp && !!model.wishlistFit;
-    const hero = model.currentRun ?? model.nextUp ?? model.wishlistFit;
-    const heading = model.currentRun ? "Playing now" : model.nextUp ? "Up next" : "Top pick for you";
+    const hero = model.currentRun ?? model.nextUp ?? model.resume ?? model.wishlistFit ?? model.worthTracking;
+    const heading = model.currentRun
+      ? "Main focus"
+      : model.nextUp
+        ? "Play next"
+        : model.resume
+          ? "Resume"
+          : model.wishlistFit
+            ? "Worth adding"
+            : model.worthTracking
+              ? "Worth tracking"
+              : "Today";
+    const heroCollectionStatus = hero ? getCollectionStatus(state.user.gameStates[hero.game.gameId]) : null;
+    const heroHasPlayState = hero ? isPlayStatus(state.user.gameStates[hero.game.gameId]?.status) : false;
+    const heroCanPlay = hero?.accessStatus === "playable";
+    const heroIsTrackingFallback = !model.currentRun && !model.nextUp && !model.resume && !model.wishlistFit && !!model.worthTracking;
+    const earlyReadNotice = hero && hero.confidence === "low"
+      ? `<p class="product-note product-early-read">Early read. Log a few outcomes and I'll get more decisive.</p>`
+      : "";
+    const alsoPlayingItems = model.playingNow.filter(
+      (entry) => entry.game.gameId !== model.currentRun?.game.gameId,
+    );
+    const alsoPlayingMarkup = alsoPlayingItems
+      .map((entry) => renderDecisionQueueItem("Also playing", entry, { label: "Update", action: "open-dossier" }))
+      .join("");
+    const heroSecondaryActions = hero
+      ? [
+          heroCanPlay
+            ? heroCollectionStatus === "backlog"
+              ? { label: "In backlog", action: "remove-backlog" }
+              : { label: "Add to backlog", action: "add-backlog" }
+            : null,
+          !heroHasPlayState
+            ? heroCollectionStatus === "wishlist"
+              ? { label: "In wishlist", action: "remove-wishlist" }
+              : { label: "Add to wishlist", action: "mark-wishlist" }
+            : null,
+        ].filter((item): item is ProductCardAction => Boolean(item))
+      : [];
+    const queueItems = [
+      ["Play next", model.currentRun ? model.nextUp : null],
+      ["Resume", model.resume],
+      ["Worth adding", model.wishlistFit],
+      ["Worth tracking", model.worthTracking],
+    ]
+      .filter((item): item is [string, RankedSeedGame] => Boolean(item[1]))
+      .filter(([, entry]) => entry.game.gameId !== hero?.game.gameId)
+      .slice(0, 3)
+      .map(([label, entry]) => renderDecisionQueueItem(label, entry, { label: "See why", action: "open-dossier" }))
+      .join("");
 
-    const postOnboardingHint = heroIsWishlistFallback && !ui.startBannerDismissed ? `
+    const postOnboardingHint = heroIsTrackingFallback && !ui.startBannerDismissed ? `
       <section class="product-card product-start-banner">
         <button class="product-start-banner-close" data-action="dismiss-start-banner" aria-label="Dismiss">✕</button>
-        <p class="product-note"><strong>Getting started:</strong> These are unowned picks that fit your taste. Go to <strong>Finder</strong>, mark any game as owned, and it'll appear here as a playable pick.</p>
+        <p class="product-note"><strong>Getting started:</strong> Track it for later, or add playable games to My Games so Today can make sharper calls.</p>
       </section>
     ` : "";
 
     return `
-      <section class="product-grid">
+      <section class="product-page-stack">
+        ${renderOutcomeNotice(model)}
         ${postOnboardingHint}
         ${renderRankedGameCard(heading, hero, {
           emphasis: "hero",
           primaryAction: model.currentRun
-            ? { label: "Put on hold", action: "pause-run" }
-            : heroIsWishlistFallback && hero
+            ? { label: "Update status", action: "open-dossier" }
+            : heroIsTrackingFallback && hero
               ? {
-                  label: hero.ownershipStatus === "owned" ? "Start playing" : "I own this",
-                  action: hero.ownershipStatus === "owned" ? "set-current-run" : "mark-owned",
+                  label: "See why",
+                  action: "open-dossier",
                 }
               : hero
-                ? { label: "Start playing", action: "set-current-run" }
+                ? { label: "See why", action: "open-dossier" }
                 : undefined,
           secondaryActions:
             model.currentRun
-              ? [
-                  { label: "Open dossier", action: "open-dossier" },
-                  { label: "I finished it", action: "open-completion-picker" },
-                  { label: "I gave up on it", action: "open-drop-picker" },
-                ]
-              : heroIsWishlistFallback && hero
-                ? hero.ownershipStatus === "wishlist"
-                  ? [{ label: "Open dossier", action: "open-dossier" }]
-                  : hero.ownershipStatus === "unknown"
-                    ? [{ label: "Open dossier", action: "open-dossier" }]
-                    : [{ label: "Open dossier", action: "open-dossier" }]
-                : hero
-                  ? [{ label: "Open dossier", action: "open-dossier" }]
-                  : [],
-          extraContent:
-            model.currentRun && hero
-              ? `${renderCompletionPicker(
-                  hero.game.gameId,
-                  state.user.gameStates[hero.game.gameId]?.sentiment,
-                )}${renderDropPicker(hero.game.gameId)}`
-              : "",
+              ? [{ label: "Shelve", action: "pause-run" }, ...heroSecondaryActions]
+              : heroSecondaryActions,
+          extraContent: earlyReadNotice,
         })}
-        <div class="product-today-grid${model.currentRun ? "" : " product-today-grid-single"}">
-          ${model.currentRun ? renderRankedGameCard("Up next", model.nextUp, {
-            primaryAction: model.nextUp ? { label: "Bookmark it", action: "mark-interested" } : undefined,
-            secondaryActions: model.nextUp ? [{ label: "Start playing", action: "set-current-run" }] : [],
-          }) : ""}
-          ${!heroIsWishlistFallback && model.wishlistFit ? renderRankedGameCard("Worth getting", model.wishlistFit, {
-            primaryAction: {
-              label: model.wishlistFit.ownershipStatus === "owned" ? "Start playing" : "I own this",
-              action: model.wishlistFit.ownershipStatus === "owned" ? "set-current-run" : "mark-owned",
-            },
-            secondaryActions:
-              model.wishlistFit.ownershipStatus === "wishlist"
-                ? [{ label: "Skip this one", action: "dismiss-game" }]
-                : model.wishlistFit.ownershipStatus === "unknown"
-                  ? [{ label: "Add to wishlist", action: "mark-wishlist" }]
-                  : [],
-          }) : ""}
-          ${model.playableAlternative ? renderRankedGameCard("Another good option", model.playableAlternative, {
-            primaryAction: { label: "Start playing", action: "set-current-run" },
-            secondaryActions: [{ label: "Bookmark it", action: "mark-interested" }],
-          }) : ""}
-          ${model.avoid ? renderRankedGameCard("Might not be for you", model.avoid, {
-            primaryAction: { label: "Skip this one", action: "dismiss-game" },
-          }) : ""}
-          ${model.resume ? renderRankedGameCard("Pick back up", model.resume, {
-            primaryAction: { label: "Resume playing", action: "set-current-run" },
-            secondaryActions: [{ label: "I gave up on it", action: "open-drop-picker" }],
-            extraContent: renderDropPicker(model.resume.game.gameId),
-          }) : ""}
-        </div>
+        ${alsoPlayingMarkup ? `
+          <section class="product-decision-queue product-playing-now-list">
+            <div class="product-section-header">
+              <div>
+                <p class="product-eyebrow">Also playing</p>
+                <h2>In progress</h2>
+              </div>
+              <p class="product-note">Parallel games stay visible without replacing the main focus.</p>
+            </div>
+            <div class="product-decision-queue-list">${alsoPlayingMarkup}</div>
+          </section>
+        ` : ""}
+        ${queueItems ? `
+          <section class="product-decision-queue">
+            <div class="product-section-header">
+              <div>
+                <p class="product-eyebrow">Other good calls</p>
+                <h2>Next options</h2>
+              </div>
+              <p class="product-note">A few alternatives if the main pick is not right today.</p>
+            </div>
+            <div class="product-decision-queue-list">${queueItems}</div>
+          </section>
+        ` : ""}
       </section>
     `;
   }
@@ -1462,15 +1919,21 @@ export function createProductApp(
 
     const sections: Array<{
       heading: string;
-      filter: (gs: { status?: string; ownershipStatus?: string; sentiment?: string }) => boolean;
+      filter: (gs: { status?: ProductGameStatus; collectionStatus?: ProductCollectionStatus; ownershipStatus?: ProductOwnershipStatus; sentiment?: string }) => boolean;
       sentimentBadge: boolean;
     }> = [
       { heading: "Playing now", filter: (gs) => gs.status === "playing", sentimentBadge: false },
-      { heading: "On hold", filter: (gs) => gs.status === "on_hold", sentimentBadge: false },
-      { heading: "Completed", filter: (gs) => gs.status === "completed", sentimentBadge: true },
-      { heading: "Abandoned", filter: (gs) => gs.status === "dropped", sentimentBadge: false },
-      { heading: "Interested", filter: (gs) => gs.status === "interested", sentimentBadge: false },
-      { heading: "Wishlist", filter: (gs) => gs.ownershipStatus === "wishlist" && gs.status !== "playing" && gs.status !== "on_hold" && gs.status !== "completed" && gs.status !== "dropped", sentimentBadge: false },
+      {
+        heading: "Backlog",
+        filter: (gs) =>
+          getCollectionStatus(gs) === "backlog" &&
+          !["beaten", "completed", "abandoned", "dropped", "dismissed"].includes(gs.status ?? ""),
+        sentimentBadge: false,
+      },
+      { heading: "Wishlist", filter: (gs) => getCollectionStatus(gs) === "wishlist" && !isPlayStatus(gs.status), sentimentBadge: false },
+      { heading: "Shelved", filter: (gs) => gs.status === "shelved" || gs.status === "on_hold", sentimentBadge: false },
+      { heading: "Finished", filter: (gs) => gs.status === "beaten" || gs.status === "completed", sentimentBadge: true },
+      { heading: "Abandoned", filter: (gs) => gs.status === "abandoned" || gs.status === "dropped", sentimentBadge: false },
     ];
 
     const sentimentLabel: Record<string, string> = {
@@ -1484,23 +1947,33 @@ export function createProductApp(
       disliked: "negative",
     };
 
-    const totalLogged = allGameStates.filter(
-      ([, gs]) => gs.status === "completed" || gs.status === "dropped" || gs.status === "playing",
+    const totalLogged = allGameStates.filter(([, gs]) =>
+      ["playing", "backlog", "interested", "shelved", "on_hold", "beaten", "completed", "dropped", "abandoned"].includes(
+        gs.status ?? "",
+      ) || Boolean(getCollectionStatus(gs)),
     ).length;
 
     const statusLabel: Record<string, string> = {
       playing: "Playing",
-      on_hold: "On hold",
-      completed: "Completed",
-      dropped: "Dropped",
-      interested: "Saved",
+      backlog: "Backlog",
+      on_hold: "Shelved",
+      shelved: "Shelved",
+      interested: "Backlog",
+      beaten: "Finished story",
+      completed: "Completed 100%",
+      dropped: "Abandoned",
+      abandoned: "Abandoned",
       dismissed: "Not for me",
     };
     const statusTone: Record<string, StatusTone> = {
       playing: "accent",
       on_hold: "warning",
+      shelved: "warning",
+      backlog: "accent",
       completed: "positive",
+      beaten: "positive",
       dropped: "negative",
+      abandoned: "negative",
       interested: "neutral",
       dismissed: "negative",
     };
@@ -1514,17 +1987,14 @@ export function createProductApp(
           .map(([gameId, gs]) => {
             const game = seedData.gamesById.get(gameId);
             if (!game) return "";
+            const rowCollectionStatus = getCollectionStatus(gs);
             const badges = [
-              gs.status ? renderStatusBadge(statusLabel[gs.status] ?? gs.status, statusTone[gs.status] ?? "neutral") : "",
+              gs.status && gs.status !== "backlog" && gs.status !== "interested" ? renderStatusBadge(statusLabel[gs.status] ?? gs.status, statusTone[gs.status] ?? "neutral") : "",
+              rowCollectionStatus ? renderStatusBadge(formatCollectionStatus(rowCollectionStatus), collectionTone(rowCollectionStatus)) : "",
               sentimentBadge && gs.sentiment
                 ? renderStatusBadge(sentimentLabel[gs.sentiment] ?? gs.sentiment, sentimentChipKind[gs.sentiment] ?? "warning")
                 : "",
-              gs.ownershipStatus && (gs.ownershipStatus === "owned" || gs.ownershipStatus === "wishlist")
-                ? renderStatusBadge(
-                    formatOwnershipStatus(gs.ownershipStatus),
-                    gs.ownershipStatus === "owned" ? "positive" : "accent",
-                  )
-                : "",
+              gs.rating ? renderStatusBadge(`★ ${gs.rating}`, "accent") : "",
             ].join("");
             return `
               <li class="product-library-row">
@@ -1552,80 +2022,84 @@ export function createProductApp(
       })
       .join("");
 
-    const editGameId = ui.libraryEditGameId;
-    const editGame = editGameId ? seedData.gamesById.get(editGameId) : null;
-    const editGs = editGameId ? state.user.gameStates[editGameId] : null;
-
-    const editPanel = editGame && editGameId ? `
-      <section class="product-card product-library-edit">
-        <div class="product-section-head">
-          <h2>${escapeHtml(editGame.title)}</h2>
-          <p class="product-meta">${escapeHtml(editGame.series || editGame.primaryGenre)}</p>
-        </div>
-        <p class="product-note">Update how this game went:</p>
-        <div class="product-actions">
-          <button class="product-button product-button-primary" data-action="log-history-game" data-game-id="${escapeHtml(editGameId)}" data-sentiment="liked" data-status="completed">Loved it</button>
-          <button class="product-button product-button-secondary" data-action="log-history-game" data-game-id="${escapeHtml(editGameId)}" data-sentiment="mixed" data-status="completed">Mixed</button>
-          <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(editGameId)}" data-sentiment="disliked" data-status="completed">Not for me</button>
-          <button class="product-button product-button-ghost" data-action="log-history-game" data-game-id="${escapeHtml(editGameId)}" data-sentiment="disliked" data-status="dropped">Abandoned</button>
-        </div>
-        ${editGs?.status === "playing" ? `
-          <div class="product-actions">
-            <button class="product-button product-button-secondary" data-action="open-completion-picker" data-game-id="${escapeHtml(editGameId)}">Mark completed</button>
-            <button class="product-button product-button-ghost" data-action="open-drop-picker" data-game-id="${escapeHtml(editGameId)}">Drop this run</button>
-          </div>
-          ${renderCompletionPicker(editGameId, editGs.sentiment)}
-          ${renderDropPicker(editGameId)}
-        ` : ""}
-        <button class="product-button product-button-ghost" data-action="library-close-edit">Cancel</button>
-      </section>
-    ` : "";
-
     return `
-      <section class="product-grid">
-        ${editPanel}
-        ${renderHistoryLogger()}
+      <section class="product-page-stack">
         <section class="product-card product-library">
-          <div class="product-section-head">
-            <h2>Your games</h2>
-            ${totalLogged > 0 ? `<p class="product-note">${totalLogged} game${totalLogged !== 1 ? "s" : ""} logged. Each one makes your suggestions more accurate.</p>` : ""}
+          <div class="product-page-header product-page-header-row">
+            <div>
+              <p class="product-eyebrow">My Games</p>
+              <h2>Your games</h2>
+              ${totalLogged > 0 ? `<p class="product-note">${totalLogged} game${totalLogged !== 1 ? "s" : ""} saved. Each one sharpens future picks.</p>` : ""}
+            </div>
+            <button class="product-button product-button-primary" data-action="open-history-log">Add a game</button>
           </div>
-          ${sectionsHtml || createEmptyState("Nothing here yet. Log a game you've already played and the suggestions get sharper immediately.", "Go to Today", "go-today")}
+          ${sectionsHtml || createEmptyState("No games yet. Add something you played and your picks will get sharper immediately.", "Go to Today", "go-today")}
         </section>
       </section>
     `;
   }
 
   function renderProfile() {
-    const profile = state.user.profile;
+    const rawProfile = state.user.profile;
 
-    if (!profile) {
+    if (!rawProfile) {
       return createEmptyState(
-        "Finish setup first so your local taste profile can be edited here.",
+        "Finish setup first so your taste profile can be edited here.",
         "Open setup",
         "go-setup",
       );
     }
 
+    const profile = normalizeProfileSignals(rawProfile);
     const positiveSignals = profile.signals.filter((signal) => signal.tone === "positive");
     const negativeSignals = profile.signals.filter((signal) => signal.tone === "negative");
-    const loggedCount = Object.values(state.user.gameStates).filter(
-      (gs) => gs.status === "completed" || gs.status === "dropped" || gs.status === "playing",
+    const loggedCount = Object.values(state.user.gameStates).filter((gs) =>
+      ["playing", "backlog", "interested", "shelved", "on_hold", "beaten", "completed", "dropped", "abandoned"].includes(
+        gs.status ?? "",
+      ),
     ).length;
     const confidenceLabel =
       loggedCount >= 8
-        ? "High confidence"
+        ? "Clear picture"
         : loggedCount >= 4
-          ? "Medium confidence"
+          ? "Good read"
           : "Still learning";
+    if (ui.profileMode === "edit") {
+      return `
+        <section class="product-page-stack product-profile-edit-screen">
+          <button class="product-button product-button-ghost product-back-button" data-action="close-profile-edit">← Back to Profile</button>
+          <section class="product-card product-profile-overview">
+            <div class="product-page-header">
+              <p class="product-eyebrow">Edit your taste</p>
+              <h2>Tune what matters</h2>
+              <p class="product-tagline">Change what matters most. New picks update right away.</p>
+            </div>
+          </section>
+          ${renderProfileEditor(profile)}
+          <section class="product-card product-recalibrate">
+            <div class="product-recalibrate-body">
+              <div>
+                <strong>Refresh from your history</strong>
+                <p class="product-note">Rebuild from setup answers, My Games outcomes, and manual edits.</p>
+              </div>
+              <button class="product-button product-button-secondary" data-action="recalibrate-profile">Refresh profile</button>
+            </div>
+          </section>
+        </section>
+      `;
+    }
+
     return `
-      <section class="product-grid">
+      <section class="product-page-stack">
         <section class="product-card product-profile-overview">
-          <div class="product-section-head">
-            <p class="product-eyebrow">Local taste model</p>
-            <h2>Your profile</h2>
-            <p class="product-tagline">${escapeHtml(profile.summary)}</p>
-            <p class="product-note">Built from structured choices and local history. No AI is required.</p>
+          <div class="product-page-header product-page-header-row">
+            <div>
+              <p class="product-eyebrow">Your taste</p>
+              <h2>Your profile</h2>
+              <p class="product-tagline">${escapeHtml(profile.summary)}</p>
+              <p class="product-note">Based on your setup and the games you have saved.</p>
+            </div>
+            <button class="product-button product-button-primary" data-action="open-profile-edit">Edit taste profile</button>
           </div>
           <div class="product-profile-signal-grid">
             <article class="product-signal-panel">
@@ -1641,21 +2115,11 @@ export function createProductApp(
               </div>
             </article>
             <article class="product-signal-panel">
-              <span class="product-eyebrow">Current confidence</span>
+              <span class="product-eyebrow">How certain I am</span>
               <strong>${escapeHtml(confidenceLabel)}</strong>
-              <p class="product-note">${loggedCount} logged game${loggedCount === 1 ? "" : "s"} shaping the local profile.</p>
-              ${renderStatusBadge(profile.watchVsPlayRisk === "high" ? "Watch-vs-play risk flagged" : "Playable recommendations prioritized", profile.watchVsPlayRisk === "high" ? "warning" : "positive")}
+              <p class="product-note">${loggedCount} saved game${loggedCount === 1 ? "" : "s"} behind these picks.</p>
+              ${renderStatusBadge(profile.watchVsPlayRisk === "high" ? "Some games may read better than they play" : "Playable picks prioritized", profile.watchVsPlayRisk === "high" ? "warning" : "positive")}
             </article>
-          </div>
-        </section>
-        ${renderProfileEditor(profile)}
-        <section class="product-card product-recalibrate">
-          <div class="product-recalibrate-body">
-            <div>
-              <strong>Refresh from onboarding answers</strong>
-              <p class="product-note">This rebuilds the local profile, then you can adjust it again.</p>
-            </div>
-            <button class="product-button product-button-secondary" data-action="recalibrate-profile">Rebuild local profile</button>
           </div>
         </section>
       </section>
@@ -1665,56 +2129,220 @@ export function createProductApp(
   function renderUpcoming() {
     if (!state.user.profile) {
       return createEmptyState(
-        "Finish setup first so upcoming releases can be scored against your taste profile.",
+        "Finish setup first so upcoming releases can be checked against your taste.",
         "Open setup",
         "go-setup",
       );
     }
 
-    const upcoming = seedData.allGames
+    const activeFilters = ui.upcomingPlatformFilters;
+    const userOwnedPlatforms = new Set(
+      state.user.onboarding.platforms
+        .filter((entry) => ["available", "limited"].includes(entry.status))
+        .map((entry) => entry.platformId)
+    );
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const dd = String(tomorrow.getDate()).padStart(2, "0");
+    const tomorrowStr = `${yyyy}-${mm}-${dd}`;
+
+    const scoredGames = seedData.allGames
       .filter((game) => game.releaseState === "unreleased")
-      .map((game) => scoreSeedGame(game, state, state.user.profile!, seedData.gamesById))
-      .filter((entry) => state.user.gameStates[entry.game.gameId]?.status !== "dismissed")
-      .sort((left, right) => {
-        const leftTracked = state.user.gameStates[left.game.gameId]?.ownershipStatus === "wishlist" ? 1 : 0;
-        const rightTracked = state.user.gameStates[right.game.gameId]?.ownershipStatus === "wishlist" ? 1 : 0;
-        return rightTracked - leftTracked || right.affinityScore - left.affinityScore || left.riskScore - right.riskScore;
+      .filter((game) => !isBasicCatalogGame(game))
+      .filter((game) => {
+        if (!game.sortDate || game.sortDate === "TBA") return true;
+        return game.sortDate >= tomorrowStr;
       })
-      .slice(0, 8);
+      .map((game) => scoreSeedGame(game, state, state.user.profile!, seedData.gamesById))
+      .filter((entry) => state.user.gameStates[entry.game.gameId]?.status !== "dismissed");
+
+    const filteredGames = scoredGames.filter((entry) => {
+      if (activeFilters.size === 0) return true;
+      if (entry.game.availablePlatformIds.length === 0) return true;
+      return entry.game.availablePlatformIds.some((pId) => activeFilters.has(pId));
+    });
+
+    const isExactDate = (entry: RankedSeedGame) => {
+      const label = entry.game.releaseLabel ?? "";
+      return label !== "" && label !== "TBA" && !/^\d{4}$/.test(label);
+    };
+
+    // Confirmed Dates (Current Year: 2026)
+    const confirmed = filteredGames.filter(
+      (entry) => isExactDate(entry) && entry.game.sortDate?.startsWith("2026")
+    );
+    confirmed.sort((left, right) => (left.game.sortDate ?? "").localeCompare(right.game.sortDate ?? ""));
+
+    // Expected in 2026 (Dates TBA)
+    const expectedTba = filteredGames.filter(
+      (entry) => !isExactDate(entry) && (entry.game.sortDate?.startsWith("2026") || entry.game.releaseLabel === "2026")
+    );
+    expectedTba.sort((left, right) => right.affinityScore - left.affinityScore);
+
+    // Future & TBA (2027+)
+    const futureOrTba = filteredGames.filter((entry) => {
+      const isConfirmed2026 = isExactDate(entry) && entry.game.sortDate?.startsWith("2026");
+      const isExpected2026 = !isExactDate(entry) && (entry.game.sortDate?.startsWith("2026") || entry.game.releaseLabel === "2026");
+      return !isConfirmed2026 && !isExpected2026;
+    });
+    futureOrTba.sort((left, right) => {
+      const dateLeft = left.game.sortDate ?? "";
+      const dateRight = right.game.sortDate ?? "";
+      if (dateLeft === "TBA" && dateRight !== "TBA") return 1;
+      if (dateLeft !== "TBA" && dateRight === "TBA") return -1;
+      return dateLeft.localeCompare(dateRight) || right.affinityScore - left.affinityScore;
+    });
+
+    const platformFiltersMarkup = seedData.platforms.map((p) => {
+      const active = ui.upcomingPlatformFilters.has(p.platformId);
+      const activeClass = active ? "is-active" : "is-inactive";
+
+      let icon = "🎮";
+      if (p.platformId.includes("ps") || p.platformId.includes("playstation")) icon = "🔵";
+      else if (p.platformId.includes("xbox")) icon = "🟢";
+      else if (p.platformId.includes("switch") || p.platformId.includes("nintendo")) icon = "🔴";
+      else if (p.platformId.includes("pc") || p.platformId.includes("windows")) icon = "💻";
+
+      return `
+        <button
+          type="button"
+          class="product-justwatch-filter-button ${activeClass}"
+          data-action="toggle-upcoming-platform"
+          data-platform-id="${escapeHtml(p.platformId)}"
+          aria-pressed="${active ? "true" : "false"}"
+        >
+          <span class="platform-filter-icon">${icon}</span>
+          <span class="platform-filter-name">${escapeHtml(p.displayName)}</span>
+        </button>
+      `;
+    }).join("");
+
+    const filterActionsMarkup = `
+      <div class="product-filter-actions">
+        <button type="button" class="product-button product-button-ghost product-button-sm" data-action="show-all-upcoming-platforms">Show All</button>
+        <button type="button" class="product-button product-button-ghost product-button-sm" data-action="reset-upcoming-platforms">My Platforms</button>
+      </div>
+    `;
+
+    const filterContainer = `
+      <div class="product-upcoming-filters-bar">
+        <span class="product-filter-label">Filter by platform:</span>
+        <div class="product-justwatch-filters">
+          ${platformFiltersMarkup}
+        </div>
+        ${filterActionsMarkup}
+      </div>
+    `;
+
+    const renderPlatformsMarkup = (game: SeedGame) => {
+      if (game.availablePlatformNames.length === 0) {
+        return `<span class="product-platform-pill product-platform-tba">TBA Platforms</span>`;
+      }
+      return game.availablePlatformIds.map((pId, idx) => {
+        const name = game.availablePlatformNames[idx] || pId;
+        const owned = userOwnedPlatforms.has(pId);
+        const ownedClass = owned ? "is-owned" : "is-unowned";
+        return `<span class="product-platform-pill ${ownedClass}">${escapeHtml(name)}</span>`;
+      }).join(" ");
+    };
+
+    const renderTierList = (games: RankedSeedGame[], emptyMessage: string) => {
+      if (games.length === 0) {
+        return `<p class="product-upcoming-tier-empty">${escapeHtml(emptyMessage)}</p>`;
+      }
+      return games.map((entry) => {
+        const tracked = getCollectionStatus(state.user.gameStates[entry.game.gameId]) === "wishlist";
+        const isHighFit = entry.affinityScore >= STRONG_FIT_THRESHOLD && entry.riskScore <= MODERATE_FRICTION_THRESHOLD;
+        const isRisky = entry.riskScore >= HIGH_FRICTION_THRESHOLD;
+
+        let rowClass = "";
+        if (isHighFit) rowClass = " product-radar-row-highfit";
+        else if (isRisky) rowClass = " product-radar-row-risky";
+
+        const dateLabel = entry.game.releaseLabel || entry.game.releaseYear || "TBA";
+
+        return `
+          <article class="product-radar-row${rowClass}">
+            ${renderCoverArt(entry.game, "thumb")}
+            <div class="product-radar-main">
+              <div class="product-radar-title-line">
+                <h3><button class="product-link-button" data-action="open-dossier" data-game-id="${escapeHtml(entry.game.gameId)}">${escapeHtml(entry.game.title)}</button></h3>
+                <span class="product-radar-date">${escapeHtml(dateLabel)}</span>
+              </div>
+              <p class="product-meta">${escapeHtml(entry.game.series || entry.game.primaryGenre)}</p>
+              <div class="product-radar-platforms">
+                ${renderPlatformsMarkup(entry.game)}
+              </div>
+            </div>
+            <div class="product-radar-signals">
+              <div class="product-chip-list product-chip-list-tight">
+                ${tracked ? renderStatusBadge("Watching", "accent") : ""}
+                ${renderStatusBadge(formatAccessStatus(entry), accessTone(entry))}
+                ${renderStatusBadge(getDecisionLabel(entry), getDecisionTone(entry))}
+              </div>
+            </div>
+            <div class="product-radar-actions">
+              ${renderActionButtons(entry.game.gameId, { label: tracked ? "Watching" : "Watch release", action: "track-release" }, [{ label: "Not for me", action: "dismiss-game" }])}
+            </div>
+          </article>
+        `;
+      }).join("");
+    };
 
     return `
-      <section class="product-grid">
-        <section class="product-card product-radar-head">
-          <div class="product-section-head">
-            <p class="product-eyebrow">Radar, not play-now</p>
-            <h2>Upcoming worth watching</h2>
-            <p class="product-tagline">Future releases stay separate from Today so they do not crowd out games you can play right now.</p>
+      <section class="product-page-stack product-upcoming-page">
+        <section class="product-radar-head product-page-header">
+          <div>
+            <p class="product-eyebrow">Radar</p>
+            <h2>Games to keep an eye on</h2>
+            <p class="product-tagline">These are not for Today yet. Curate future releases aligned with your taste.</p>
           </div>
         </section>
-        <div class="product-radar-grid">
-          ${upcoming.map((entry) => {
-            const tracked = state.user.gameStates[entry.game.gameId]?.ownershipStatus === "wishlist";
-            return `
-              <article class="product-radar-card">
-                ${renderCoverArt(entry.game, "thumb")}
-                <div class="product-radar-body">
-                  <div>
-                    <p class="product-eyebrow">Worth watching</p>
-                    <h3>${escapeHtml(entry.game.title)}</h3>
-                    <p class="product-meta">${escapeHtml(entry.game.series || entry.game.primaryGenre)}</p>
-                  </div>
-                  <div class="product-chip-list product-chip-list-tight">
-                    ${tracked ? renderStatusBadge("Tracked", "accent") : renderStatusBadge("Not playable yet", "warning")}
-                    ${renderStatusBadge(entry.platformAvailability === "available" ? "Available to you" : "Platform unclear", entry.platformAvailability === "available" ? "positive" : "warning")}
-                    ${renderStatusBadge(getDecisionLabel(entry), getDecisionTone(entry))}
-                  </div>
-                  <p class="product-primary-reason">${escapeHtml(getPrimaryReason(entry))}</p>
-                  ${renderActionButtons(entry.game.gameId, { label: tracked ? "Tracking" : "Track release", action: "track-release" }, [{ label: "Not for me", action: "dismiss-game" }])}
-                </div>
-              </article>
-            `;
-          }).join("") || createEmptyState("No upcoming releases are available in the current seed data.")}
-        </div>
+
+        ${filterContainer}
+
+        <section class="product-panel product-radar-list-surface">
+
+          <div class="product-upcoming-tier-section">
+            <div class="product-section-header">
+              <div>
+                <p class="product-eyebrow">Confirmed releases</p>
+                <h2>Confirmed Dates (2026)</h2>
+              </div>
+            </div>
+            <div class="product-radar-list">
+              ${renderTierList(confirmed, "No confirmed releases in 2026 match the selected platform filter.")}
+            </div>
+          </div>
+
+          <div class="product-upcoming-tier-section">
+            <div class="product-section-header">
+              <div>
+                <p class="product-eyebrow">Expected releases</p>
+                <h2>Expected in 2026 (Dates TBA)</h2>
+              </div>
+            </div>
+            <div class="product-radar-list">
+              ${renderTierList(expectedTba, "No expected 2026 releases match the selected platform filter.")}
+            </div>
+          </div>
+
+          <div class="product-upcoming-tier-section">
+            <div class="product-section-header">
+              <div>
+                <p class="product-eyebrow">Further out</p>
+                <h2>Future & TBA (2027+)</h2>
+              </div>
+            </div>
+            <div class="product-radar-list">
+              ${renderTierList(futureOrTba, "No future or TBA releases match the selected platform filter.")}
+            </div>
+          </div>
+
+        </section>
       </section>
     `;
   }
@@ -1722,7 +2350,7 @@ export function createProductApp(
   function renderFinder() {
     if (!state.user.profile) {
       return createEmptyState(
-        "Finish onboarding first so the finder can score games against your actual taste profile.",
+        "Finish setup first so Finder can check games against what you like.",
         "Open setup",
         "go-setup",
       );
@@ -1730,227 +2358,54 @@ export function createProductApp(
 
     const finderQuery = ui.finderQuery.trim();
     const exactMatch = finderQuery ? findExactSeedGame(seedData.allGames, finderQuery) : null;
-    const hasOnlyNearbyMatches = Boolean(finderQuery && !exactMatch && !ui.finderSelectedGameId);
+    const hasOnlyNearbyMatches = Boolean(finderQuery && !exactMatch);
     const results = finderQuery
       ? searchSeedGames(seedData.allGames, ui.finderQuery, finderIndex)
       : [...seedData.allGames]
           .filter((game) => game.releaseState === "released")
+          .filter((game) => !isBasicCatalogGame(game))
+          .filter((game) => !isSavedToMyGames(state.user.gameStates[game.gameId]))
           .map((game) => scoreSeedGame(game, state, state.user.profile!, seedData.gamesById))
           .sort((a, b) => b.affinityScore - a.affinityScore)
           .slice(0, 12)
           .map((r) => r.game);
-    const selectedGame =
-      (ui.finderSelectedGameId ? getSeedGame(ui.finderSelectedGameId) : null) ??
-      exactMatch ??
-      (finderQuery ? null : results[0]) ??
-      null;
-    const selectedRanked = selectedGame
-      ? scoreSeedGame(selectedGame, state, state.user.profile, seedData.gamesById)
-      : null;
-    const selectedGameState = selectedRanked
-      ? state.user.gameStates[selectedRanked.game.gameId]
-      : null;
-    const localInsight = selectedRanked
-      ? {
-          summary: summarizeRankedGame(selectedRanked),
-          fitReasons: selectedRanked.fitReasons,
-          cautionReasons: selectedRanked.cautionReasons,
-          confidence: selectedRanked.confidence,
-        }
-      : null;
-    const activeInsight =
-      ui.finderInsight && selectedGame && ui.finderInsight.gameId === selectedGame.gameId
-        ? ui.finderInsight
-        : null;
+    const finderEmptyMessage = finderQuery
+      ? "No results found. Try a different title or series name."
+      : "No new matches outside My Games right now. Search for any title to inspect or update it.";
 
     return `
-      <section class="product-finder-grid">
-        <div class="product-panel product-grid">
-          <div class="product-section-head">
-            <p class="product-eyebrow">${finderQuery ? hasOnlyNearbyMatches ? "Closest matches" : "Search results" : "Top picks for you"}</p>
-            <h2>Find your fit</h2>
-            <p class="product-tagline">${
-              finderQuery
-                ? hasOnlyNearbyMatches
-                  ? "No exact match found. Select a nearby result only if it is the game you meant."
-                  : "Showing results scored against your taste profile."
-                : "Showing your top picks by fit score. Search to explore anything else."
+      <section class="product-page-stack product-finder-page">
+        <div class="product-page-header product-finder-hero">
+          <div>
+            <p class="product-eyebrow">${finderQuery ? hasOnlyNearbyMatches ? "Closest matches" : "Search results" : "New games to check"}</p>
+            <h2>Check a game</h2>
+            <p class="product-tagline">${finderQuery
+              ? hasOnlyNearbyMatches
+                ? "No exact match. Choose a nearby result only if it is the right game."
+                : "Showing games ranked against what you like."
+              : "Search any game, or browse strong matches that are not in My Games yet."
             }</p>
           </div>
           <label class="product-field">
             <span class="product-field-hint">Search by title, series, or genre</span>
             <input class="product-input" type="search" data-field="finder-query" value="${escapeHtml(ui.finderQuery)}" placeholder="Search a game…">
           </label>
-          <div class="product-results-list">
-            ${results
-              .map((game) => {
-                const ranked = scoreSeedGame(game, state, state.user.profile!, seedData.gamesById);
-                const isSelected = selectedGame?.gameId === game.gameId;
-
-                return renderGameResultRow(game, ranked, isSelected);
-              })
-              .join("")}
-          </div>
         </div>
-        <div class="product-detail-card product-grid">
-          <button class="product-button product-button-ghost product-finder-back" data-action="finder-back-to-list">← Back to results</button>
-          ${
-            selectedRanked
-              ? `
-                <div class="product-detail-layout">
-                  <div class="product-cover-shell">
-                    ${
-                      selectedRanked.game.coverPath
-                        ? `<img src="${escapeHtml(selectedRanked.game.coverPath)}" alt="${escapeHtml(selectedRanked.game.title)} cover art" loading="lazy" decoding="async">`
-                        : `<span class="product-cover-initials">${escapeHtml((() => { const ws = selectedRanked.game.title.split(" ").filter((w) => w && !/^\d/.test(w)); return (ws.length > 0 ? ws : selectedRanked.game.title.split(" ").filter(Boolean)).slice(0,2).map((w) => w[0].toUpperCase()).join(""); })())}</span>`
-                    }
-                  </div>
-                  <div class="product-grid">
-                    <div class="product-section-head">
-                      <p class="product-eyebrow">${escapeHtml(selectedRanked.game.releaseState === "unreleased" ? "Coming soon" : "In catalog")}</p>
-                      <h2>${escapeHtml(selectedRanked.game.title)}</h2>
-                      <p class="product-tagline">${escapeHtml(activeInsight?.insight?.summary ?? localInsight?.summary ?? "")}</p>
-                    </div>
-                    <div class="product-chip-list">
-                      ${renderChip(`${affinityLabel(selectedRanked.affinityScore, selectedRanked.confidence)} · ${selectedRanked.affinityScore}`)}
-                      ${renderChip(`${riskLabel(selectedRanked.riskScore)} · ${selectedRanked.riskScore}`, selectedRanked.riskScore >= 58 ? "negative" : selectedRanked.riskScore >= 35 ? "warning" : "positive")}
-                      ${renderChip(formatConfidence(activeInsight?.insight?.confidence ?? localInsight?.confidence ?? selectedRanked.confidence))}
-                      ${renderChip(formatPlatformAvailability(selectedRanked), selectedRanked.platformAvailability === "unavailable" ? "negative" : "positive")}
-                      ${renderChip(formatOwnershipStatus(selectedRanked.ownershipStatus), selectedRanked.ownershipStatus === "owned" ? "positive" : selectedRanked.ownershipStatus === "unknown" ? "warning" : "negative")}
-                      ${renderChip(formatReleaseState(selectedRanked.game.releaseState), selectedRanked.game.releaseState === "unreleased" ? "warning" : "positive")}
-                      ${
-                        selectedGameState?.status === "dropped"
-                          ? renderChip("Dropped early", "negative")
-                          : ""
-                      }
-                      ${
-                        selectedGameState?.status === "completed"
-                          ? renderChip(
-                              `Completed · ${formatCompletionOutcome(selectedGameState.sentiment)}`,
-                              selectedGameState.sentiment === "liked"
-                                ? "positive"
-                                : selectedGameState.sentiment === "disliked"
-                                  ? "negative"
-                                  : "warning",
-                            )
-                          : ""
-                      }
-                    </div>
-                    <div class="product-grid">
-                      <div>
-                        <strong>Why this could work for you</strong>
-                        <ul>
-                          ${(activeInsight?.insight?.fitReasons ?? localInsight?.fitReasons ?? [])
-                            .map((reason) => `<li>${escapeHtml(reason)}</li>`)
-                            .join("")}
-                        </ul>
-                      </div>
-                      <div>
-                        <strong>What to watch out for</strong>
-                        <ul>
-                          ${(activeInsight?.insight?.cautionReasons ?? localInsight?.cautionReasons ?? [])
-                            .map((reason) => `<li>${escapeHtml(reason)}</li>`)
-                            .join("")}
-                        </ul>
-                      </div>
-                    </div>
-                    <div class="product-meta-row">
-                      <span class="product-meta">Platforms: ${escapeHtml(selectedRanked.game.availablePlatformNames.join(", ") || "Unknown")}</span>
-                    </div>
-                    <div class="product-state-actions">
-                      ${
-                        selectedRanked.game.releaseState === "released" &&
-                        selectedRanked.ownershipStatus === "owned" &&
-                        selectedGameState?.status === "playing"
-                          ? `<button class="product-button product-button-primary" data-action="open-completion-picker" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Mark completed</button>`
-                          : selectedRanked.game.releaseState === "released" &&
-                              selectedRanked.ownershipStatus === "owned" &&
-                              selectedGameState?.status === "completed"
-                            ? `<button class="product-button product-button-primary" data-action="open-completion-picker" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Update completion</button>`
-                            : selectedRanked.game.releaseState === "released" &&
-                                selectedRanked.ownershipStatus === "owned" &&
-                                selectedGameState?.status === "dropped"
-                              ? `<button class="product-button product-button-primary" data-action="retry-dropped-run" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Retry this run</button>`
-                              : selectedRanked.game.releaseState === "released" && selectedRanked.ownershipStatus === "owned"
-                              ? `<button class="product-button product-button-primary" data-action="set-current-run" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Make current run</button>`
-                              : ""
-                      }
-                      ${
-                        selectedRanked.game.releaseState === "released" &&
-                        selectedRanked.ownershipStatus === "owned" &&
-                        (selectedGameState?.status === "playing" || selectedGameState?.status === "on_hold")
-                          ? `<button class="product-button product-button-secondary" data-action="pause-run" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Pause this run</button>`
-                          : selectedRanked.game.releaseState === "released" &&
-                              selectedRanked.ownershipStatus === "owned" &&
-                              selectedGameState?.status === "dropped"
-                            ? `<button class="product-button product-button-secondary" data-action="mark-interested" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Save for later</button>`
-                          : ""
-                      }
-                      ${
-                        selectedRanked.game.releaseState === "released" &&
-                        selectedRanked.ownershipStatus === "owned" &&
-                        (selectedGameState?.status === "playing" || selectedGameState?.status === "on_hold")
-                          ? `<button class="product-button product-button-secondary" data-action="open-drop-picker" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Drop this run</button>`
-                          : ""
-                      }
-                      ${
-                        selectedRanked.game.releaseState === "unreleased"
-                          ? `<button class="product-button product-button-secondary" data-action="track-release" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Track release</button>`
-                          : selectedRanked.ownershipStatus === "owned" &&
-                              selectedGameState?.status !== "completed" &&
-                              selectedGameState?.status !== "dropped"
-                            ? `<button class="product-button product-button-secondary" data-action="mark-interested" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Save for later</button>`
-                            : selectedRanked.ownershipStatus !== "owned"
-                              ? `<button class="product-button product-button-secondary" data-action="mark-wishlist" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Add to wishlist</button>`
-                              : ""
-                      }
-                      ${
-                        selectedRanked.game.releaseState === "released" && selectedRanked.ownershipStatus !== "owned"
-                          ? `<button class="product-button product-button-ghost" data-action="mark-owned" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">I own this</button>`
-                          : ""
-                      }
-                      ${
-                        selectedRanked.game.releaseState === "released" &&
-                        selectedRanked.ownershipStatus !== "not_owned" &&
-                        selectedGameState?.status !== "playing" &&
-                        selectedGameState?.status !== "on_hold"
-                          ? `<button class="product-button product-button-ghost" data-action="mark-not-owned" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">I don't own this</button>`
-                          : ""
-                      }
-                      ${
-                        selectedGameState?.status !== "completed"
-                          ? `<button class="product-button product-button-ghost" data-action="dismiss-game" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">Not for me</button>`
-                          : ""
-                      }
-                      ${
-                        runtimeMode === "ai-assisted" && selectedRanked.game.releaseState === "released"
-                          ? `<button class="product-button product-button-ghost" data-action="request-finder-insight" data-game-id="${escapeHtml(selectedRanked.game.gameId)}">${activeInsight?.status === "loading" ? "Thinking…" : "Get a deeper AI read"}</button>`
-                          : ""
-                      }
-                    </div>
-                    ${renderCompletionPicker(selectedRanked.game.gameId, selectedGameState?.sentiment)}
-                    ${renderDropPicker(selectedRanked.game.gameId)}
-                    ${
-                      runtimeMode === "local-only"
-                        ? `<p class="product-note">Running locally — scores are based on your profile and game data, no AI needed.</p>`
-                        : ""
-                    }
-                    ${
-                      activeInsight?.status === "error"
-                        ? `<p class="product-note">${escapeHtml(activeInsight.error ?? "The AI proxy is not available. Local reasoning is still shown above.")}</p>`
-                        : ""
-                    }
-                  </div>
-                </div>
-              `
-              : finderQuery
-                ? createEmptyState(
-                    hasOnlyNearbyMatches
-                      ? "No exact match found. Choose a closest match from the list if one is correct."
-                      : "No results found. Try a different title or series name.",
-                  )
-                : createEmptyState("No results found. Try a different title or series name.")
-          }
+        ${hasOnlyNearbyMatches ? `
+          <section class="product-exact-warning">
+            <strong>No exact match found</strong>
+            <p class="product-note">I found nearby matches. Open one only if it is the game you meant.</p>
+          </section>
+        ` : ""}
+        <div class="product-results-list product-results-list-premium">
+          ${results.length > 0
+            ? results
+                .map((game) => {
+                  const ranked = scoreSeedGame(game, state, state.user.profile!, seedData.gamesById);
+                  return renderGameResultRow(game, ranked, false);
+                })
+                .join("")
+            : createEmptyState(finderEmptyMessage)}
         </div>
       </section>
     `;
@@ -1966,12 +2421,12 @@ export function createProductApp(
       onboarding: "Setup",
       today: "Today",
       finder: "Finder",
-      library: "Library",
+      library: "My Games",
       profile: "Profile",
       upcoming: "Upcoming",
     };
 
-    const statusLabel = runtimeMode === "ai-assisted" ? "AI" : "Local";
+    const statusLabel = runtimeMode === "ai-assisted" ? "Assisted" : "Private";
     const statusCls = runtimeMode === "ai-assisted" ? " app-status-ai" : "";
     const mainContent = ui.dossierGameId
       ? renderDossierScreen(ui.dossierGameId)
@@ -2006,14 +2461,14 @@ export function createProductApp(
         <aside class="app-sidebar">
           <div class="app-brand">
             <span class="app-brand-eyebrow">Playfit</span>
-            <strong class="app-brand-name">Game concierge</strong>
+            <strong class="app-brand-name">Private game advisor</strong>
           </div>
           <nav class="app-nav" aria-label="Main navigation">
             ${navItems}
           </nav>
           <div class="app-sidebar-footer">
             <span class="app-status-chip${statusCls}">${escapeHtml(statusLabel)}</span>
-            ${isOnboarded ? "" : `<p class="app-sidebar-tagline">Stop abandoning games. Find what actually fits you.</p>`}
+            ${isOnboarded ? "" : `<p class="app-sidebar-tagline">Decide what deserves your play time.</p>`}
           </div>
         </aside>
 
@@ -2021,7 +2476,7 @@ export function createProductApp(
           <header class="app-topbar">
             <div class="app-brand">
               <span class="app-brand-eyebrow">Playfit</span>
-              <strong class="app-brand-name">Game concierge</strong>
+              <strong class="app-brand-name">Private game advisor</strong>
             </div>
             <span class="app-status-chip${statusCls}">${escapeHtml(statusLabel)}</span>
           </header>
@@ -2036,9 +2491,98 @@ export function createProductApp(
         </div>
       </div>
       ${ui.statusMessage ? `<div class="product-toast" role="status">${escapeHtml(ui.statusMessage)}</div>` : ""}
+      ${renderActiveModal()}
     `;
 
     restoreFocusSnapshot(root, focusSnapshot);
+  }
+
+  function isFrictionGuardedAction(action: string | undefined): action is FrictionGuardedAction {
+    return action === "set-current-run" || action === "add-backlog" || action === "mark-wishlist";
+  }
+
+  async function handleGuardedGameAction(
+    action: FrictionGuardedAction,
+    gameId: string,
+    confirmed = false,
+  ) {
+    const game = getSeedGame(gameId);
+
+    if (action === "set-current-run") {
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("This one is not playable yet.");
+        render();
+        return;
+      }
+
+      if (!confirmed && shouldConfirmFrictionAction(gameId)) {
+        openFrictionConfirmation(gameId, action);
+        render();
+        return;
+      }
+
+      updateGameState(gameId, {
+        status: "playing",
+        ownershipStatus: "owned",
+        source: "finder",
+      });
+      closeModal();
+      addFinderAction(gameId, "current_run");
+      setStatusMessage("Set as playing. You can keep more than one game in progress.");
+      await persistState();
+      render();
+      return;
+    }
+
+    if (action === "add-backlog") {
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("This one is not playable yet. Watch it for later instead.");
+        render();
+        return;
+      }
+
+      if (!confirmed && shouldConfirmFrictionAction(gameId)) {
+        openFrictionConfirmation(gameId, action);
+        render();
+        return;
+      }
+
+      updateGameState(gameId, {
+        collectionStatus: "backlog",
+        ownershipStatus: "owned",
+        source: "finder",
+      });
+      closeModal();
+      addFinderAction(gameId, "saved");
+      setStatusMessage("Added to backlog in My Games.");
+      await persistState();
+      render();
+      return;
+    }
+
+    const existing = state.user.gameStates[gameId];
+    if (isPlayStatus(existing?.status)) {
+      setStatusMessage("Played games stay in My Games, not wishlist.");
+      render();
+      return;
+    }
+
+    if (!confirmed && shouldConfirmFrictionAction(gameId)) {
+      openFrictionConfirmation(gameId, action);
+      render();
+      return;
+    }
+
+    updateGameState(gameId, {
+      collectionStatus: "wishlist",
+      ownershipStatus: "wishlist",
+      source: "finder",
+    });
+    closeModal();
+    addFinderAction(gameId, "saved");
+    setStatusMessage("Added to wishlist. I will keep it separate from games you are playing.");
+    await persistState();
+    render();
   }
 
   async function handleGenerateProfile() {
@@ -2052,12 +2596,12 @@ export function createProductApp(
     const currentGame = draft.currentGameId ? getSeedGame(draft.currentGameId) : null;
 
     if (runtimeMode === "local-only") {
-      const profile = buildFallbackProfile(draft, seedData.gamesById);
+      const profile = buildProfileFromCurrentData();
       state.user.onboarding.draftProfile = profile;
       if (state.user.onboardingCompletedAt && ui.activeTab !== "onboarding") {
         state.user.profile = profile;
       }
-      setStatusMessage("Profile generated locally.");
+      setStatusMessage("Your profile is ready.");
       await persistState();
       render();
       return;
@@ -2074,14 +2618,14 @@ export function createProductApp(
       if (state.user.onboardingCompletedAt && ui.activeTab !== "onboarding") {
         state.user.profile = profile;
       }
-      setStatusMessage("Profile generated through the AI proxy.");
+      setStatusMessage("Your profile is ready.");
     } catch {
-      const profile = buildFallbackProfile(draft, seedData.gamesById);
+      const profile = buildProfileFromCurrentData();
       state.user.onboarding.draftProfile = profile;
       if (state.user.onboardingCompletedAt && ui.activeTab !== "onboarding") {
         state.user.profile = profile;
       }
-      setStatusMessage("AI profile unavailable. Profile generated locally.");
+      setStatusMessage("Your profile is ready.");
     }
 
     await persistState();
@@ -2092,13 +2636,12 @@ export function createProductApp(
     const draftProfile = state.user.onboarding.draftProfile;
 
     if (!draftProfile) {
-      setStatusMessage("Generate a profile before entering the product.");
+      setStatusMessage("Build your profile before continuing.");
       render();
       return;
     }
 
     state.user.profile = draftProfile;
-    state.user.onboardingCompletedAt = nowIso();
 
     state.user.onboarding.likedGameIds.forEach((gameId) => {
       updateGameState(gameId, {
@@ -2111,7 +2654,7 @@ export function createProductApp(
     });
     state.user.onboarding.dislikedGameIds.forEach((gameId) => {
       updateGameState(gameId, {
-        status: "dropped",
+        status: "abandoned",
         sentiment: "disliked",
         ownershipStatus: getAnchorOwnership(gameId),
         notes: formatAnchorNotes(gameId),
@@ -2129,6 +2672,7 @@ export function createProductApp(
       });
     }
 
+    state.user.onboardingCompletedAt = nowIso();
     ui.activeTab = "today";
     setStatusMessage("You're all set. Here are your first picks.");
     await persistState();
@@ -2157,9 +2701,7 @@ export function createProductApp(
     if (field === "finder-query" && target instanceof HTMLInputElement) {
       ui.finderQuery = target.value;
       ui.finderSelectedGameId = null;
-      closeCompletionPicker();
-      closeDropPicker();
-      ui.finderInsight = null;
+      closeModal();
       render();
       return;
     }
@@ -2237,6 +2779,35 @@ export function createProductApp(
     const gameId = button.dataset.gameId ?? null;
     const chipId = button.dataset.chipId ?? null;
 
+    if (action === "toggle-upcoming-platform") {
+      const platformId = button.dataset.platformId;
+      if (platformId) {
+        if (ui.upcomingPlatformFilters.has(platformId)) {
+          ui.upcomingPlatformFilters.delete(platformId);
+        } else {
+          ui.upcomingPlatformFilters.add(platformId);
+        }
+        render();
+      }
+      return;
+    }
+
+    if (action === "show-all-upcoming-platforms") {
+      seedData.platforms.forEach((p) => ui.upcomingPlatformFilters.add(p.platformId));
+      render();
+      return;
+    }
+
+    if (action === "reset-upcoming-platforms") {
+      ui.upcomingPlatformFilters = new Set(
+        state.user.onboarding.platforms
+          .filter((entry) => ["available", "limited"].includes(entry.status))
+          .map((entry) => entry.platformId)
+      );
+      render();
+      return;
+    }
+
     if (action === "toggle-anchor-reason" && gameId) {
       const reason = button.dataset.reasonId as ProductAnchorReason | undefined;
       if (!reason) return;
@@ -2272,6 +2843,14 @@ export function createProductApp(
 
       if (!profile || !key || !value) return;
       profile.priorities[key] = value;
+      if (!(ui.activeTab === "onboarding" && state.user.onboarding.step === "confirm")) {
+        const overrides = ensureProfileOverrides();
+        overrides.priorities = {
+          ...overrides.priorities,
+          [key]: value,
+        };
+        state.user.profile = applyProfileOverrides(profile, overrides);
+      }
       await persistState();
       render();
       return;
@@ -2285,6 +2864,36 @@ export function createProductApp(
 
       if (!profile || !key) return;
       profile.avoidPatterns[key] = !profile.avoidPatterns[key];
+      if (!(ui.activeTab === "onboarding" && state.user.onboarding.step === "confirm")) {
+        const overrides = ensureProfileOverrides();
+        overrides.avoidPatterns = {
+          ...overrides.avoidPatterns,
+          [key]: profile.avoidPatterns[key],
+        };
+        state.user.profile = normalizeProfileSignals(applyProfileOverrides(profile, overrides));
+      } else {
+        profile.signals = normalizeProfileSignals(profile).signals;
+      }
+      await persistState();
+      render();
+      return;
+    }
+
+    if (action === "set-watch-risk") {
+      const value = button.dataset.profileValue as ProductProfile["watchVsPlayRisk"] | undefined;
+      const profile = ui.activeTab === "onboarding" && state.user.onboarding.step === "confirm"
+        ? state.user.onboarding.draftProfile
+        : state.user.profile;
+
+      if (!profile || !value) return;
+      profile.watchVsPlayRisk = value;
+      if (!(ui.activeTab === "onboarding" && state.user.onboarding.step === "confirm")) {
+        const overrides = ensureProfileOverrides();
+        overrides.watchVsPlayRisk = value;
+        state.user.profile = applyProfileOverrides(profile, overrides);
+      } else {
+        profile.signals = normalizeProfileSignals(profile).signals;
+      }
       await persistState();
       render();
       return;
@@ -2323,8 +2932,9 @@ export function createProductApp(
         ui.activeTab = tab;
         ui.dossierGameId = null;
         ui.dossierReturnTab = null;
-        closeCompletionPicker();
-        closeDropPicker();
+        ui.profileMode = "overview";
+        ui.outcomeNotice = null;
+        closeModal();
         setStatusMessage(null);
         render();
         window.scrollTo({ top: 0, behavior: "instant" });
@@ -2332,11 +2942,63 @@ export function createProductApp(
       return;
     }
 
+    if (action === "dismiss-outcome-notice") {
+      ui.outcomeNotice = null;
+      render();
+      return;
+    }
+
+    if (action === "close-modal") {
+      closeModal();
+      render();
+      return;
+    }
+
+    if (action === "confirm-friction-action") {
+      const pending = ui.pendingFrictionAction;
+      if (!pending) {
+        closeModal();
+        render();
+        return;
+      }
+      ui.activeModal = null;
+      ui.modalGameId = null;
+      ui.pendingFrictionAction = null;
+      await handleGuardedGameAction(pending.action, pending.gameId, true);
+      return;
+    }
+
+    if (gameId && isFrictionGuardedAction(action)) {
+      await handleGuardedGameAction(action, gameId);
+      return;
+    }
+
+    if (action === "open-history-log") {
+      ui.historyQuery = "";
+      ui.historySelectedGameId = null;
+      openModal("history-log");
+      render();
+      return;
+    }
+
+    if (action === "open-profile-edit") {
+      ui.profileMode = "edit";
+      render();
+      window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+
+    if (action === "close-profile-edit") {
+      ui.profileMode = "overview";
+      render();
+      window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+
     if (action === "open-dossier" && gameId) {
       ui.dossierGameId = gameId;
       ui.dossierReturnTab = ui.activeTab;
-      closeCompletionPicker();
-      closeDropPicker();
+      closeModal();
       setStatusMessage(null);
       render();
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -2345,8 +3007,7 @@ export function createProductApp(
 
     if (action === "close-dossier") {
       ui.dossierGameId = null;
-      closeCompletionPicker();
-      closeDropPicker();
+      closeModal();
       setStatusMessage(null);
       render();
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -2355,7 +3016,7 @@ export function createProductApp(
 
     if (action === "next-step") {
       if (!canAdvanceOnboarding(state.user.onboarding)) {
-        setStatusMessage("Complete the current step before moving on.");
+        setStatusMessage("Finish this step first.");
         render();
         return;
       }
@@ -2476,6 +3137,13 @@ export function createProductApp(
     }
 
     if (action === "recalibrate-profile") {
+      openModal("recalibrate");
+      render();
+      return;
+    }
+
+    if (action === "confirm-recalibrate-profile") {
+      closeModal();
       await handleGenerateProfile();
       return;
     }
@@ -2490,127 +3158,50 @@ export function createProductApp(
     }
 
     if (action === "select-finder-result" && gameId) {
-      ui.finderSelectedGameId = gameId;
-      closeCompletionPicker();
-      closeDropPicker();
-      ui.finderInsight = null;
+      ui.finderSelectedGameId = null;
+      ui.dossierGameId = gameId;
+      ui.dossierReturnTab = "finder";
       render();
-      // On mobile, scroll the detail panel into view after render
-      requestAnimationFrame(() => {
-        const detail = root.querySelector<HTMLElement>(".product-detail-card");
-        if (detail && window.innerWidth < 1100) {
-          detail.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-      return;
-    }
-
-    if (action === "request-finder-insight" && gameId) {
-      const game = getSeedGame(gameId);
-      if (!game || !state.user.profile) {
-        return;
-      }
-
-      ui.finderInsight = {
-        gameId,
-        status: "loading",
-      };
-      render();
-
-      try {
-        const insight = await requestFinderInsight({
-          game,
-          profile: state.user.profile,
-        });
-        ui.finderInsight = {
-          gameId,
-          status: "ready",
-          insight,
-        };
-      } catch (error) {
-        ui.finderInsight = {
-          gameId,
-          status: "error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "The AI proxy is unavailable. Local explanation remains visible.",
-        };
-      }
-
-      render();
-      return;
-    }
-
-    if (gameId && action === "set-current-run") {
-      const game = getSeedGame(gameId);
-      if (!game || game.releaseState !== "released") {
-        setStatusMessage("Unreleased titles cannot become the current run.");
-        render();
-        return;
-      }
-
-      updateGameState(gameId, {
-        status: "playing",
-        ownershipStatus: "owned",
-        source: "finder",
-      });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "current_run");
-      setStatusMessage("Now playing. Any previous run was moved to on hold.");
-      await persistState();
-      render();
+      window.scrollTo({ top: 0, behavior: "instant" });
       return;
     }
 
     if (gameId && action === "open-completion-picker") {
       const game = getSeedGame(gameId);
-      const gameState = state.user.gameStates[gameId];
 
-      if (!game || game.releaseState !== "released" || gameState?.ownershipStatus !== "owned") {
-        setStatusMessage("Only released and owned games can be marked as completed.");
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("This one is not out yet, so it cannot be completed.");
         render();
         return;
       }
 
-      ui.completionPickerGameId = ui.completionPickerGameId === gameId ? null : gameId;
-      closeDropPicker();
-      setStatusMessage(null);
+      openModal("completion", gameId);
       render();
       return;
     }
 
     if (action === "close-completion-picker") {
-      closeCompletionPicker();
+      closeModal();
       render();
       return;
     }
 
     if (gameId && action === "open-drop-picker") {
       const game = getSeedGame(gameId);
-      const gameState = state.user.gameStates[gameId];
 
-      if (
-        !game ||
-        game.releaseState !== "released" ||
-        gameState?.ownershipStatus !== "owned" ||
-        (gameState?.status !== "playing" && gameState?.status !== "on_hold")
-      ) {
-        setStatusMessage("Only started owned runs can be dropped.");
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("This one is not out yet, so it cannot be abandoned.");
         render();
         return;
       }
 
-      ui.dropPickerGameId = ui.dropPickerGameId === gameId ? null : gameId;
-      closeCompletionPicker();
-      setStatusMessage(null);
+      openModal("drop", gameId);
       render();
       return;
     }
 
     if (action === "close-drop-picker") {
-      closeDropPicker();
+      closeModal();
       render();
       return;
     }
@@ -2620,7 +3211,7 @@ export function createProductApp(
       const sentiment = button.dataset.sentiment as ProductGameSentiment | undefined;
 
       if (!game || game.releaseState !== "released" || !sentiment) {
-        setStatusMessage("This game cannot be completed from the current state.");
+        setStatusMessage("I cannot mark this as completed right now.");
         render();
         return;
       }
@@ -2630,17 +3221,10 @@ export function createProductApp(
         sentiment,
         ownershipStatus: "owned",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      setStatusMessage(
-        sentiment === "liked"
-          ? "Nice one! Logged as loved — that shapes your future picks."
-          : sentiment === "disliked"
-            ? "Got it. We'll factor that out of future suggestions."
-            : "Logged with mixed feelings. Noted for the profile.",
-      );
+      showOutcomeNotice(game, "completed", sentiment);
       await persistState();
       render();
+      window.scrollTo({ top: 0, behavior: "instant" });
       return;
     }
 
@@ -2648,22 +3232,42 @@ export function createProductApp(
       const game = getSeedGame(gameId);
 
       if (!game || game.releaseState !== "released") {
-        setStatusMessage("This game cannot be dropped from the current state.");
+        setStatusMessage("I cannot mark this as abandoned right now.");
         render();
         return;
       }
 
       updateGameState(gameId, {
-        status: "dropped",
+        status: "abandoned",
         sentiment: "disliked",
         ownershipStatus: "owned",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "dropped");
-      setStatusMessage("Dropped. We'll remember this one didn't stick.");
+      addFinderAction(gameId, "abandoned");
+      showOutcomeNotice(game, "abandoned", "disliked");
       await persistState();
       render();
+      window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+
+    if (gameId && action === "mark-beaten") {
+      const game = getSeedGame(gameId);
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("I cannot mark this as beaten right now.");
+        render();
+        return;
+      }
+
+      updateGameState(gameId, {
+        status: "beaten",
+        sentiment: "liked",
+        ownershipStatus: "owned",
+        source: "finder",
+      });
+      showOutcomeNotice(game, "beaten", "liked");
+      await persistState();
+      render();
+      window.scrollTo({ top: 0, behavior: "instant" });
       return;
     }
 
@@ -2671,7 +3275,7 @@ export function createProductApp(
       const game = getSeedGame(gameId);
 
       if (!game || game.releaseState !== "released") {
-        setStatusMessage("This game cannot be retried right now.");
+        setStatusMessage("I cannot retry this game right now.");
         render();
         return;
       }
@@ -2681,80 +3285,66 @@ export function createProductApp(
         ownershipStatus: "owned",
         source: "finder",
       });
-      closeCompletionPicker();
-      closeDropPicker();
+      closeModal();
       addFinderAction(gameId, "current_run");
-      setStatusMessage("Giving it another shot — set as current run.");
+      setStatusMessage("Back in progress.");
       await persistState();
       render();
       return;
     }
 
     if (gameId && action === "mark-interested") {
+      await handleGuardedGameAction("add-backlog", gameId);
+      return;
+    }
+
+    if (gameId && action === "remove-backlog") {
+      const existing = state.user.gameStates[gameId];
       updateGameState(gameId, {
-        status: "interested",
-        ownershipStatus: "owned",
-        source: "finder",
+        status: existing?.status === "backlog" || existing?.status === "interested" ? null : undefined,
+        collectionStatus: null,
+        source: "manual",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "saved");
-      setStatusMessage("Bookmarked. You'll find it in your library.");
+      closeModal();
+      setStatusMessage("Removed from backlog.");
       await persistState();
       render();
       return;
     }
 
-    if (gameId && action === "mark-wishlist") {
+    if (gameId && action === "remove-wishlist") {
       updateGameState(gameId, {
-        ownershipStatus: "wishlist",
-        source: "finder",
+        collectionStatus: null,
+        ownershipStatus: "unknown",
+        source: "manual",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "saved");
-      setStatusMessage("Added to wishlist. It'll show up in Today as a pick to get.");
-      await persistState();
-      render();
-      return;
-    }
-
-    if (gameId && action === "mark-owned") {
-      updateGameState(gameId, {
-        ownershipStatus: "owned",
-        source: "finder",
-      });
-      closeCompletionPicker();
-      closeDropPicker();
-      setStatusMessage("Marked as owned — it's now eligible to appear in Today.");
-      await persistState();
-      render();
-      return;
-    }
-
-    if (gameId && action === "mark-not-owned") {
-      updateGameState(gameId, {
-        ownershipStatus: "not_owned",
-        source: "finder",
-      });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "not_owned");
-      setStatusMessage("Got it — it can still show as something worth getting, just not as a play-now pick.");
+      closeModal();
+      setStatusMessage("Removed from wishlist.");
       await persistState();
       render();
       return;
     }
 
     if (gameId && action === "track-release") {
+      await handleGuardedGameAction("mark-wishlist", gameId);
+      return;
+    }
+
+    if (gameId && action === "shelve-game") {
+      const game = getSeedGame(gameId);
+      if (!game || game.releaseState !== "released") {
+        setStatusMessage("I cannot shelve this game right now.");
+        render();
+        return;
+      }
+
       updateGameState(gameId, {
-        ownershipStatus: "wishlist",
+        status: "shelved",
+        ownershipStatus: "owned",
         source: "finder",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      addFinderAction(gameId, "saved");
-      setStatusMessage("On your radar. We'll keep it in view.");
+      closeModal();
+      setStatusMessage("Shelved for later.");
       await persistState();
       render();
       return;
@@ -2765,10 +3355,52 @@ export function createProductApp(
         status: "dismissed",
         source: "finder",
       });
-      closeCompletionPicker();
-      closeDropPicker();
+      closeModal();
       addFinderAction(gameId, "dismissed");
-      setStatusMessage("Skipped. It won't come up again.");
+      setStatusMessage("Marked not for me. It will stay out of future picks.");
+      await persistState();
+      render();
+      return;
+    }
+
+    if (gameId && action === "rate-game") {
+      const rating = Number(button.dataset.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return;
+      }
+
+      updateGameState(gameId, {
+        rating,
+        source: "manual",
+      });
+      setStatusMessage(`Rated ${rating} star${rating === 1 ? "" : "s"}.`);
+      await persistState();
+      render();
+      return;
+    }
+
+    if (gameId && action === "clear-rating") {
+      const existing = state.user.gameStates[gameId];
+      if (existing) {
+        state.user.gameStates[gameId] = {
+          ...existing,
+          rating: undefined,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      setStatusMessage("Rating cleared.");
+      await persistState();
+      render();
+      return;
+    }
+
+    if (gameId && action === "remove-library-game") {
+      const game = getSeedGame(gameId);
+      delete state.user.gameStates[gameId];
+      delete state.user.finderActions[gameId];
+      closeModal();
+      setStatusMessage(`${game?.title ?? "Game"} removed from My Games.`);
       await persistState();
       render();
       return;
@@ -2776,12 +3408,11 @@ export function createProductApp(
 
     if (gameId && action === "pause-run") {
       updateGameState(gameId, {
-        status: "on_hold",
+        status: "shelved",
         source: "manual",
       });
-      closeCompletionPicker();
-      closeDropPicker();
-      setStatusMessage("Paused. You can pick it back up anytime from Today.");
+      closeModal();
+      setStatusMessage("Shelved. You can pick it back up anytime from Today.");
       await persistState();
       render();
       return;
@@ -2803,7 +3434,7 @@ export function createProductApp(
 
     if (gameId && action === "log-history-game") {
       const sentiment = button.dataset.sentiment as ProductGameSentiment | undefined;
-      const status = button.dataset.status as "completed" | "dropped" | undefined;
+      const status = button.dataset.status as "beaten" | "completed" | "dropped" | "abandoned" | undefined;
       if (!sentiment || !status) return;
       updateGameState(gameId, {
         status,
@@ -2813,23 +3444,31 @@ export function createProductApp(
       });
       ui.historySelectedGameId = null;
       ui.historyQuery = "";
-      ui.libraryEditGameId = null;
+      closeModal();
       const game = seedData.gamesById.get(gameId);
-      const label = status === "dropped" ? "given up on" : sentiment === "liked" ? "loved" : sentiment === "disliked" ? "not your thing" : "mixed";
-      setStatusMessage(`${game?.title ?? "Game"} logged as ${label}. Your suggestions just got a bit sharper.`);
+      const label = status === "abandoned" || status === "dropped"
+        ? "abandoned"
+        : status === "beaten"
+          ? "finished story"
+          : sentiment === "liked"
+            ? "completed 100%"
+            : sentiment === "disliked"
+              ? "not your thing"
+              : "mixed";
+      setStatusMessage(`${game?.title ?? "Game"} saved as ${label}. Future picks just got sharper.`);
       await persistState();
       render();
       return;
     }
 
     if (gameId && action === "library-reopen") {
-      ui.libraryEditGameId = gameId;
+      openModal("library-edit", gameId);
       render();
       return;
     }
 
     if (action === "library-close-edit") {
-      ui.libraryEditGameId = null;
+      closeModal();
       render();
       return;
     }
@@ -2841,13 +3480,22 @@ export function createProductApp(
       ui.activeTab = "onboarding";
       ui.finderQuery = "";
       ui.finderSelectedGameId = null;
-      closeCompletionPicker();
-      closeDropPicker();
-      ui.finderInsight = null;
-      setStatusMessage("All data cleared. Starting fresh.");
+      ui.profileMode = "overview";
+      closeModal();
+      setStatusMessage("Starting fresh.");
       render();
     }
   });
 
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !ui.activeModal) {
+      return;
+    }
+
+    closeModal();
+    render();
+  });
+
+  refreshAdaptiveProfile();
   render();
 }

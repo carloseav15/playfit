@@ -1,9 +1,11 @@
 import type {
   ProductAnchorReason,
   ProductInterviewAnswers,
+  ProductGameState,
   ProductOnboardingDraft,
   ProductPriority,
   ProductProfile,
+  ProductProfileOverrides,
   ProductProfileSignal,
   SeedGame,
 } from "../types";
@@ -81,6 +83,158 @@ function countGenres(gameIds: string[], gamesById: Map<string, SeedGame>) {
     .map(([genre]) => genre);
 }
 
+const RISK_SIGNAL_FIELDS: Record<string, keyof ProductProfile["avoidPatterns"]> = {
+  "slow-start-risk": "slowStart",
+  "repetition-risk": "repetition",
+  "systems-risk": "confusingSystems",
+  "emotional-risk": "weakEmotionalPull",
+  "combat-risk": "shallowCombat",
+};
+
+function isSlowNarrativeGame(game: SeedGame) {
+  return game.storyStrength === "high" && (game.pacingSpeed === "slow" || game.earlyHook === "low");
+}
+
+function pushOutcomeSignalsForPositiveGame(
+  profile: ProductProfile,
+  signals: ProductProfileSignal[],
+  game: SeedGame,
+) {
+  if (game.storyStrength === "high") {
+    profile.priorities.story = "high";
+    signals.push({
+      id: "story-fit",
+      tone: "positive",
+      label: "Story keeps paying off",
+      reason: "Finished games in My Games reinforce story as a durable positive signal.",
+    });
+  }
+
+  if (game.progressionClarity === "high") {
+    profile.priorities.progression = "high";
+    signals.push({
+      id: "progression-fit",
+      tone: "positive",
+      label: "Clear progression matters",
+      reason: "Positive outcomes show that readable progress keeps momentum high.",
+    });
+  }
+
+  if (game.earlyHook === "high" || game.pacingSpeed === "fast") {
+    profile.priorities.hook = "high";
+    profile.priorities.pace = bumpPriority(profile.priorities.pace, "high");
+    signals.push({
+      id: "hook-fit",
+      tone: "positive",
+      label: "Momentum helps",
+      reason: "Games that landed tended to create early forward motion.",
+    });
+  }
+
+  if (game.combatDepth === "high") {
+    profile.priorities.combat = bumpPriority(profile.priorities.combat, "medium");
+    signals.push({
+      id: "combat-fit",
+      tone: "positive",
+      label: "Combat depth can sustain interest",
+      reason: "Positive outcomes include games with stronger combat texture.",
+    });
+  }
+}
+
+function pushOutcomeSignalsForNegativeGame(
+  profile: ProductProfile,
+  signals: ProductProfileSignal[],
+  game: SeedGame,
+) {
+  if (game.earlyHook === "low" || game.pacingSpeed === "slow") {
+    profile.avoidPatterns.slowStart = true;
+    signals.push({
+      id: "slow-start-risk",
+      tone: "negative",
+      label: "Slow starts are risky",
+      reason: "Abandoned or disliked games show early momentum can break fit.",
+    });
+  }
+
+  if (game.endgameRepetitionRisk !== "low") {
+    profile.avoidPatterns.repetition = true;
+    signals.push({
+      id: "repetition-risk",
+      tone: "negative",
+      label: "Repetition hurts fit",
+      reason: "Negative outcomes include games with heavier repetition or grind.",
+    });
+  }
+
+  if (game.progressionClarity === "low") {
+    profile.avoidPatterns.confusingSystems = true;
+    signals.push({
+      id: "systems-risk",
+      tone: "negative",
+      label: "Confusing systems create friction",
+      reason: "Negative outcomes point to unclear progression as a risk.",
+    });
+  }
+
+  if (game.storyStrength !== "high" && game.emotionalComplexity !== "high") {
+    profile.avoidPatterns.weakEmotionalPull = true;
+    signals.push({
+      id: "emotional-risk",
+      tone: "negative",
+      label: "Weak emotional pull is risky",
+      reason: "Negative outcomes suggest weaker narrative connection can fail quickly.",
+    });
+  }
+
+  if (game.combatDepth === "low") {
+    profile.avoidPatterns.shallowCombat = true;
+    signals.push({
+      id: "combat-risk",
+      tone: "negative",
+      label: "Shallow combat can break fit",
+      reason: "Negative outcomes include games with weaker combat depth or feel.",
+    });
+  }
+}
+
+export function normalizeProfileSignals(profile: ProductProfile): ProductProfile {
+  return {
+    ...profile,
+    signals: profile.signals.filter((signal) => {
+      const field = RISK_SIGNAL_FIELDS[signal.id];
+      if (field) {
+        return profile.avoidPatterns[field];
+      }
+      if (signal.id === "watch-risk") {
+        return profile.watchVsPlayRisk === "high";
+      }
+      if (signal.id === "watch-play-confidence") {
+        return profile.watchVsPlayRisk === "low";
+      }
+      return true;
+    }),
+  };
+}
+
+export function applyProfileOverrides(
+  profile: ProductProfile,
+  overrides: ProductProfileOverrides = {},
+): ProductProfile {
+  return normalizeProfileSignals({
+    ...profile,
+    priorities: {
+      ...profile.priorities,
+      ...overrides.priorities,
+    },
+    avoidPatterns: {
+      ...profile.avoidPatterns,
+      ...overrides.avoidPatterns,
+    },
+    watchVsPlayRisk: overrides.watchVsPlayRisk ?? profile.watchVsPlayRisk,
+  });
+}
+
 function selectedRequiredAnchorIds(draft: ProductOnboardingDraft) {
   return [...draft.likedGameIds, ...draft.dislikedGameIds];
 }
@@ -101,7 +255,6 @@ export function canAdvanceOnboarding(draft: ProductOnboardingDraft) {
     case "anchors":
       return (
         draft.likedGameIds.length >= 3 &&
-        draft.dislikedGameIds.length >= 3 &&
         hasRequiredAnchorDetails(draft)
       );
     case "interview":
@@ -419,7 +572,96 @@ export function buildFallbackProfile(
 
   profile.signals = uniqueSignals(signalDrafts).slice(0, 6);
 
-  return profile;
+  return normalizeProfileSignals(profile);
+}
+
+export function buildAdaptiveProfile(
+  draft: ProductOnboardingDraft,
+  gamesById: Map<string, SeedGame>,
+  gameStates: Record<string, ProductGameState>,
+  overrides: ProductProfileOverrides = {},
+): ProductProfile {
+  const profile = buildFallbackProfile(draft, gamesById);
+  const signalDrafts = [...profile.signals];
+  let positiveSlowNarrativeCount = 0;
+  let negativeSlowNarrativeCount = 0;
+  let outcomeCount = 0;
+  let mixedCount = 0;
+
+  Object.values(gameStates).forEach((record) => {
+    const game = gamesById.get(record.gameId);
+    if (!game) {
+      return;
+    }
+
+    if (record.sentiment === "mixed") {
+      mixedCount += 1;
+      return;
+    }
+
+    const positive =
+      record.sentiment === "liked" ||
+      (!record.sentiment && (record.status === "completed" || record.status === "beaten"));
+    const negative =
+      record.sentiment === "disliked" ||
+      record.status === "abandoned" ||
+      record.status === "dropped" ||
+      record.status === "dismissed";
+
+    if (!positive && !negative) {
+      return;
+    }
+
+    outcomeCount += 1;
+
+    if (positive) {
+      pushOutcomeSignalsForPositiveGame(profile, signalDrafts, game);
+      if (isSlowNarrativeGame(game)) {
+        positiveSlowNarrativeCount += 1;
+      }
+      return;
+    }
+
+    pushOutcomeSignalsForNegativeGame(profile, signalDrafts, game);
+    if (isSlowNarrativeGame(game)) {
+      negativeSlowNarrativeCount += 1;
+    }
+  });
+
+  if (positiveSlowNarrativeCount >= 3 && positiveSlowNarrativeCount > negativeSlowNarrativeCount) {
+    profile.watchVsPlayRisk = "low";
+    signalDrafts.push({
+      id: "watch-play-confidence",
+      tone: "positive",
+      label: "Slow stories can still work",
+      reason: "Your finished games show slower narrative pacing is not always a watch-only risk.",
+    });
+  } else if (negativeSlowNarrativeCount >= 2 && negativeSlowNarrativeCount >= positiveSlowNarrativeCount) {
+    profile.watchVsPlayRisk = "high";
+    signalDrafts.push({
+      id: "watch-risk",
+      tone: "negative",
+      label: "Some stories may read better than they play",
+      reason: "Abandoned slower narrative games suggest a watch-vs-play risk.",
+    });
+  }
+
+  if (mixedCount > 0) {
+    signalDrafts.push({
+      id: "mixed-outcomes",
+      tone: "negative",
+      label: "Some picks are mixed",
+      reason: "Mixed outcomes are treated as caution, not as positive recommendation targets.",
+    });
+  }
+
+  profile.summary =
+    outcomeCount > 0 || mixedCount > 0
+      ? "This profile combines your setup answers with outcomes from My Games. It should keep getting sharper as you log more."
+      : profile.summary;
+  profile.signals = uniqueSignals(signalDrafts).slice(0, 8);
+
+  return applyProfileOverrides(profile, overrides);
 }
 
 export function nextOnboardingStep(current: ProductOnboardingDraft["step"]) {

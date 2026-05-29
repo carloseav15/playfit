@@ -10,6 +10,7 @@ const distDir = path.join(rootDir, "dist");
 const PERSONAL_FILES = [
   "user_profile.csv",
   "games_catalog.csv",
+  "game_universe.csv",
   "master_game_universe.csv",
   "upcoming_releases.csv",
   "platforms.csv",
@@ -27,6 +28,7 @@ const PERSONAL_FILES = [
 
 const PUBLIC_FILES = [
   "games_catalog.csv",
+  "game_universe.csv",
   "game_cover_assets.csv",
   "platforms.csv",
   "game_platforms.csv",
