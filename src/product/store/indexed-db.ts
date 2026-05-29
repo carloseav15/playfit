@@ -1,7 +1,7 @@
 import type { ProductState } from "../types";
 
-const DB_NAME = "games-taste-engine-product";
-const DB_VERSION = 1;
+const DB_NAME = "playfit";
+const DB_VERSION = 2;
 const STORE_NAME = "product_state";
 const STATE_KEY = "singleton";
 
@@ -12,33 +12,17 @@ export const DEFAULT_PRODUCT_STATE: ProductState = {
       step: "platforms",
       platforms: [],
       likedGameIds: [],
-      dislikedGameIds: [],
-      currentGameId: null,
-      anchorReasons: {},
-      anchorOwnership: {},
-      answers: {
-        love: "",
-        frustration: "",
-        priorities: "",
-        playPattern: "",
-        selectedPriorities: [],
-        selectedFrictionSignals: [],
-        selectedPlayPattern: "",
-      },
-      draftProfile: null,
     },
     onboardingCompletedAt: null,
     profile: null,
     profileOverrides: {},
     gameStates: {},
-    checkins: [],
-    finderActions: {},
     lastUpdatedAt: null,
   },
 };
 
 export function createInitialState() {
-  return cloneState(DEFAULT_PRODUCT_STATE);
+  return JSON.parse(JSON.stringify(DEFAULT_PRODUCT_STATE)) as ProductState;
 }
 
 function createRequestPromise<T>(request: IDBRequest<T>) {
@@ -65,10 +49,6 @@ async function openDatabase() {
   });
 }
 
-function cloneState(state: ProductState): ProductState {
-  return JSON.parse(JSON.stringify(state)) as ProductState;
-}
-
 export async function loadProductState() {
   const database = await openDatabase();
   const transaction = database.transaction(STORE_NAME, "readonly");
@@ -92,17 +72,9 @@ export async function loadProductState() {
       onboarding: {
         ...defaultState.user.onboarding,
         ...state.user.onboarding,
-        anchorReasons: state.user.onboarding?.anchorReasons ?? {},
-        anchorOwnership: state.user.onboarding?.anchorOwnership ?? {},
-        answers: {
-          ...defaultState.user.onboarding.answers,
-          ...state.user.onboarding?.answers,
-        },
       },
       profileOverrides: state.user.profileOverrides ?? {},
       gameStates: state.user.gameStates ?? {},
-      checkins: state.user.checkins ?? [],
-      finderActions: state.user.finderActions ?? {},
     },
   } satisfies ProductState;
 }

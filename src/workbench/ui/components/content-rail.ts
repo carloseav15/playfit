@@ -1,19 +1,15 @@
 import type { CollectionRail } from "../../data/schema";
+import { escapeHtml } from "../utils";
 import { renderCoverCard } from "./cover-card";
 import { renderInlineSpotlight } from "./inline-spotlight";
-import { escapeHtml } from "../utils";
 
 interface ContentRailOptions {
   rail: CollectionRail;
   selectedItemKey: string | null;
 }
 
-export function renderContentRail({
-  rail,
-  selectedItemKey,
-}: ContentRailOptions) {
-  const selectedItem =
-    rail.items.find((item) => item.key === selectedItemKey) ?? null;
+export function renderContentRail({ rail, selectedItemKey }: ContentRailOptions) {
+  const selectedItem = rail.items.find((item) => item.key === selectedItemKey) ?? null;
 
   return `
     <section class="content-rail" aria-labelledby="rail-${escapeHtml(rail.id)}-title">
@@ -51,9 +47,7 @@ export function renderContentRail({
         tabindex="0"
         aria-label="${escapeHtml(rail.title)}"
       >
-        ${rail.items
-          .map((item) => renderCoverCard(item, item.key === selectedItemKey))
-          .join("")}
+        ${rail.items.map((item) => renderCoverCard(item, item.key === selectedItemKey)).join("")}
       </div>
 
       ${renderInlineSpotlight(selectedItem)}

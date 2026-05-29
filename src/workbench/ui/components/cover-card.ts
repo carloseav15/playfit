@@ -1,6 +1,6 @@
 import type { CollectionRailItem } from "../../data/schema";
-import { renderCoverArt } from "./cover-art";
 import { escapeHtml } from "../utils";
+import { renderCoverArt } from "./cover-art";
 
 export function renderCoverCard(item: CollectionRailItem, selected: boolean) {
   return `

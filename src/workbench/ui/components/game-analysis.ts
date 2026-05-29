@@ -1,6 +1,6 @@
 import type { GameRecord } from "../../data/schema";
-import { renderChip } from "./chips";
 import { escapeHtml, formatDate, formatLongText, humanizeValue } from "../utils";
+import { renderChip } from "./chips";
 
 export function renderReasonBlock(title: string, reasons: string[], tone = "neutral") {
   if (reasons.length === 0) {
@@ -52,8 +52,12 @@ export function renderOpinionBlock(record: GameRecord) {
     opinion.difficulty_mode ? renderChip(`Difficulty: ${opinion.difficulty_mode}`) : "",
     opinion.cheats_used ? renderChip(`Cheats: ${opinion.cheats_used}`, "warning") : "",
     opinion.purchase_interest ? renderChip(`Buy intent: ${opinion.purchase_interest}`) : "",
-    opinion.price_ceiling_usd ? renderChip(`Max price: $${opinion.price_ceiling_usd}`, "success") : "",
-    opinion.drop_reason_tags ? renderChip(`Drop reason: ${opinion.drop_reason_tags}`, "danger") : ""
+    opinion.price_ceiling_usd
+      ? renderChip(`Max price: $${opinion.price_ceiling_usd}`, "success")
+      : "",
+    opinion.drop_reason_tags
+      ? renderChip(`Drop reason: ${opinion.drop_reason_tags}`, "danger")
+      : "",
   ].filter(Boolean);
 
   return `

@@ -1,78 +1,74 @@
-# Games Taste Engine
+# Playfit
 
-A local-first game recommendation experiment with three explicit surfaces:
+A local-first game recommendation product built as a portfolio-ready web app.
 
-- **Public landing** at `/`: explains the Games Taste Engine product idea.
-- **Public prototype** at `/app/`: onboarding, profile, finder, and recommendations that work with or without AI.
-- **Personal workbench** at `/workbench/`: private CSV-based workspace for tuning recommendations against personal play history.
+The visible public stack is now:
 
-The default build is safe for a public GitHub repository: it publishes only the landing, the prototype, and public seed data.
+- **Next.js App Router + React + TypeScript** for `/`, `/app`, and `/case-study`
+- **Tailwind CSS v4 + shadcn/ui-style primitives** for the visual system
+- **Motion** for restrained microinteractions
+- **React Hook Form + Zod** for typed form and state validation
+- **IndexedDB** for local-first user state
+- **Vercel-ready monorepo** with `apps/web` and `packages/core`
+
+## Surfaces
+
+- `/` - product landing page
+- `/app` - interactive Playfit app
+- `/case-study` - portfolio case study
+- `src/workbench` - legacy/internal Vite workbench for private CSV exploration
 
 ## Project Structure
 
 ```text
-app/                 Public prototype HTML entry
-data/public/         Public seed CSVs used by the prototype
-data/personal/       Private local CSVs for the workbench, ignored by git
-product/             Product strategy and portfolio notes
-product-site/        Landing page assets and scripts
-src/product/         Public prototype app
-src/workbench/       Personal CSV workbench app
-src/shared/          Shared types
-workbench/           Personal workbench HTML entry
+apps/web/           Next.js public portfolio app
+packages/core/      Framework-independent scoring, onboarding, CSV, schemas, storage
+data/public/        Public CSV seed data copied into apps/web/public at dev/build time
+data/personal/      Private local CSVs for the legacy workbench, ignored by git
+product/            Product strategy and portfolio notes
+src/workbench/      Internal Vite workbench code
+workbench/          Internal workbench HTML entry
 ```
 
 ## Setup
 
 ```bash
 npm install
-npm run dev:public
+npm run dev
 ```
 
 Open:
 
-- Landing: `http://localhost:5173/`
-- Prototype: `http://localhost:5173/app/`
+- Landing: `http://localhost:3000/`
+- App: `http://localhost:3000/app`
+- Case study: `http://localhost:3000/case-study`
 
-For the personal workbench:
+For the legacy personal workbench:
 
 ```bash
 npm run dev:workbench
 ```
 
-The workbench expects private CSV files in `data/personal/`. Those files are intentionally ignored by git.
-
-## AI Mode
-
-The prototype runs in local-only mode by default. To enable AI-assisted profile and insight generation:
-
-```bash
-cp .env.example .env
-# add OPENAI_API_KEY to .env
-npm run dev:product
-```
-
-`dev:product` starts both Vite and the local AI proxy.
-
-## Builds
-
-```bash
-npm run build          # safe public build
-npm run build:public   # landing + prototype + data/public
-npm run build:workbench
-```
-
-`build:public` runs a guard that fails if private workbench CSVs are found in `dist/`.
-
 ## Validation
 
 ```bash
+npm run lint
+npm run typecheck
 npm test
-npx tsc --noEmit
-npm run build:public
+npm run build
+npm run test:e2e
 ```
 
 ## Data Policy
 
-Do not commit personal CSVs from `data/personal/`. The public prototype should use only `data/public/` seed data.
+- Do not commit personal CSVs from `data/personal/`.
+- The public Next.js app uses only `data/public/`.
+- `apps/web/scripts/prepare-public.mjs` copies public assets and public CSVs into `apps/web/public` before `dev` and `build`.
 
+## Product Framing
+
+Playfit answers a narrower and more useful question than generic game discovery:
+
+> Which game am I actually likely to enjoy and finish next?
+
+The scoring engine separates affinity, friction, confidence, and access so the recommendation is inspectable instead of magical. Supabase is intentionally deferred until the product needs auth or cloud sync.

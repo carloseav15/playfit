@@ -225,7 +225,10 @@ function toNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 }
 
-function sortPlatformNames(rows: GamePlatformCsvRow[], platformById: Map<string, ProductPlatformOption>) {
+function sortPlatformNames(
+  rows: GamePlatformCsvRow[],
+  platformById: Map<string, ProductPlatformOption>,
+) {
   return [...rows].sort((left, right) => {
     const leftPlatform = platformById.get(left.platform_id);
     const rightPlatform = platformById.get(right.platform_id);
@@ -241,10 +244,16 @@ function sortPlatformNames(rows: GamePlatformCsvRow[], platformById: Map<string,
 }
 
 function splitList(value: string) {
-  return value.split(";").map((entry) => entry.trim()).filter(Boolean);
+  return value
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
-function inferPlatformIds(platformNames: string[], platformById: Map<string, ProductPlatformOption>) {
+function inferPlatformIds(
+  platformNames: string[],
+  platformById: Map<string, ProductPlatformOption>,
+) {
   const normalizedByName = new Map(
     [...platformById.values()].map((platform) => [
       platform.displayName.toLowerCase(),
@@ -256,7 +265,13 @@ function inferPlatformIds(platformNames: string[], platformById: Map<string, Pro
     .map((platform) => {
       const normalized = platform.toLowerCase();
       if (normalizedByName.has(normalized)) return normalizedByName.get(normalized);
-      if (normalized.includes("pc") || normalized.includes("windows") || normalized.includes("mac") || normalized.includes("linux")) return "pc";
+      if (
+        normalized.includes("pc") ||
+        normalized.includes("windows") ||
+        normalized.includes("mac") ||
+        normalized.includes("linux")
+      )
+        return "pc";
       if (normalized.includes("playstation 5") || normalized === "ps5") return "ps5";
       if (normalized.includes("xbox series")) return "xbox_series_xs";
       if (normalized.includes("switch 2")) return "switch_2";
@@ -277,18 +292,17 @@ function buildSeedGame(
   releaseState: SeedGame["releaseState"],
   upcomingByGameId?: Map<string, UpcomingReleaseCsvRow>,
 ) {
-  const platformRows = sortPlatformNames(
-    gamePlatformsById.get(row.game_id) ?? [],
-    platformById,
-  );
+  const platformRows = sortPlatformNames(gamePlatformsById.get(row.game_id) ?? [], platformById);
   const fallbackPlatforms =
-    "platforms" in row && row.platforms && row.platforms !== "TBA"
-      ? splitList(row.platforms)
-      : [];
-  const platformNames = platformRows.length > 0
-    ? [...new Set(platformRows.map((entry) => platformById.get(entry.platform_id)?.displayName ?? ""))]
-        .filter(Boolean)
-    : fallbackPlatforms;
+    "platforms" in row && row.platforms && row.platforms !== "TBA" ? splitList(row.platforms) : [];
+  const platformNames =
+    platformRows.length > 0
+      ? [
+          ...new Set(
+            platformRows.map((entry) => platformById.get(entry.platform_id)?.displayName ?? ""),
+          ),
+        ].filter(Boolean)
+      : fallbackPlatforms;
 
   const upcomingRow = upcomingByGameId?.get(row.game_id);
 
@@ -411,9 +425,7 @@ export async function loadProductSeedData(): Promise<ProductSeedData> {
     .sort((left, right) => left.sortOrder - right.sortOrder);
   const platformById = new Map(platforms.map((row) => [row.platformId, row]));
   const coverByGameId = new Map(
-    coverRows
-      .filter((row) => row.cover_path)
-      .map((row) => [row.game_id, row.cover_path]),
+    coverRows.filter((row) => row.cover_path).map((row) => [row.game_id, row.cover_path]),
   );
   const gamePlatformsById = new Map<string, GamePlatformCsvRow[]>();
 

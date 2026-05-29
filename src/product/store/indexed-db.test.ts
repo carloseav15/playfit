@@ -33,12 +33,12 @@ describe("product indexeddb store", () => {
     expect(restored.user.onboarding.platforms).toHaveLength(1);
   });
 
-  it("backfills new structured onboarding fields from older saved state", async () => {
+  it("merges legacy v1 state into the v2 schema gracefully", async () => {
     const legacyState = {
       version: 1,
       user: {
         onboarding: {
-          step: "interview",
+          step: "anchors",
           platforms: [{ platformId: "ps5", status: "available" }],
           likedGameIds: ["a", "b", "c"],
           dislikedGameIds: ["d", "e", "f"],
@@ -46,8 +46,6 @@ describe("product indexeddb store", () => {
           answers: {
             love: "story",
             frustration: "slow starts",
-            priorities: "story",
-            playPattern: "watch on youtube",
           },
           draftProfile: null,
         },
@@ -63,12 +61,11 @@ describe("product indexeddb store", () => {
     await saveProductState(legacyState as never);
     const restored = await loadProductState();
 
-    expect(restored.user.onboarding.answers.selectedPriorities).toEqual([]);
-    expect(restored.user.onboarding.answers.selectedFrictionSignals).toEqual([]);
-    expect(restored.user.onboarding.answers.selectedPlayPattern).toBe("");
-    expect(restored.user.onboarding.anchorReasons).toEqual({});
-    expect(restored.user.onboarding.anchorOwnership).toEqual({});
+    expect(restored.user.onboarding.step).toBe("anchors");
+    expect(restored.user.onboarding.platforms).toHaveLength(1);
+    expect(restored.user.onboarding.likedGameIds).toHaveLength(3);
     expect(restored.user.profileOverrides).toEqual({});
     expect(restored.user.gameStates).toEqual({});
+    expect(restored.user.profile).toBeNull();
   });
 });

@@ -78,13 +78,7 @@ export const REQUIRED_HEADERS = {
     "active_status",
     "notes",
   ],
-  userPlatformAccess: [
-    "access_id",
-    "platform_id",
-    "access_status",
-    "device_label",
-    "notes",
-  ],
+  userPlatformAccess: ["access_id", "platform_id", "access_status", "device_label", "notes"],
   gamePlatforms: [
     "mapping_id",
     "game_id",
@@ -200,25 +194,10 @@ export const REQUIRED_HEADERS = {
 export type DatasetKey = keyof typeof DATA_FILES;
 export type GuideUsage = "" | "none" | "some" | "heavy";
 export type ReturnIntent = "" | "immediate" | "soon" | "later" | "unsure";
-export type SessionOutcome =
-  | ""
-  | "good_session"
-  | "mixed_session"
-  | "stalled"
-  | "stopped";
+export type SessionOutcome = "" | "good_session" | "mixed_session" | "stalled" | "stopped";
 export type AppTab = "today" | "collections" | "library" | "patterns";
-export type SortKey =
-  | "priority"
-  | "title"
-  | "overall"
-  | "fit"
-  | "updated"
-  | "watch"
-  | "trap";
-export type CollectionRailKind =
-  | "game"
-  | "franchise"
-  | "franchise_entry";
+export type SortKey = "priority" | "title" | "overall" | "fit" | "updated" | "watch" | "trap";
+export type CollectionRailKind = "game" | "franchise" | "franchise_entry";
 
 export interface ProfileRow {
   preference_id: string;

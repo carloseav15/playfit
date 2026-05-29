@@ -1,7 +1,4 @@
-import {
-  buildCollectionsModel,
-} from "../domain/collections";
-import { buildUpcomingReleaseRecords } from "../domain/upcoming";
+import { buildCollectionsModel } from "../domain/collections";
 import {
   getBacklogPriorityReasons,
   getProfileMatchReasons,
@@ -12,6 +9,7 @@ import {
   scoreTrapRisk,
   scoreYoutubeRisk,
 } from "../domain/scoring";
+import { buildUpcomingReleaseRecords } from "../domain/upcoming";
 
 import type {
   AppData,
@@ -45,9 +43,7 @@ function pickCanonicalPlayingGameId(
     .filter((row) => row.status === "playing")
     .sort((left, right) => {
       const dateCompare = (right.last_updated ?? "").localeCompare(left.last_updated ?? "");
-      return dateCompare !== 0
-        ? dateCompare
-        : right.opinion_id.localeCompare(left.opinion_id);
+      return dateCompare !== 0 ? dateCompare : right.opinion_id.localeCompare(left.opinion_id);
     });
 
   if (activeOpinions.length > 0) {
@@ -120,9 +116,7 @@ function mapCheckinsByGameId(rows: SessionCheckinRow[]) {
   const grouped = new Map<string, SessionCheckinRow[]>();
   const sortedRows = [...rows].sort((left, right) => {
     const dateCompare = right.checkin_date.localeCompare(left.checkin_date);
-    return dateCompare !== 0
-      ? dateCompare
-      : right.checkin_id.localeCompare(left.checkin_id);
+    return dateCompare !== 0 ? dateCompare : right.checkin_id.localeCompare(left.checkin_id);
   });
 
   sortedRows.forEach((row) => {
@@ -191,10 +185,7 @@ function buildMatchedTraits(catalog?: CatalogRow, opinion?: OpinionRow) {
     traits.push("Arcade pace");
   }
 
-  if (
-    opinion?.status === "dropped_then_watched" ||
-    opinion?.status === "completed_or_watched"
-  ) {
+  if (opinion?.status === "dropped_then_watched" || opinion?.status === "completed_or_watched") {
     traits.push("Ended as a watch");
   }
 
@@ -215,10 +206,7 @@ function buildDecisionSummary(
     return "Current momentum looks healthy. This is worth continuing before switching away.";
   }
 
-  if (
-    baseRecord.status === "playing" &&
-    baseRecord.currentFriction === "high"
-  ) {
+  if (baseRecord.status === "playing" && baseRecord.currentFriction === "high") {
     return "You are still in it, but recent sessions show friction. Continue only if the next session feels cleaner.";
   }
 
@@ -262,10 +250,7 @@ function buildRecommendedAction(
   watchRiskScore: number,
   fitEstimate?: number,
 ) {
-  if (
-    baseRecord.status === "playing" &&
-    baseRecord.currentFriction === "high"
-  ) {
+  if (baseRecord.status === "playing" && baseRecord.currentFriction === "high") {
     return "Continue carefully and check whether the next session feels less sticky.";
   }
 
@@ -291,11 +276,7 @@ function buildRecommendedAction(
     return "Prioritize this soon.";
   }
 
-  if (
-    baseRecord.status === "open" &&
-    (fitEstimate ?? 0) >= 4 &&
-    watchRiskScore < 60
-  ) {
+  if (baseRecord.status === "open" && (fitEstimate ?? 0) >= 4 && watchRiskScore < 60) {
     return "Worth considering as a high-confidence recommendation.";
   }
 
@@ -319,8 +300,7 @@ function createBaseRecord(
 
   return {
     gameId,
-    title:
-      opinion?.title ?? recommendation?.title ?? catalog?.title ?? fallbackTitle(gameId),
+    title: opinion?.title ?? recommendation?.title ?? catalog?.title ?? fallbackTitle(gameId),
     series: catalog?.series ?? "",
     primaryGenre: catalog?.primary_genre ?? "",
     combatStyle: catalog?.combat_style ?? "",
@@ -359,10 +339,7 @@ function createBaseRecord(
     currentReturnIntent: latestCheckin?.return_intent ?? "",
     lastSessionDate: latestCheckin?.checkin_date ?? "",
     lastTouched:
-      latestCheckin?.checkin_date ??
-      opinion?.last_updated ??
-      recommendation?.recommended_on ??
-      "",
+      latestCheckin?.checkin_date ?? opinion?.last_updated ?? recommendation?.recommended_on ?? "",
   };
 }
 
@@ -415,14 +392,8 @@ function buildRecord(
 }
 
 export function normalizeData(raw: RawData): AppData {
-  const canonicalPlayingGameId = pickCanonicalPlayingGameId(
-    raw.opinions,
-    raw.franchiseProgress,
-  );
-  const opinions = normalizeOpinionsForActiveRun(
-    raw.opinions,
-    canonicalPlayingGameId,
-  );
+  const canonicalPlayingGameId = pickCanonicalPlayingGameId(raw.opinions, raw.franchiseProgress);
+  const opinions = normalizeOpinionsForActiveRun(raw.opinions, canonicalPlayingGameId);
   const franchiseProgress = normalizeFranchiseProgressForActiveRun(
     raw.franchiseProgress,
     canonicalPlayingGameId,

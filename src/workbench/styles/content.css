@@ -31,28 +31,24 @@
 
 .section-theme-today {
   background:
-    radial-gradient(circle at top right, var(--accent-a10), transparent 36%),
-    var(--surf-base);
+    radial-gradient(circle at top right, var(--accent-a10), transparent 36%), var(--surf-base);
 }
 
 .section-theme-library {
   background:
-    radial-gradient(circle at top right, var(--ink-a12), transparent 36%),
-    var(--surf-base);
+    radial-gradient(circle at top right, var(--ink-a12), transparent 36%), var(--surf-base);
 }
 
 .section-theme-collections {
   background:
     radial-gradient(circle at top right, var(--ink-a12), transparent 32%),
-    radial-gradient(circle at top left, var(--accent-a08), transparent 34%),
-    var(--surface-2);
+    radial-gradient(circle at top left, var(--accent-a08), transparent 34%), var(--surface-2);
 }
 
 .section-theme-patterns,
 .section-theme-overview {
   background:
-    radial-gradient(circle at top right, var(--success-a08), transparent 36%),
-    var(--surf-base);
+    radial-gradient(circle at top right, var(--success-a08), transparent 36%), var(--surf-base);
 }
 
 .section-head {
@@ -88,7 +84,10 @@
   background: var(--surface-2);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--trans-fast), border-color var(--trans-fast), box-shadow var(--trans-fast);
+  transition:
+    transform var(--trans-fast),
+    border-color var(--trans-fast),
+    box-shadow var(--trans-fast);
 }
 
 .card--glass {

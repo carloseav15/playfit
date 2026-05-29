@@ -1,6 +1,6 @@
 import type { FranchiseCollection, FranchiseEntryRecord } from "../../data/schema";
-import { renderChip } from "./chips";
 import { escapeHtml, humanizeValue } from "../utils";
+import { renderChip } from "./chips";
 
 function timelineTone(entry: FranchiseEntryRecord) {
   if (entry.userBucket === "played") return "success";

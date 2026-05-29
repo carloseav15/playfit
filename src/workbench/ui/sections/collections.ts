@@ -1,8 +1,8 @@
 import type { CollectionRail, UpcomingReleaseRecord } from "../../data/schema";
 import { getContextualScore } from "../../domain/scoring";
 import { renderChip } from "../components/chips";
-import { renderEmptyState } from "../components/empty-state";
 import { renderContentRail } from "../components/content-rail";
+import { renderEmptyState } from "../components/empty-state";
 import { renderSectionHead } from "../components/section-head";
 import { renderTable } from "../components/table";
 import { escapeHtml } from "../utils";
@@ -19,10 +19,7 @@ interface CollectionsSectionProps {
   activeSubTab: CollectionsSubTab;
 }
 
-function sortRailForContext(
-  rail: CollectionRail,
-  energyLevel: "high" | "low" | "normal",
-) {
+function sortRailForContext(rail: CollectionRail, energyLevel: "high" | "low" | "normal") {
   if (rail.id !== "continue-runs") {
     return rail;
   }
@@ -31,9 +28,7 @@ function sortRailForContext(
     ...rail,
     items: [...rail.items].sort((left, right) => {
       const leftScore = left.record ? getContextualScore(left.record, energyLevel) : 0;
-      const rightScore = right.record
-        ? getContextualScore(right.record, energyLevel)
-        : 0;
+      const rightScore = right.record ? getContextualScore(right.record, energyLevel) : 0;
       return rightScore - leftScore;
     }),
   };
@@ -105,9 +100,7 @@ function renderUpcomingReleaseList(upcomingReleaseRecords: UpcomingReleaseRecord
           <div class="upcoming-release-title-block">
             <strong>${escapeHtml(row.title)}</strong>
             ${
-              row.series && row.series !== row.title
-                ? `<span>${escapeHtml(row.series)}</span>`
-                : ""
+              row.series && row.series !== row.title ? `<span>${escapeHtml(row.series)}</span>` : ""
             }
           </div>
         `,
@@ -152,9 +145,7 @@ export function renderCollectionsSection({
   energyLevel,
   activeSubTab,
 }: CollectionsSectionProps) {
-  const contextualRails = collectionRails.map((rail) =>
-    sortRailForContext(rail, energyLevel),
-  );
+  const contextualRails = collectionRails.map((rail) => sortRailForContext(rail, energyLevel));
   const continueRails = contextualRails.filter((rail) =>
     ["continue-runs", "high-risk-temptations"].includes(rail.id),
   );
@@ -166,10 +157,7 @@ export function renderCollectionsSection({
     franchises: franchiseRails.length + franchiseShelves.length,
     upcoming: upcomingReleaseRecords.length,
   };
-  const visibleRails =
-    activeSubTab === "continue"
-      ? continueRails
-      : franchiseRails;
+  const visibleRails = activeSubTab === "continue" ? continueRails : franchiseRails;
   const tabEmptyMessage =
     activeSubTab === "continue"
       ? "No active runs or high-risk temptations are standing out right now."

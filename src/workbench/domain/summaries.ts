@@ -19,9 +19,7 @@ export function buildSummaryStats(
   recommendations: RecommendationRow[],
 ) {
   const actionable = records.filter((record) =>
-    ["backlog", "on_hold", "playing", "interested_not_started"].includes(
-      record.status,
-    ),
+    ["backlog", "on_hold", "playing", "interested_not_started"].includes(record.status),
   ).length;
 
   return {
@@ -33,16 +31,11 @@ export function buildSummaryStats(
     youtubeOutcomes: records.filter((row) =>
       ["dropped_then_watched", "completed_or_watched"].includes(row.status),
     ).length,
-    openRecommendations: recommendations.filter((row) => row.status === "open")
-      .length,
+    openRecommendations: recommendations.filter((row) => row.status === "open").length,
   };
 }
 
-export function topProfileSignals(
-  profile: ProfileRow[],
-  key: string,
-  limit = 6,
-) {
+export function topProfileSignals(profile: ProfileRow[], key: string, limit = 6) {
   return profile
     .filter((row) => row.key === key)
     .sort((left, right) => numericWeight(right) - numericWeight(left))
@@ -51,18 +44,14 @@ export function topProfileSignals(
 
 export function favoriteCompletedGames(records: GameRecord[], limit = 8) {
   return [...records]
-    .filter(
-      (record) => record.status === "completed" && (record.overallScore ?? 0) >= 4,
-    )
+    .filter((record) => record.status === "completed" && (record.overallScore ?? 0) >= 4)
     .sort((left, right) => (right.overallScore ?? 0) - (left.overallScore ?? 0))
     .slice(0, limit);
 }
 
 export function youtubePatternGames(records: GameRecord[], limit = 8) {
   return [...records]
-    .filter((record) =>
-      ["dropped_then_watched", "completed_or_watched"].includes(record.status),
-    )
+    .filter((record) => ["dropped_then_watched", "completed_or_watched"].includes(record.status))
     .sort((left, right) => right.watchRiskScore - left.watchRiskScore)
     .slice(0, limit);
 }

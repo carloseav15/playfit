@@ -2,9 +2,7 @@ import Fuse from "fuse.js";
 
 import type {
   GameAccessStatus,
-  ProductCollectionStatus,
   PlatformAvailability,
-  ProductOwnershipStatus,
   ProductProfile,
   ProductState,
   ProductTodayModel,
@@ -61,7 +59,6 @@ function priorityValue(value: ProductProfile["priorities"]["story"]) {
       return 3;
     case "medium":
       return 2;
-    case "low":
     default:
       return 1;
   }
@@ -80,32 +77,6 @@ function normalizeSearchValue(value: string) {
     .trim();
 }
 
-function getOwnershipStatus(state: ProductState, game: SeedGame): ProductOwnershipStatus {
-  if (game.releaseState === "unreleased") {
-    return "unknown";
-  }
-
-  return state.user.gameStates[game.gameId]?.ownershipStatus ?? "unknown";
-}
-
-function getCollectionStatus(state: ProductState, game: SeedGame): ProductCollectionStatus | null {
-  const gameState = state.user.gameStates[game.gameId];
-
-  if (gameState?.collectionStatus) {
-    return gameState.collectionStatus;
-  }
-
-  if (gameState?.status === "backlog" || gameState?.status === "interested") {
-    return "backlog";
-  }
-
-  if (gameState?.ownershipStatus === "wishlist") {
-    return "wishlist";
-  }
-
-  return null;
-}
-
 function isScoredGame(game: SeedGame) {
   return game.scoringStatus !== "basic";
 }
@@ -114,7 +85,10 @@ function isPlayableNow(entry: RankedSeedGame) {
   return entry.accessStatus === "playable";
 }
 
-function getAccessStatus(game: SeedGame, platformAvailability: PlatformAvailability): GameAccessStatus {
+function getAccessStatus(
+  game: SeedGame,
+  platformAvailability: PlatformAvailability,
+): GameAccessStatus {
   if (game.releaseState === "unreleased") {
     return "unreleased";
   }
@@ -162,14 +136,18 @@ function buildLikedGenres(state: ProductState, gamesById: Map<string, SeedGame>)
       return;
     }
 
-    if (record.sentiment === "liked") {
+    if (record.rating == null) {
+      return;
+    }
+
+    if (record.rating >= 4) {
       liked.set(game.primaryGenre, (liked.get(game.primaryGenre) ?? 0) + 1);
       if (game.series) {
         likedSeries.add(game.series);
       }
     }
 
-    if (record.sentiment === "disliked") {
+    if (record.rating <= 2) {
       disliked.set(game.primaryGenre, (disliked.get(game.primaryGenre) ?? 0) + 1);
     }
   });
@@ -181,7 +159,10 @@ function buildLikedGenres(state: ProductState, gamesById: Map<string, SeedGame>)
   };
 }
 
-function getPlatformAvailability(game: SeedGame, accessiblePlatformIds: Set<string>): PlatformAvailability {
+function getPlatformAvailability(
+  game: SeedGame,
+  accessiblePlatformIds: Set<string>,
+): PlatformAvailability {
   if (game.availablePlatformIds.length === 0) {
     return "unknown";
   }
@@ -199,23 +180,16 @@ function confidenceFromProfile(
   likedGenres: string[],
 ) {
   let score = 0;
-  const anchorCount =
-    state.user.onboarding.likedGameIds.length +
-    state.user.onboarding.dislikedGameIds.length;
-  const loggedOutcomeCount = Object.values(state.user.gameStates).filter(
-    (record) =>
-      Boolean(record.sentiment) &&
-      (record.status === "completed" ||
-        record.status === "beaten" ||
-        record.status === "dropped" ||
-        record.status === "abandoned"),
+  const anchorCount = state.user.onboarding.likedGameIds.length;
+  const ratedCount = Object.values(state.user.gameStates).filter(
+    (record) => record.rating != null,
   ).length;
 
-  if (anchorCount >= 6 || loggedOutcomeCount >= 6) {
+  if (anchorCount >= 3 || ratedCount >= 3) {
     score += 1;
   }
 
-  if (loggedOutcomeCount >= 10) {
+  if (ratedCount >= 6) {
     score += 1;
   }
 
@@ -260,8 +234,9 @@ export function scoreSeedGame(
   const { likedGenres, dislikedGenres, likedSeries } = buildLikedGenres(state, gamesById);
   const platformAvailability = getPlatformAvailability(game, accessiblePlatformIds);
   const accessStatus = getAccessStatus(game, platformAvailability);
-  const ownershipStatus = getOwnershipStatus(state, game);
-  const collectionStatus = getCollectionStatus(state, game);
+  const gameState = state.user.gameStates[game.gameId];
+  const inBacklog = gameState?.inBacklog ?? false;
+  const inWishlist = gameState?.inWishlist ?? false;
 
   if (!isScoredGame(game)) {
     return {
@@ -273,22 +248,21 @@ export function scoreSeedGame(
       cautionReasons: ["Add it to My Games or log an outcome before Playfit can learn from it."],
       platformAvailability,
       accessStatus,
-      ownershipStatus,
-      collectionStatus,
+      inBacklog,
+      inWishlist,
     };
   }
 
-  // These weights intentionally favor story, progression, and early hook because
-  // Playfit is built around deciding what deserves limited play time, not ranking
-  // generic critic quality.
   let affinity = 18;
   let risk = 10;
 
   affinity += priorityValue(profile.priorities.story) * levelValue(game.storyStrength) * 4;
-  affinity += priorityValue(profile.priorities.progression) * levelValue(game.progressionClarity) * 4;
+  affinity +=
+    priorityValue(profile.priorities.progression) * levelValue(game.progressionClarity) * 4;
   affinity += priorityValue(profile.priorities.hook) * levelValue(game.earlyHook) * 3;
   affinity += priorityValue(profile.priorities.aesthetic) * levelValue(game.aestheticFit) * 3;
-  affinity += priorityValue(profile.priorities.emotional) * levelValue(game.emotionalComplexity) * 3;
+  affinity +=
+    priorityValue(profile.priorities.emotional) * levelValue(game.emotionalComplexity) * 3;
   affinity += priorityValue(profile.priorities.combat) * levelValue(game.combatDepth) * 2;
   affinity += priorityValue(profile.priorities.pace) * paceValue(game.pacingSpeed) * 3;
 
@@ -307,12 +281,15 @@ export function scoreSeedGame(
     fitReasons.push("Belongs to a series already associated with positive signal");
   }
 
-  if (collectionStatus === "backlog") {
+  if (inBacklog) {
     affinity += 6;
     fitReasons.push("Already saved as a title you want to keep in view");
   }
 
-  if (profile.avoidPatterns.slowStart && (game.earlyHook === "low" || game.pacingSpeed === "slow")) {
+  if (
+    profile.avoidPatterns.slowStart &&
+    (game.earlyHook === "low" || game.pacingSpeed === "slow")
+  ) {
     risk += 18;
     cautionReasons.push("Slow start risk is high for your current profile");
   }
@@ -322,10 +299,7 @@ export function scoreSeedGame(
     cautionReasons.push("Repetition is one of the clearest early risk factors");
   }
 
-  if (
-    profile.avoidPatterns.confusingSystems &&
-    game.progressionClarity === "low"
-  ) {
+  if (profile.avoidPatterns.confusingSystems && game.progressionClarity === "low") {
     risk += 14;
     cautionReasons.push("Opaque progression can create friction quickly");
   }
@@ -344,7 +318,11 @@ export function scoreSeedGame(
     cautionReasons.push("Combat depth may be weaker than what tends to sustain your interest");
   }
 
-  if (profile.watchVsPlayRisk === "high" && game.storyStrength === "high" && game.pacingSpeed === "slow") {
+  if (
+    profile.watchVsPlayRisk === "high" &&
+    game.storyStrength === "high" &&
+    game.pacingSpeed === "slow"
+  ) {
     risk += 10;
     cautionReasons.push("This could become a title you follow for story more than active play");
   }
@@ -375,8 +353,8 @@ export function scoreSeedGame(
     cautionReasons: uniq(cautionReasons).slice(0, 4),
     platformAvailability,
     accessStatus,
-    ownershipStatus,
-    collectionStatus,
+    inBacklog,
+    inWishlist,
   };
 }
 
@@ -409,15 +387,7 @@ export function buildTodayModel(
         return false;
       }
 
-      if (stateEntry?.status === "dropped" || stateEntry?.status === "abandoned") {
-        return false;
-      }
-
-      if (stateEntry?.status === "dismissed") {
-        return false;
-      }
-
-      if (stateEntry?.sentiment) {
+      if (stateEntry?.status === "abandoned") {
         return false;
       }
 
@@ -448,15 +418,14 @@ export function buildTodayModel(
       stateEntry?.status !== "playing" &&
       stateEntry?.status !== "on_hold" &&
       stateEntry?.status !== "shelved" &&
-      stateEntry?.status !== "dismissed" &&
       stateEntry?.status !== "abandoned" &&
-      entry.collectionStatus !== "wishlist"
+      !entry.inWishlist
     );
   });
 
   const sortedPlayable = playableCandidates.sort((left, right) => {
-    const leftInterested = left.collectionStatus === "backlog" ? 1 : 0;
-    const rightInterested = right.collectionStatus === "backlog" ? 1 : 0;
+    const leftInterested = left.inBacklog ? 1 : 0;
+    const rightInterested = right.inBacklog ? 1 : 0;
     return (
       rightInterested - leftInterested ||
       right.affinityScore - left.affinityScore ||
@@ -479,19 +448,18 @@ export function buildTodayModel(
         return (
           isPlayableNow(entry) &&
           !primaryPlayableIds.has(entry.game.gameId) &&
-          entry.collectionStatus !== "backlog" &&
+          !entry.inBacklog &&
           stateEntry?.status !== "playing" &&
           stateEntry?.status !== "on_hold" &&
           stateEntry?.status !== "shelved" &&
           stateEntry?.status !== "completed" &&
           stateEntry?.status !== "beaten" &&
-          stateEntry?.status !== "dismissed" &&
           stateEntry?.status !== "abandoned"
         );
       })
       .sort((left, right) => {
-        const leftTracked = left.collectionStatus === "wishlist" ? 1 : 0;
-        const rightTracked = right.collectionStatus === "wishlist" ? 1 : 0;
+        const leftTracked = left.inWishlist ? 1 : 0;
+        const rightTracked = right.inWishlist ? 1 : 0;
         return (
           rightTracked - leftTracked ||
           right.affinityScore - left.affinityScore ||
@@ -505,11 +473,10 @@ export function buildTodayModel(
         const stateEntry = state.user.gameStates[entry.game.gameId];
         return (
           !primaryPlayableIds.has(entry.game.gameId) &&
-          entry.collectionStatus === "wishlist" &&
+          entry.inWishlist &&
           !isPlayableNow(entry) &&
           stateEntry?.status !== "completed" &&
           stateEntry?.status !== "beaten" &&
-          stateEntry?.status !== "dismissed" &&
           stateEntry?.status !== "abandoned"
         );
       })
@@ -530,8 +497,8 @@ export function buildTodayModel(
         return (
           entry.accessStatus === "playable" &&
           !stateEntry?.status &&
-          !entry.collectionStatus &&
-          !stateEntry?.sentiment &&
+          !entry.inBacklog &&
+          !entry.inWishlist &&
           entry.riskScore >= HIGH_FRICTION_THRESHOLD
         );
       })
@@ -558,18 +525,17 @@ export function buildFinderIndex(games: SeedGame[]) {
   });
 }
 
-export function searchSeedGames(
-  games: SeedGame[],
-  query: string,
-  index: Fuse<SeedGame>,
-) {
+export function searchSeedGames(games: SeedGame[], query: string, index: Fuse<SeedGame>) {
   const normalized = query.trim();
 
   if (!normalized) {
     return games.filter(isScoredGame).slice(0, 12);
   }
 
-  return index.search(normalized).map((result) => result.item).slice(0, 12);
+  return index
+    .search(normalized)
+    .map((result) => result.item)
+    .slice(0, 12);
 }
 
 export function findExactSeedGame(games: SeedGame[], query: string) {
@@ -581,7 +547,9 @@ export function findExactSeedGame(games: SeedGame[], query: string) {
 
   return (
     games.find((game) => normalizeSearchValue(game.title) === normalized) ??
-    games.find((game) => (game.aliases ?? []).some((alias) => normalizeSearchValue(alias) === normalized)) ??
+    games.find((game) =>
+      (game.aliases ?? []).some((alias) => normalizeSearchValue(alias) === normalized),
+    ) ??
     games.find((game) => normalizeSearchValue(game.series) === normalized) ??
     null
   );

@@ -22,19 +22,13 @@ export function renderTable<T>(
   }
 
   const head = columns
-    .map(
-      (column) =>
-        `<th scope="col" class="${column.className ?? ""}">${column.header}</th>`,
-    )
+    .map((column) => `<th scope="col" class="${column.className ?? ""}">${column.header}</th>`)
     .join("");
 
   const body = rows
     .map((row) => {
       const cells = columns
-        .map(
-          (column) =>
-            `<td class="${column.className ?? ""}">${column.render(row)}</td>`,
-        )
+        .map((column) => `<td class="${column.className ?? ""}">${column.render(row)}</td>`)
         .join("");
 
       return `<tr ${options.rowAttributes?.(row) ?? ""}>${cells}</tr>`;

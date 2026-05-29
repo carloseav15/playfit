@@ -31,12 +31,7 @@ const STORY_FORWARD_GENRES = new Set([
   "third_person_shooter",
 ]);
 
-const ACTIONABLE_STATUSES = new Set([
-  "backlog",
-  "on_hold",
-  "playing",
-  "interested_not_started",
-]);
+const ACTIONABLE_STATUSES = new Set(["backlog", "on_hold", "playing", "interested_not_started"]);
 
 function levelScore(value: Level) {
   switch (value) {
@@ -262,16 +257,10 @@ export function getWatchRiskReasons(record: BaseGameRecord) {
   if (record.pacingSpeed === "slow") {
     reasons.push("Slow pacing");
   }
-  if (
-    STORY_FORWARD_GENRES.has(record.primaryGenre) &&
-    record.earlyHook !== "high"
-  ) {
+  if (STORY_FORWARD_GENRES.has(record.primaryGenre) && record.earlyHook !== "high") {
     reasons.push("Story promise may arrive too slowly");
   }
-  if (
-    record.status === "dropped_then_watched" ||
-    record.status === "completed_or_watched"
-  ) {
+  if (record.status === "dropped_then_watched" || record.status === "completed_or_watched") {
     reasons.push("Already followed a play-then-watch pattern");
   }
   if (record.currentFriction === "high") {
@@ -310,17 +299,11 @@ export function scoreYoutubeRisk(record: BaseGameRecord) {
     risk += 14;
   }
 
-  if (
-    STORY_FORWARD_GENRES.has(record.primaryGenre) &&
-    record.earlyHook !== "high"
-  ) {
+  if (STORY_FORWARD_GENRES.has(record.primaryGenre) && record.earlyHook !== "high") {
     risk += 10;
   }
 
-  if (
-    record.status === "dropped_then_watched" ||
-    record.status === "completed_or_watched"
-  ) {
+  if (record.status === "dropped_then_watched" || record.status === "completed_or_watched") {
     risk += 45;
   }
 
@@ -332,10 +315,7 @@ export function scoreYoutubeRisk(record: BaseGameRecord) {
     risk += 10;
   }
 
-  if (
-    ACTIONABLE_STATUSES.has(record.status) &&
-    record.currentMomentum === "low"
-  ) {
+  if (ACTIONABLE_STATUSES.has(record.status) && record.currentMomentum === "low") {
     risk += 8;
   }
 
@@ -455,7 +435,10 @@ export function scoreBacklogPriority(record: BaseGameRecord) {
   return clampScore(score);
 }
 
-export function getContextualScore(record: import("../data/schema").GameRecord, energyLevel: "high" | "low" | "normal") {
+export function getContextualScore(
+  record: import("../data/schema").GameRecord,
+  energyLevel: "high" | "low" | "normal",
+) {
   let score = record.backlogPriorityScore;
   if (energyLevel === "low") {
     if (record.pacingSpeed === "slow") score -= 25;

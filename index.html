@@ -3,35 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Games Taste Engine Alpha | Try the MVP preview</title>
+    <title>Playfit — Find your next game</title>
     <meta
       name="description"
-      content="Try the Games Taste Engine alpha preview: a local-first MVP that helps players decide what to continue, what to start next, and what to avoid."
+      content="Playfit helps you decide what to play next based on personal fit, not hype."
     />
     <meta
       property="og:title"
-      content="Games Taste Engine Alpha | Try the MVP preview"
+      content="Playfit — Find your next game"
     />
     <meta
       property="og:description"
-      content="A usable alpha preview for players who want game recommendations based on personal fit, not hype."
+      content="Playfit helps you decide what to play next based on personal fit, not hype."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="/" />
-    <meta property="og:image" content="/covers/games/kingdom_hearts_iii.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="Games Taste Engine Alpha | Try the MVP preview"
+      content="Playfit — Find your next game"
     />
     <meta
       name="twitter:description"
-      content="Try the alpha preview of a recommendation product that helps players choose games by fit, not hype."
+      content="Playfit helps you decide what to play next based on personal fit, not hype."
     />
-    <meta name="twitter:image" content="/covers/games/kingdom_hearts_iii.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@700&display=swap"
+      media="print" onload="this.media='all'"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/styles/theme.css" />
-    <link rel="stylesheet" href="/product-site/styles.css" />
-    <script type="module" src="/product-site/app.js"></script>
+    <link rel="stylesheet" href="/src/styles/landing.css" />
   </head>
   <body class="theme-light">
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -41,8 +46,8 @@
         <a class="brand" href="#top">
           <span class="brand-mark" aria-hidden="true"></span>
           <span class="brand-copy">
-            <strong>Games Taste Engine</strong>
-            <span>Alpha preview</span>
+            <strong>Playfit</strong>
+            <span>Find your next game</span>
           </span>
         </a>
 
@@ -62,18 +67,15 @@
         <div class="hero-copy">
           <p class="eyebrow">For players who want better choices</p>
           <h1>
-            Find the games that actually fit you.
-            <span>Try the alpha preview now.</span>
+            Find games that actually fit you.
           </h1>
           <p class="hero-summary">
-            Games Taste Engine is an alpha preview for players who want help
-            deciding what to continue, what to start next, and what to avoid,
-            based on personal fit instead of popularity, critical hype, or
-            social pressure.
+            Stop forcing games that aren't for you. Playfit recommends what to
+            play next based on your actual taste — not popularity or hype.
           </p>
 
           <div class="hero-actions">
-            <a class="button button-primary" href="/app/">Open the alpha preview</a>
+            <a class="button button-primary" href="/app/">Open Playfit</a>
             <a class="button button-secondary" href="#how-it-works"
               >See how it works</a
             >
@@ -135,11 +137,11 @@
             </figure>
           </div>
           <div class="hero-note">
-            <p class="eyebrow">Alpha preview</p>
-            <p>
-              Move beyond “What should I play because everyone says it is good?”
-              and toward “What is actually likely to work for me?”
-            </p>
+            <p class="eyebrow">Playfit</p>
+          <p>
+            Not every acclaimed game is your game. Playfit helps you find the
+            ones that are.
+          </p>
           </div>
         </aside>
       </section>
@@ -269,40 +271,25 @@
       <section id="how-it-works" class="section reveal">
         <div class="section-head">
           <p class="eyebrow">How it works</p>
-          <h2>A lightweight profile, a few signals, and explainable recommendation outputs.</h2>
+          <h2>Pick your platforms, add a few liked games, and get recommendations in seconds.</h2>
         </div>
         <div class="flow-shell">
-          <div class="flow-row">
+          <div class="flow-row flow-row-two">
             <article class="flow-card">
               <p class="step-number">01</p>
-              <h3>Learn a few anchors</h3>
+              <h3>Select platforms + 3 liked games</h3>
               <p>
-                The product starts with a small number of liked and disliked
-                games instead of asking players to build a huge library.
+                Tell Playfit which platforms you play on and pick three games
+                you enjoyed. That is enough to build a usable taste profile.
               </p>
             </article>
             <article class="flow-card">
               <p class="step-number">02</p>
-              <h3>Build a taste profile</h3>
+              <h3>Get explainable recommendations</h3>
               <p>
-                A short guided flow turns those anchors into clearer fit,
-                friction, and platform signals.
-              </p>
-            </article>
-            <article class="flow-card">
-              <p class="step-number">03</p>
-              <h3>Generate recommendations</h3>
-              <p>
-                The system identifies what to continue, what to start next, what
-                to avoid, and what upcoming titles deserve attention.
-              </p>
-            </article>
-            <article class="flow-card">
-              <p class="step-number">04</p>
-              <h3>Improve with feedback</h3>
-              <p>
-                Lightweight check-ins help the product refine confidence and
-                recommendation quality over time.
+                The system identifies your current run, the strongest next
+                candidate, and which attractive-looking games to avoid — with
+                clear reasons for each.
               </p>
             </article>
           </div>
@@ -312,41 +299,26 @@
       <section id="onboarding" class="section reveal">
         <div class="section-head">
           <p class="eyebrow">Onboarding preview</p>
-          <h2>Getting started should feel like a guided interview, not setup work.</h2>
+          <h2>Two steps to your first recommendation. No account, no data entry.</h2>
         </div>
         <div class="onboarding-shell">
           <div class="onboarding-intro">
             <p>
-              The alpha preview is designed to reach an initial recommendation
-              in a few minutes: platform access, a handful of game anchors, and
-              a short profile-building conversation.
+              Playfit reaches an initial recommendation in under a minute.
+              Pick which platforms you own, then select three games you liked
+              (or search the catalog). That is the entire setup.
             </p>
           </div>
-          <div class="onboarding-steps">
+          <div class="onboarding-steps onboarding-steps-two">
             <article class="mini-step">
               <span>1</span>
-              <h3>Choose platforms</h3>
-              <p>Only track what you can actually play.</p>
+              <h3>Select your platforms</h3>
+              <p>Only track games you can actually play.</p>
             </article>
             <article class="mini-step">
               <span>2</span>
-              <h3>Add anchors</h3>
-              <p>Pick a few games you loved and a few that failed.</p>
-            </article>
-            <article class="mini-step">
-              <span>3</span>
-              <h3>Answer a few prompts</h3>
-              <p>Clarify what matters most and what tends to break momentum.</p>
-            </article>
-            <article class="mini-step">
-              <span>4</span>
-              <h3>Review your fit profile</h3>
-              <p>Confirm or correct what the system thinks you like.</p>
-            </article>
-            <article class="mini-step">
-              <span>5</span>
-              <h3>See first outputs</h3>
-              <p>Get an initial current run, next up, and avoid-for-now read.</p>
+              <h3>Add 3 liked games</h3>
+              <p>Pick from the catalog — no huge library required.</p>
             </article>
           </div>
         </div>
@@ -360,13 +332,12 @@
         <div class="surface-gallery">
           <article class="surface-card">
             <h3>Recommendation dashboard</h3>
-            <div class="surface-wireframe">
-              <div class="wireframe-bar"></div>
-              <div class="wireframe-panel wireframe-panel-hero"></div>
-              <div class="wireframe-grid">
-                <div class="wireframe-panel"></div>
-                <div class="wireframe-panel"></div>
-              </div>
+            <div class="surface-screenshot">
+              <img
+                src="/screenshots/dashboard.jpg"
+                alt="Playfit recommendation dashboard showing current run, next up, and avoid cards"
+                loading="lazy"
+              />
             </div>
             <p>
               A small decision layer that shows what to continue, what to start
@@ -374,35 +345,31 @@
             </p>
           </article>
           <article class="surface-card">
-            <h3>Guided onboarding</h3>
-            <div class="surface-wireframe">
-              <div class="wireframe-chat-row">
-                <span></span>
-                <div class="wireframe-bubble"></div>
-              </div>
-              <div class="wireframe-chat-row wireframe-chat-row-user">
-                <div class="wireframe-bubble"></div>
-                <span></span>
-              </div>
-              <div class="wireframe-panel wireframe-panel-summary"></div>
+            <h3>Onboarding flow</h3>
+            <div class="surface-screenshot">
+              <img
+                src="/screenshots/onboarding.jpg"
+                alt="Playfit onboarding — platform selection step"
+                loading="lazy"
+              />
             </div>
             <p>
-              A short, structured interview to turn game examples into a usable
-              taste profile.
+              Two steps to a usable taste profile: select platforms, then pick
+              3 liked games from the catalog.
             </p>
           </article>
           <article class="surface-card">
-            <h3>Game finder</h3>
-            <div class="surface-wireframe">
-              <div class="wireframe-search"></div>
-              <div class="wireframe-grid wireframe-grid-wide">
-                <div class="wireframe-panel wireframe-panel-list"></div>
-                <div class="wireframe-panel wireframe-panel-detail"></div>
-              </div>
+            <h3>Game dossier</h3>
+            <div class="surface-screenshot">
+              <img
+                src="/screenshots/dossier.jpg"
+                alt="Playfit game dossier showing rating, play status, and recommendation signals"
+                loading="lazy"
+              />
             </div>
             <p>
-              Search any title and inspect likely fit before committing time to
-              it.
+              Search any title and inspect likely fit, add it to your library,
+              or rate it — all inline.
             </p>
           </article>
         </div>
@@ -410,36 +377,38 @@
 
       <section id="coming-soon" class="section reveal">
         <div class="section-head">
-          <p class="eyebrow">Enter the alpha</p>
-          <h2>Use the MVP now, with the right expectations.</h2>
+          <p class="eyebrow">Try it now</p>
+          <h2>Local-first, no account, ready in under a minute.</h2>
         </div>
         <div class="two-column">
           <article class="prose-card accent-card">
-            <h3>What is already inside</h3>
+            <h3>What is inside</h3>
             <ul>
-              <li>Guided onboarding with a lightweight fit profile</li>
-              <li>Recommendation outputs for current run, next up, avoid, and resume</li>
-              <li>A searchable Game Finder over the active catalog and hidden universe seed data</li>
-              <li>Local-first persistence so the profile stays in your browser</li>
+              <li>Two-step onboarding: pick platforms + 3 liked games</li>
+              <li>Recommendation outputs for current run, next up, and avoid</li>
+              <li>A searchable game finder with per-title fit signals</li>
+              <li>Local-first persistence — data stays in your browser</li>
+              <li>Track record and hit-rate stats in your profile</li>
             </ul>
           </article>
           <article class="prose-card coming-soon-card">
-            <h3>Open the alpha preview</h3>
+            <h3>Open Playfit</h3>
             <p>
-              The product is usable today, but still early. Expect a local-first
-              MVP: onboarding, Today, and Finder are live; broader product
-              surfaces will keep evolving after that.
+              The app is usable today with a real catalog of 300+ games.
+              Onboarding, Today, Finder, Library, and Profile are all live.
             </p>
             <div class="hero-actions hero-actions-compact">
-              <a class="button button-primary" href="/app/">Launch the alpha preview</a>
-              <a class="button button-secondary" href="#how-it-works">Review the flow first</a>
+                <a class="button button-primary" href="/app/">Open Playfit</a>
+              <a class="button button-secondary" href="#how-it-works">See how it works</a>
             </div>
             <p id="interest-note" class="form-note">
-              This is an honest alpha. It is real, usable, and still narrowing toward the full public product.
+              No account needed. Everything runs locally in your browser.
             </p>
           </article>
         </div>
       </section>
     </main>
+
+    <script type="module" src="/src/scripts/landing.ts"></script>
   </body>
 </html>

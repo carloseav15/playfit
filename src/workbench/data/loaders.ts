@@ -1,19 +1,19 @@
 import Papa from "papaparse";
 
 import {
-  DATA_FILES,
-  REQUIRED_HEADERS,
   type CatalogRow,
+  DATA_FILES,
   type DatasetKey,
   type FranchiseCoverRow,
   type FranchiseMasterRow,
   type FranchiseProgressRow,
-  type GamePlatformRow,
   type GameCoverRow,
+  type GamePlatformRow,
   type OpinionRow,
   type PlatformRow,
   type ProfileRow,
   type RawData,
+  REQUIRED_HEADERS,
   type RecommendationRow,
   type SessionCheckinRow,
   type UpcomingReleasePlatformRow,
@@ -51,10 +51,7 @@ function sanitizeRow(row: Record<string, string | undefined>) {
   );
 }
 
-function parseCsv<T>(
-  text: string,
-  datasetKey: DatasetKey,
-): T[] {
+function parseCsv<T>(text: string, datasetKey: DatasetKey): T[] {
   const result = Papa.parse<ParsedRow>(text, {
     header: true,
     skipEmptyLines: "greedy",
@@ -64,15 +61,11 @@ function parseCsv<T>(
 
   if (result.errors.length > 0) {
     const firstError = result.errors[0];
-    throw new Error(
-      `Could not parse ${DATA_FILES[datasetKey]}: ${firstError.message}`,
-    );
+    throw new Error(`Could not parse ${DATA_FILES[datasetKey]}: ${firstError.message}`);
   }
 
   const headers = result.meta.fields ?? [];
-  const missingHeaders = REQUIRED_HEADERS[datasetKey].filter(
-    (header) => !headers.includes(header),
-  );
+  const missingHeaders = REQUIRED_HEADERS[datasetKey].filter((header) => !headers.includes(header));
 
   if (missingHeaders.length > 0) {
     throw new Error(
@@ -99,49 +92,28 @@ export async function loadRawData(): Promise<RawData> {
     franchiseProgressText,
     franchiseCoversText,
     gameCoversText,
-  ] =
-    await Promise.all(
-      Object.values(DATA_FILES).map((file) => loadCsvText(file)),
-    );
+  ] = await Promise.all(Object.values(DATA_FILES).map((file) => loadCsvText(file)));
 
   return {
     profile: parseCsv<ProfileRow>(profileText, "profile"),
     catalog: parseCsv<CatalogRow>(catalogText, "catalog"),
-    upcomingReleases: parseCsv<UpcomingReleaseRow>(
-      upcomingReleasesText,
-      "upcomingReleases",
-    ),
+    upcomingReleases: parseCsv<UpcomingReleaseRow>(upcomingReleasesText, "upcomingReleases"),
     platforms: parseCsv<PlatformRow>(platformsText, "platforms"),
     userPlatformAccess: parseCsv<UserPlatformAccessRow>(
       userPlatformAccessText,
       "userPlatformAccess",
     ),
-    gamePlatforms: parseCsv<GamePlatformRow>(
-      gamePlatformsText,
-      "gamePlatforms",
-    ),
+    gamePlatforms: parseCsv<GamePlatformRow>(gamePlatformsText, "gamePlatforms"),
     upcomingReleasePlatforms: parseCsv<UpcomingReleasePlatformRow>(
       upcomingReleasePlatformsText,
       "upcomingReleasePlatforms",
     ),
     opinions: parseCsv<OpinionRow>(opinionsText, "opinions"),
-    recommendations: parseCsv<RecommendationRow>(
-      recommendationsText,
-      "recommendations",
-    ),
+    recommendations: parseCsv<RecommendationRow>(recommendationsText, "recommendations"),
     checkins: parseCsv<SessionCheckinRow>(checkinsText, "checkins"),
-    franchiseMaster: parseCsv<FranchiseMasterRow>(
-      franchiseMasterText,
-      "franchiseMaster",
-    ),
-    franchiseProgress: parseCsv<FranchiseProgressRow>(
-      franchiseProgressText,
-      "franchiseProgress",
-    ),
-    franchiseCovers: parseCsv<FranchiseCoverRow>(
-      franchiseCoversText,
-      "franchiseCovers",
-    ),
+    franchiseMaster: parseCsv<FranchiseMasterRow>(franchiseMasterText, "franchiseMaster"),
+    franchiseProgress: parseCsv<FranchiseProgressRow>(franchiseProgressText, "franchiseProgress"),
+    franchiseCovers: parseCsv<FranchiseCoverRow>(franchiseCoversText, "franchiseCovers"),
     gameCovers: parseCsv<GameCoverRow>(gameCoversText, "gameCovers"),
   };
 }

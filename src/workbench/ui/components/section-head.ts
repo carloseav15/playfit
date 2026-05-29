@@ -1,5 +1,5 @@
-import { renderChip } from "./chips";
 import { escapeHtml } from "../utils";
+import { renderChip } from "./chips";
 
 interface SectionHeadOptions {
   kicker: string;
@@ -27,9 +27,7 @@ export function renderSectionHead({
         meta.length > 0
           ? `
             <div class="section-meta-row">
-              ${meta
-                .map((item) => renderChip(item.label, item.tone ?? "neutral"))
-                .join("")}
+              ${meta.map((item) => renderChip(item.label, item.tone ?? "neutral")).join("")}
             </div>
           `
           : ""
