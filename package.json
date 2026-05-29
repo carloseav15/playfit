@@ -1,28 +1,40 @@
 {
-  "name": "games-library-workbench",
+  "name": "playfit",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "npm run dev:public",
+    "dev": "npm run dev -w apps/web",
     "dev:public": "BUILD_TARGET=public vite",
     "dev:workbench": "BUILD_TARGET=workbench vite --open /workbench/",
-    "dev:proxy": "node server/ai-proxy.mjs",
-    "dev:product": "node scripts/dev-product.mjs",
-    "build": "npm run build:public",
-    "build:public": "BUILD_TARGET=public vite build && node scripts/copy-data.mjs public && node scripts/verify-public-build.mjs",
+    "build": "npm run build -w packages/core && npm run build -w apps/web",
+    "build:public": "npm run build",
     "build:workbench": "BUILD_TARGET=workbench vite build && node scripts/copy-data.mjs personal",
-    "preview": "vite preview",
-    "test": "vitest run"
+    "preview": "npm run start -w apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "biome check --fix src/",
+    "format": "biome format --write src/",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w apps/web"
   },
   "dependencies": {
     "fuse.js": "^7.0.0",
     "papaparse": "^5.5.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@types/node": "^25.9.1",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5.9.0",
     "vite": "^7.0.0",
     "vitest": "^4.1.3"
+  },
+  "overrides": {
+    "postcss": "8.5.15"
   }
 }
