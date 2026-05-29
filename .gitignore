@@ -5,6 +5,7 @@ node_modules/
 dist/
 .vite/
 coverage/
+.npm-cache/
 
 # Environment files
 .env
@@ -19,6 +20,12 @@ data/personal/*
 .DS_Store
 *.log
 
+# IDE
+.idea/
 
 # Agent artifacts
 .claude/
+
+# Build cache
+.next/
+*.tsbuildinfo
