@@ -16,7 +16,6 @@ The visible public stack is now:
 - `/` - product landing page
 - `/app` - interactive Playfit app
 - `/case-study` - portfolio case study
-- `src/workbench` - legacy/internal Vite workbench for private CSV exploration
 
 ## Project Structure
 
@@ -24,10 +23,7 @@ The visible public stack is now:
 apps/web/           Next.js public portfolio app
 packages/core/      Framework-independent scoring, onboarding, CSV, schemas, storage
 data/public/        Public CSV seed data copied into apps/web/public at dev/build time
-data/personal/      Private local CSVs for the legacy workbench, ignored by git
 product/            Product strategy and portfolio notes
-src/workbench/      Internal Vite workbench code
-workbench/          Internal workbench HTML entry
 ```
 
 ## Setup
@@ -43,12 +39,6 @@ Open:
 - App: `http://localhost:3000/app`
 - Case study: `http://localhost:3000/case-study`
 
-For the legacy personal workbench:
-
-```bash
-npm run dev:workbench
-```
-
 ## Validation
 
 ```bash
@@ -61,7 +51,6 @@ npm run test:e2e
 
 ## Data Policy
 
-- Do not commit personal CSVs from `data/personal/`.
 - The public Next.js app uses only `data/public/`.
 - `apps/web/scripts/prepare-public.mjs` copies public assets and public CSVs into `apps/web/public` before `dev` and `build`.
 
