@@ -9,11 +9,9 @@
   ],
   "scripts": {
     "dev": "npm run dev -w apps/web",
-    "dev:public": "BUILD_TARGET=public vite",
-    "dev:workbench": "BUILD_TARGET=workbench vite --open /workbench/",
+    "dev:public": "vite",
     "build": "npm run build -w packages/core && npm run build -w apps/web",
     "build:public": "npm run build",
-    "build:workbench": "BUILD_TARGET=workbench vite build && node scripts/copy-data.mjs personal",
     "preview": "npm run start -w apps/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

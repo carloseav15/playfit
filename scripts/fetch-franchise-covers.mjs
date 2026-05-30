@@ -48,7 +48,7 @@ function sleep(ms) {
 async function fetchWithRetry(url, attempt = 0) {
   const response = await fetch(url, {
     headers: {
-      "user-agent": "games-library-workbench/0.1 cover-fetcher",
+      "user-agent": "games-library/1.0 cover-fetcher",
     },
   });
 

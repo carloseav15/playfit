@@ -123,7 +123,7 @@ async function readCsv(filePath, columns) {
 async function loadSteamDb(source) {
   if (/^https?:\/\//.test(source)) {
     const response = await fetch(source, {
-      headers: { "user-agent": "games-library-workbench/0.1 steam-universe-import" },
+      headers: { "user-agent": "games-library/1.0 steam-universe-import" },
     });
     if (!response.ok) {
       throw new Error(`Steam source request failed: ${response.status}`);
