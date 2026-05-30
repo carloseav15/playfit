@@ -1,0 +1,248 @@
+opinion_id,game_id,title,status,hours_played,overall_score,story_score,progression_score,hook_score,aesthetic_score,emotional_complexity_score,combat_depth_score,endgame_repetition_penalty,pacing_score,narrative_payoff_score,confidence,notes,last_updated
+O001,final_fantasy_vii_original,Final Fantasy VII,completed,,5,5,4,4,5,5,3,2,4,5,medium,"User explicitly liked it; sub-scores beyond overall are inferred from the stated taste profile.",2026-03-30
+O002,final_fantasy_xv,Final Fantasy XV,completed,,3,3,3,4,5,4,2,4,3,4,high,"Liked the lore and aesthetic, but the combat felt simple and the hunts/endgame were not appealing.",2026-03-30
+O003,final_fantasy_x,Final Fantasy X,bounced,,1,,,1,,,,,1,,high,"Did not appeal; current evidence points mostly to pacing and presentation mismatch.",2026-03-30
+O004,nier_automata,NieR: Automata,on_hold,,,,2,4,,,,,,,high,"Started it but left it pending because the early phase was hard to understand.",2026-03-30
+O005,daxter,Daxter,completed,,4,2,5,5,4,2,3,2,5,3,medium,"User liked it a lot on PSP; likely for its fast hook, clear mission structure, humor, and polished portable pacing more than for narrative depth.",2026-03-30
+O006,the_world_ends_with_you,The World Ends With You,completed,,5,5,5,4,5,5,4,2,4,5,high,"User liked it a lot on DS; very strong fit around style, character growth, emotional payoff, and distinctive progression systems.",2026-03-30
+O007,the_banner_saga_trilogy,The Banner Saga Trilogy,completed,,5,5,4,4,5,5,4,4,3,5,high,"User loved the trilogy on Switch but used cheats for money to avoid grind, suggesting the narrative, atmosphere, and tragic cast outweighed friction in the economy or repetition.",2026-03-30
+O008,ico,ICO,completed,,4,5,2,2,5,4,1,1,2,5,high,"User liked the concept and the accompanied journey a lot, loved the ending, but had to rely heavily on guides and felt the gameplay was not very optimized.",2026-03-30
+O009,shadow_of_the_colossus,Shadow of the Colossus,completed,,5,4,4,4,5,5,3,1,4,5,high,"User completed it twice on PS2, which strongly suggests a standout fit around atmosphere, scale, melancholy, and payoff.",2026-03-30
+O010,kingdom_hearts,Kingdom Hearts,completed,,4,4,4,3,4,3,3,2,3,4,medium,"User liked the first game; current sub-scores are inferred conservatively because the stronger opinion was reserved for Kingdom Hearts II.",2026-03-30
+O011,kingdom_hearts_ii,Kingdom Hearts II,completed,,5,4,5,2,5,4,5,2,4,4,high,"User liked it by far the most in the series, though the opening was hard. Strong fit around combat, style, and progression once it starts moving.",2026-03-30
+O012,kingdom_hearts_chain_of_memories,Kingdom Hearts: Chain of Memories,completed,,2,3,2,2,3,3,1,5,2,3,medium,"User found it repetitive and did not engage much with the card system, but may have pushed through mainly for the story, including the 3D version.",2026-03-30
+O013,portal,Portal,completed,,4,,,,3,,,1,4,3,low,"User liked it but does not remember much now; only broad fit signals are stored.",2026-03-30
+O014,portal_2,Portal 2,completed,,4,4,5,4,4,3,1,1,5,4,high,"User liked it a lot for story, humor, and the fact that it never felt boring.",2026-03-30
+O015,ori_and_the_blind_forest,Ori and the Blind Forest,completed,,4,3,4,4,5,4,3,2,5,4,high,"User liked the metroidvania structure, agility, dynamism, action, and the feeling of achievement.",2026-03-30
+O016,ori_and_the_will_of_the_wisps,Ori and the Will of the Wisps,completed,,4,3,4,4,5,4,4,2,5,4,high,"User liked it as well for the metroidvania flow, agile movement, action, and satisfying sense of progress.",2026-03-30
+O017,uncharted_drakes_fortune,Uncharted: Drake's Fortune,completed,,4,4,4,4,4,3,2,2,5,4,medium,"User enjoyed the story-only run and liked the game overall, likely for its cinematic pace and straightforward adventure structure.",2026-03-30
+O018,uncharted_2_among_thieves,Uncharted 2: Among Thieves,completed,,4,4,4,4,4,3,2,2,5,4,medium,"User enjoyed it a lot in a story-focused playthrough; fit appears to come from pacing, spectacle, and clean mainline progression.",2026-03-30
+O019,uncharted_3_drakes_deception,Uncharted 3: Drake's Deception,completed,,4,4,4,4,4,3,2,2,5,4,medium,"User enjoyed it a lot in a story-focused playthrough; no strong pull toward optional content was mentioned.",2026-03-30
+O020,uncharted_4_a_thiefs_end,Uncharted 4: A Thief's End,completed,,4,4,4,3,4,4,2,3,4,4,medium,"User enjoyed the story, but the more open sections and side activities did not attract much interest.",2026-03-30
+O021,uncharted_the_lost_legacy,Uncharted: The Lost Legacy,completed,,4,4,4,3,4,4,2,3,4,4,medium,"User liked the Chloe-led follow-up, but again did not feel much pull toward side objectives in the open sections.",2026-03-30
+O022,final_fantasy_xii,Final Fantasy XII,completed,,5,5,5,3,5,5,5,2,4,5,high,"User loved Ivalice, the license board, gambits, judges, weapons, and found the combat deeply satisfying. Started it again on Switch later but left that replay on pause for unclear reasons.",2026-03-30
+O023,crisis_core_final_fantasy_vii,Crisis Core: Final Fantasy VII,completed,,5,5,5,4,5,5,4,3,4,5,high,"User liked the combat, materia system, story, and played a lot of what it offered on PSP.",2026-03-30
+O024,dissidia_final_fantasy,Dissidia: Final Fantasy,completed,,4,4,4,4,5,4,4,4,4,4,high,"User liked the story and combat and played a lot of it, but also felt that it could become repetitive at times.",2026-03-30
+O025,mario_rabbids_kingdom_battle,Mario + Rabbids Kingdom Battle,completed,,5,4,5,4,5,4,5,2,4,4,high,"User loved the gameplay structure, story, characters, weapons, and progression.",2026-03-30
+O026,mario_rabbids_sparks_of_hope,Mario + Rabbids Sparks of Hope,completed,,1,2,2,1,3,2,2,2,1,2,high,"User did not like it at all and felt bored, but could not identify a precise reason yet.",2026-03-30
+O027,detroit_become_human,Detroit: Become Human,completed,,5,5,5,5,4,5,1,1,4,5,high,"User liked it a lot for the decisions, ramifications, and overall narrative design.",2026-03-30
+O028,heavy_rain,Heavy Rain,completed,,5,5,5,4,4,5,1,1,4,5,high,"User liked it a lot and wants to replay it someday, with strong emphasis on decisions and branching outcomes.",2026-03-30
+O029,fahrenheit_indigo_prophecy,Fahrenheit: Indigo Prophecy,completed,,3,3,3,4,4,3,1,1,3,3,medium,"User finished it and liked the decision concept and QTEs enough, but at times was mainly continuing out of obligation rather than excitement.",2026-03-30
+O030,mass_effect,Mass Effect,completed,,5,5,4,3,4,5,3,2,3,5,medium,"User liked Mass Effect 1 a lot; likely a strong fit for worldbuilding, squad dynamics, and trilogy setup even if the first game is slower to start.",2026-03-30
+O031,mass_effect_2,Mass Effect 2,completed,,5,5,5,5,4,5,4,2,5,5,medium,"User liked Mass Effect 2 a lot; inferred strongest fit around squad loyalty arcs, pacing, choices, and cleaner combat progression.",2026-03-30
+O032,mass_effect_3,Mass Effect 3,completed,,5,5,5,4,4,5,4,2,4,5,medium,"User liked Mass Effect 3 a lot; likely strong payoff for long-arc character bonds and emotional trilogy closure.",2026-03-30
+O033,ni_no_kuni_wrath_of_the_white_witch,Ni no Kuni: Wrath of the White Witch,completed,,5,5,5,4,5,4,4,3,4,5,high,"Assuming this was the first Ni no Kuni. User liked the story, gameplay, progression, variety, world, and the plot twist or story shift.",2026-03-30
+O034,tekken_dark_resurrection,Tekken: Dark Resurrection,completed,,4,1,3,4,3,1,5,2,5,2,medium,"User played it a lot on PSP, likely because the content variety and core loop felt very fun even without story-first motivation.",2026-03-30
+O035,marvel_ultimate_alliance_3,Marvel Ultimate Alliance 3: The Black Order,dropped,,1,1,2,2,2,1,2,5,2,1,medium,"User tried multiple times but could not get into it at all.",2026-03-30
+O036,captain_tsubasa_rise_of_new_champions,Captain Tsubasa: Rise of New Champions,dropped,,1,2,2,2,3,2,2,3,2,2,medium,"User did not like it.",2026-03-30
+O037,mario_and_yoshi,Mario & Yoshi,dropped,,1,1,2,2,1,1,1,3,2,1,medium,"User did not like the NES puzzle game.",2026-03-30
+O038,grapple_dog,Grapple Dog,dropped,,2,1,3,3,2,1,3,2,3,1,medium,"User was not convinced by it.",2026-03-30
+O039,john_wick_hex,John Wick Hex,dropped,,1,1,2,2,2,1,2,4,2,1,high,"User gave it as much time as possible but did not like it.",2026-03-30
+O040,no_more_heroes,No More Heroes,dropped,,2,2,2,3,4,2,2,4,2,2,high,"User expected to like it but abandoned it. Likely mismatch around repetitive structure, friction, and weaker emotional anchor despite strong style.",2026-03-30
+O041,neo_the_world_ends_with_you,NEO: The World Ends with You,completed_or_watched,,4,4,4,4,5,4,4,4,4,4,high,"User played a lot and liked the world, gameplay, and story, but it felt repetitive at times and the user is no longer fully sure whether it was finished directly or via YouTube.",2026-03-31
+O042,persona_5_royal,Persona 5 Royal,backlog,,,,1,5,,,,1,,,high,"User has it in backlog, but the beginning felt slow.",2026-03-30
+O043,thirteen_sentinels_aegis_rim,13 Sentinels: Aegis Rim,completed,,5,5,4,5,5,5,3,1,4,5,high,"User liked the concept, story, mystery, and gameplay structure a lot and completed it.",2026-03-30
+O044,unicorn_overlord,Unicorn Overlord,on_hold,,3,3,5,4,5,3,5,4,3,3,high,"User played a lot, but at some point it started to feel repetitive and is now in backlog/on hold.",2026-03-30
+O045,fire_emblem_three_houses,Fire Emblem: Three Houses,completed,,5,5,5,4,5,5,5,2,4,5,high,"User liked it a lot, invested many hours, completed one house route, and watched the others on YouTube.",2026-03-30
+O046,ni_no_kuni_ii_revenant_kingdom,Ni no Kuni II: Revenant Kingdom,backlog,,,,3,4,,,,3,,,medium,"User has it in backlog for unclear reasons.",2026-03-30
+O047,triangle_strategy,TRIANGLE STRATEGY,completed,,5,5,5,3,5,5,5,2,3,5,high,"User finished it and loved it without complaints.",2026-03-30
+O048,baten_kaitos_i_and_ii,Baten Kaitos I and II,dropped_then_watched,,2,4,2,2,5,4,2,3,2,4,high,"Both on GameCube and later on Switch, the atmosphere and world strongly attracted the user, but the play experience became boring and the story was finished on YouTube.",2026-03-31
+O049,advance_wars_1_and_2,Advance Wars 1 and 2,on_hold,,2,1,4,3,2,1,5,3,3,1,high,"On GBA and later in Re-Boot Camp, the games were always conceptually appealing, but boredom set in after playing a while and the user is unsure whether to return.",2026-03-31
+O050,clair_obscur_expedition_33,Clair Obscur: Expedition 33,dropped_then_watched,,3,3,4,4,5,4,4,3,3,3,high,"User liked the atmosphere and gameplay enough to lower difficulty to easy, but quit at a Renoir battle and then watched the rest on YouTube.",2026-03-31
+O051,astral_chain,Astral Chain,dropped_then_watched,,2,2,3,3,5,2,4,3,3,2,high,"User played as much as possible but still dropped it and finished the rest via internet, suggesting style and mechanics were not enough to sustain engagement.",2026-03-31
+O052,donkey_kong_country_2,Donkey Kong Country 2: Diddy's Kong Quest,completed,,5,1,5,5,4,2,5,1,5,2,high,"User finished it completely with over 100 percent, showing very strong fit for challenge, feel, and mastery when the game is tight and rewarding.",2026-03-31
+O053,bravely_default,Bravely Default,dropped_then_watched,,4,5,4,3,5,5,5,4,3,5,high,"User liked the setting, world, mechanics, and plot twists, but the game felt difficult enough to abandon before later watching the rest on YouTube.",2026-03-31
+O054,shin_megami_tensei_v,Shin Megami Tensei V,dropped_then_watched,,3,3,3,3,5,3,4,4,3,3,high,"The story, characters, gods, and some of the gameplay pulled the user in, but repetition eventually took over and the rest was watched instead.",2026-03-31
+O055,twelve_minutes,Twelve Minutes,dropped_then_watched,,3,4,1,4,4,4,1,5,2,4,high,"The premise was very attractive and the user gave it real time, but guide use and repeated loops took over before the rest was consumed on YouTube.",2026-03-31
+O056,the_legend_of_zelda_links_awakening,The Legend of Zelda: Link's Awakening,completed,,2,3,2,2,4,3,2,1,2,3,high,"User finished the Switch remake with cheats and heavy guide use, did not feel real enjoyment, and felt forced despite thinking the story was not bad.",2026-03-31
+O057,resident_evil_village,Resident Evil Village,completed,,4,3,5,5,5,3,4,2,5,4,high,"User enjoyed the atmosphere, pacing, and gameplay.",2026-03-31
+O058,enslaved_odyssey_to_the_west,Enslaved: Odyssey to the West,completed,,4,4,4,4,4,4,3,2,4,4,medium,"User liked the concept, did not get bored, and finished it.",2026-03-31
+O059,catherine,Catherine,dropped_then_watched,,3,4,1,3,5,4,3,5,2,4,high,"The original version's proposal and soundtrack attracted the user, but it was not finished through play and the ending was later watched on YouTube.",2026-03-31
+O060,castlevania_aria_of_sorrow,Castlevania: Aria of Sorrow,completed,,5,3,5,5,4,3,5,2,5,4,high,"User liked it a lot, enjoying the metroidvania structure, gameplay, and unlocking more of the map over time.",2026-03-31
+O061,castlevania_dawn_of_sorrow,Castlevania: Dawn of Sorrow,completed,,5,3,5,5,4,3,5,2,5,4,high,"User liked it a lot for the same metroidvania progression and gameplay reasons as Aria of Sorrow.",2026-03-31
+O062,doki_doki_literature_club_plus,Doki Doki Literature Club Plus!,completed,,4,5,5,5,4,5,1,1,4,5,high,"User liked it a lot and finished it.",2026-03-31
+O063,the_legend_of_zelda_breath_of_the_wild,The Legend of Zelda: Breath of the Wild,on_hold,,3,3,2,2,5,3,3,2,2,3,high,"User owns it, left it halfway around one of the Divine Beasts, and even with hacks for higher jumps it did not fully hook. A future return is possible but uncertain.",2026-04-01
+O064,the_legend_of_zelda_tears_of_the_kingdom,The Legend of Zelda: Tears of the Kingdom,backlog,,,,,5,,,,,,,high,"User owns it but has not played it yet.",2026-04-01
+O065,bayonetta,Bayonetta,completed,,4,2,4,4,4,2,5,2,4,2,medium,"User liked Bayonetta 1 back in the day.",2026-04-01
+O066,bayonetta_2,Bayonetta 2,completed,,2,2,3,3,4,2,4,3,3,2,high,"User finished it mostly out of obligation to see the ending; some variety helped, but enjoyment felt weaker than expected.",2026-04-01
+O067,bayonetta_3,Bayonetta 3,dropped,,1,1,2,2,4,1,3,3,2,1,high,"User did not like it.",2026-04-01
+O068,metroid_dread,Metroid Dread,completed,,4,3,5,4,4,3,5,2,4,4,high,"User finished it, liked the concept and final battle, and although some segments felt difficult, it still landed well as a metroidvania.",2026-04-01
+O069,pikmin,Pikmin,completed,,5,3,5,4,4,3,4,2,4,4,medium,"User loves the Pikmin series and may replay it; Pikmin 1 has no major postgame memory but is a clear series favorite.",2026-04-01
+O070,pikmin_2,Pikmin 2,completed,,5,3,5,4,4,3,4,3,4,4,medium,"User loves it and still has postgame pending.",2026-04-01
+O071,pikmin_3,Pikmin 3,completed,,5,3,5,4,4,3,4,2,5,4,medium,"User loves it and still has some postgame pending.",2026-04-01
+O072,pikmin_4,Pikmin 4,completed,,5,3,5,4,4,3,4,3,4,4,medium,"User loves it and still has postgame pending.",2026-04-01
+O073,dragon_quest_xi_s,Dragon Quest XI S: Echoes of an Elusive Age,backlog,,,,,,,,,,,,high,"User has heard of it but has not played it.",2026-04-01
+O074,live_a_live,LIVE A LIVE,backlog,,,,,,,,,,,,high,"User has heard of it but has not played it.",2026-04-01
+O075,paper_mario_the_thousand_year_door,Paper Mario: The Thousand-Year Door,dropped_then_watched,,3,4,3,2,4,3,2,2,2,4,high,"The game always attracted the user, but when they had it, it somehow did not click strongly enough and the rest was watched on YouTube.",2026-04-01
+O076,luigis_mansion_3,Luigi's Mansion 3,completed,,3,3,3,3,4,3,2,2,3,3,high,"User finished it, but it felt harder than expected to get through and the reason is unclear.",2026-04-01
+O077,hollow_knight,Hollow Knight,completed,,5,4,5,4,5,4,5,2,4,5,high,"User finished it at 100 percent.",2026-04-01
+O078,resident_evil_4,Resident Evil 4,completed,,5,4,5,5,5,3,5,2,5,4,high,"User finished the original and enjoyed it a lot.",2026-04-01
+O079,resident_evil_4_remake,Resident Evil 4,completed,,5,4,5,5,5,3,5,2,5,4,high,"User finished the remake and still has Ada's episode pending.",2026-04-01
+O080,control,Control,on_hold,,3,4,3,3,5,3,4,3,3,3,medium,"User started it and left it halfway; may need time.",2026-04-01
+O081,alan_wake_2,Alan Wake 2,backlog,,,,,,,,,,,,high,"User has not played it yet.",2026-04-01
+O082,sekiro_shadows_die_twice,Sekiro: Shadows Die Twice,backlog,,,,,,,,,,,,high,"User owns it but has not played it yet.",2026-04-01
+O083,lost_judgment,Lost Judgment,backlog,,,,,,,,,,,,high,"User has not played it yet.",2026-04-01
+O084,lies_of_p,Lies of P,backlog,,,,,,,,,,,,high,"User has not played it yet.",2026-04-01
+O085,hi_fi_rush,Hi-Fi Rush,on_hold,,2,2,3,3,4,2,3,2,3,2,high,"User played a bit and did not connect much, but would still like to try finishing it.",2026-04-01
+O086,golden_sun,Golden Sun,backlog,,,,,,,,,,,,high,"User started it for around 30 minutes and wants to give it a real chance.",2026-04-01
+O087,golden_sun_the_lost_age,Golden Sun: The Lost Age,interested_not_started,,,,,,,,,,,,high,"User has not played it yet.",2026-04-01
+O088,fire_emblem_gba,Fire Emblem,unknown_history,,,,,,,,,,,,low,"User does not clearly remember whether it was played.",2026-04-01
+O089,fire_emblem_the_sacred_stones,Fire Emblem: The Sacred Stones,unknown_history,,,,,,,,,,,,low,"User does not clearly remember whether it was played.",2026-04-01
+O090,metroid_fusion,Metroid Fusion,completed,,5,3,5,5,4,3,5,2,5,4,high,"User finished it at 100 percent.",2026-04-01
+O091,the_legend_of_zelda_the_minish_cap,The Legend of Zelda: The Minish Cap,on_hold,,3,3,3,3,5,3,3,2,3,3,high,"User has left it halfway several times, but it still attracts them and may be resumed with time, commitment, and guide support.",2026-04-01
+O092,mario_and_luigi_superstar_saga,Mario & Luigi: Superstar Saga,on_hold,,3,3,4,3,4,3,3,2,3,3,medium,"User has it halfway and feels it may require time and guide support.",2026-04-01
+O093,wario_land_4,Wario Land 4,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O094,castlevania_circle_of_the_moon,Castlevania: Circle of the Moon,completed,,5,3,5,5,4,3,5,2,5,4,high,"User finished it at 100 percent.",2026-04-01
+O095,castlevania_harmony_of_dissonance,Castlevania: Harmony of Dissonance,completed,,5,3,5,5,4,3,5,2,5,4,high,"User finished it at 100 percent.",2026-04-01
+O096,chrono_trigger,Chrono Trigger,backlog,,,,,,,,,,,,high,"User played around 30 minutes and wants to play and finish it.",2026-04-01
+O097,radiant_historia,Radiant Historia,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O098,ghost_trick,Ghost Trick,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O099,zero_escape_999,"999: Nine Hours, Nine Persons, Nine Doors",interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O100,dragon_quest_v,Dragon Quest V: Hand of the Heavenly Bride,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O101,dragon_quest_ix,Dragon Quest IX: Sentinels of the Starry Skies,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O102,mario_and_luigi_bowsers_inside_story,Mario & Luigi: Bowser's Inside Story,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O103,pokemon_black_white,Pokemon Black and White,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O104,professor_layton_and_the_curious_village,Professor Layton and the Curious Village,on_hold,,3,3,2,3,4,3,1,3,3,3,medium,"User has it halfway and may want to continue.",2026-04-01
+O105,hotel_dusk_room_215,Hotel Dusk: Room 215,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O106,shin_megami_tensei_iv,Shin Megami Tensei IV,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O107,shin_megami_tensei_iv_apocalypse,Shin Megami Tensei IV: Apocalypse,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O108,fire_emblem_awakening,Fire Emblem Awakening,completed,,5,5,5,4,5,5,5,2,4,5,high,"User finished the main story.",2026-04-01
+O109,fire_emblem_fates,Fire Emblem Fates,on_hold,,3,3,4,3,4,3,5,3,3,3,medium,"User left it halfway.",2026-04-01
+O110,the_legend_of_zelda_a_link_between_worlds,The Legend of Zelda: A Link Between Worlds,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O111,kid_icarus_uprising,Kid Icarus: Uprising,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O112,dragon_quest_viii,Dragon Quest VIII: Journey of the Cursed King,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O113,radiant_historia_perfect_chronology,Radiant Historia: Perfect Chronology,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O114,bravely_second,Bravely Second,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O115,professor_layton_vs_phoenix_wright,Professor Layton vs. Phoenix Wright,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O116,jeanne_darc,Jeanne d'Arc,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O117,tactics_ogre_let_us_cling_together,Tactics Ogre: Let Us Cling Together,completed,,5,5,5,3,5,5,5,3,3,5,high,"User played the Switch version and finished the main story to the end, but did not play the route branches.",2026-04-01
+O118,persona_3_portable,Persona 3 Portable,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O119,ys_seven,Ys Seven,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O120,the_3rd_birthday,The 3rd Birthday,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to, along with the original Parasite Eve.",2026-04-01
+O121,valkyria_chronicles_ii,Valkyria Chronicles II,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O122,lunar_silver_star_harmony,Lunar: Silver Star Harmony,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O123,monster_hunter_freedom_unite,Monster Hunter Freedom Unite,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O124,star_ocean_first_departure,Star Ocean: First Departure,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O125,half_minute_hero,Half-Minute Hero,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O126,final_fantasy_ix,Final Fantasy IX,on_hold,,4,5,4,3,5,5,3,2,3,5,medium,"User has it halfway.",2026-04-01
+O127,chrono_cross,Chrono Cross,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O128,vagrant_story,Vagrant Story,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to.",2026-04-01
+O129,xenogears,Xenogears,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to.",2026-04-01
+O130,suikoden_ii,Suikoden II,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O131,parasite_eve,Parasite Eve,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to.",2026-04-01
+O132,metal_gear_solid,Metal Gear Solid,completed,,5,5,5,5,5,5,4,1,5,5,high,"User completed it at 100 percent.",2026-04-01
+O133,silent_hill,Silent Hill,completed,,5,5,4,4,5,5,3,1,4,5,high,"User completed it at 100 percent.",2026-04-01
+O134,valkyrie_profile,Valkyrie Profile,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O135,breath_of_fire_iv,Breath of Fire IV,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O136,disco_elysium,Disco Elysium,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to.",2026-04-01
+O137,hades,Hades,on_hold,,4,4,5,4,5,4,5,3,5,4,high,"User has it halfway and wants to finish it.",2026-04-01
+O138,balatro,Balatro,playing,,4,1,4,4,3,1,5,5,4,1,high,"User plays it occasionally and would like to keep playing.",2026-04-01
+O139,inscryption,Inscryption,interested_not_started,,,,,,,,,,,,high,"User has not played it yet, but wants to.",2026-04-01
+O140,slay_the_spire,Slay the Spire,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O141,return_of_the_obra_dinn,Return of the Obra Dinn,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O142,citizen_sleeper,Citizen Sleeper,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O143,bastion,Bastion,completed,,4,3,5,5,5,3,3,2,5,4,high,"User finished it.",2026-04-01
+O144,transistor,Transistor,completed,,4,4,5,4,5,4,5,2,4,4,high,"User finished it.",2026-04-01
+O145,into_the_breach,Into the Breach,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-01
+O146,lost_odyssey,Lost Odyssey,on_hold,,4,5,4,3,4,5,3,2,3,5,high,"User only needs to finish it; the run stalled on the last disc because it was not functioning properly.",2026-04-02
+O147,blue_dragon,Blue Dragon,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O148,the_last_story,The Last Story,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O149,infinite_undiscovery,Infinite Undiscovery,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O150,resonance_of_fate,Resonance of Fate,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O151,tokyo_mirage_sessions_fe_encore,Tokyo Mirage Sessions #FE Encore,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O152,rune_factory_4_special,Rune Factory 4 Special,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O153,utawarerumono_prelude_to_the_fallen,Utawarerumono: Prelude to the Fallen,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O154,utawarerumono_mask_of_deception,Utawarerumono: Mask of Deception,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O155,utawarerumono_mask_of_truth,Utawarerumono: Mask of Truth,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O156,the_caligula_effect_2,The Caligula Effect 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O157,monark,Monark,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O158,fuga_melodies_of_steel,Fuga: Melodies of Steel,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O159,fuga_melodies_of_steel_2,Fuga: Melodies of Steel 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O160,troubleshooter_abandoned_children,Troubleshooter: Abandoned Children,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O161,digimon_story_cyber_sleuth,Digimon Story: Cyber Sleuth,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O162,digimon_story_hackers_memory,Digimon Story: Cyber Sleuth - Hacker's Memory,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O163,zero_escape_virtues_last_reward,Zero Escape: Virtue's Last Reward,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O164,zero_time_dilemma,Zero Time Dilemma,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O165,ai_the_somnium_files_nirvana_initiative,AI: The Somnium Files - nirvanA Initiative,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O166,shibuya_scramble_428,428: Shibuya Scramble,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O167,bloodstained_ritual_of_the_night,Bloodstained: Ritual of the Night,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O168,blasphemous,Blasphemous,on_hold,,4,3,4,4,5,4,5,3,4,4,high,"User has it halfway and wants to finish it.",2026-04-02
+O169,blasphemous_2,Blasphemous 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O170,ender_lilies,Ender Lilies: Quietus of the Knights,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O171,tunic,Tunic,on_hold,,3,3,2,3,5,3,3,2,3,3,high,"User has it halfway and would like to finish it.",2026-04-02
+O172,deaths_door,Death's Door,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O173,axiom_verge,Axiom Verge,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O174,axiom_verge_2,Axiom Verge 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O175,guacamelee,Guacamelee!,on_hold,,4,3,4,4,5,3,5,2,5,3,high,"User has it halfway and would like to finish it.",2026-04-02
+O176,guacamelee_2,Guacamelee! 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O177,salt_and_sanctuary,Salt and Sanctuary,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O178,the_messenger,The Messenger,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O179,resident_evil_7,Resident Evil 7: Biohazard,completed,,5,4,5,5,5,4,4,2,5,4,high,"User liked it.",2026-04-02
+O180,tormented_souls,Tormented Souls,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O181,the_evil_within,The Evil Within,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O182,the_evil_within_2,The Evil Within 2,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O183,dead_space,Dead Space,completed,,5,4,5,5,5,4,5,2,5,4,high,"User liked it.",2026-04-02
+O184,dead_space_2,Dead Space 2,completed,,5,4,5,5,5,4,5,2,5,4,high,"User liked it.",2026-04-02
+O185,prey_2017,Prey,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O186,alien_isolation,Alien: Isolation,interested_not_started,,,,,,,,,,,,high,"User has not played it.",2026-04-02
+O187,marvels_spider_man,Marvel's Spider-Man,completed,,4,4,4,4,5,3,4,2,5,4,high,"User liked the story and only played the main story.",2026-04-02
+O188,pentiment,Pentiment,completed,,5,5,5,4,5,5,1,1,4,5,high,"User liked the whole concept a lot and finished it.",2026-04-02
+O189,donkey_kong_country,Donkey Kong Country,completed,,4,1,5,5,4,2,5,1,5,2,high,"User liked it and finished it.",2026-04-02
+O190,the_quarry,The Quarry,completed,,5,5,5,4,4,4,1,1,4,5,high,"User liked it a lot and finished it.",2026-04-02
+O191,star_wars_jedi_survivor,Star Wars Jedi: Survivor,completed,,4,4,4,4,4,3,4,2,4,4,high,"User liked the story and finished it.",2026-04-02
+O192,super_mario_3d_land,Super Mario 3D Land,completed,,4,1,5,5,4,1,4,1,5,2,high,"User liked it and finished it.",2026-04-02
+O193,a_plague_tale_requiem,A Plague Tale: Requiem,completed,,4,4,4,4,5,5,3,2,4,5,high,"User liked it and finished it.",2026-04-02
+O194,death_stranding,Death Stranding,dropped_then_watched,,3,4,2,3,5,4,2,4,2,4,high,"User left it halfway and then watched the rest on YouTube; the plot was very attractive, but it may simply not have been the right moment.",2026-04-02
+O195,marvels_guardians_of_the_galaxy,Marvel's Guardians of the Galaxy,completed,,4,4,4,4,5,4,3,2,5,4,high,"User liked the story and graphics and finished it.",2026-04-02
+O196,resident_evil_5,Resident Evil 5,completed,,4,3,5,5,4,2,4,2,5,3,medium,"User finished it.",2026-04-02
+O197,resident_evil_6,Resident Evil 6,interested_not_started,,,,,,,,,,,,high,"User wants to play it.",2026-04-02
+O198,senuas_saga_hellblade_ii,Senua's Saga: Hellblade II,completed,,4,4,3,4,5,5,1,1,3,4,high,"User liked the graphics and concept and finished it.",2026-04-02
+O199,stray,Stray,completed,,4,3,4,4,5,3,1,1,4,3,high,"User liked the concept and finished it.",2026-04-02
+O200,devil_may_cry_4,Devil May Cry 4,completed,,4,3,4,4,5,3,5,2,4,3,high,"User liked the story and gameplay and finished it.",2026-04-02
+O201,not_a_hero,Not a Hero,completed,,4,1,4,5,3,1,4,2,5,1,medium,"User liked it, found it entertaining, and finished it.",2026-04-02
+O202,xenoblade_chronicles_2,Xenoblade Chronicles 2,completed,,5,5,5,4,5,5,4,3,4,5,high,"User liked it a lot and finished it at 100 percent.",2026-04-02
+O203,xenoblade_chronicles_2_torna,Torna ~ The Golden Country,completed,,5,5,5,5,5,5,4,2,5,5,high,"User finished the DLC at 100 percent.",2026-04-02
+O204,zone_of_the_enders,Zone of the Enders,completed,,4,4,4,4,4,3,4,2,4,4,medium,"User finished it and was strongly attracted by the story.",2026-04-02
+O205,zone_of_the_enders_the_2nd_runner,Zone of the Enders: The 2nd Runner,completed,,4,4,4,4,5,4,5,2,5,4,medium,"User finished it and was strongly attracted by the story.",2026-04-02
+O206,ridge_racer_psp,Ridge Racer,completed,,4,1,5,5,3,1,4,1,5,1,high,"User finished it at 100 percent, found it very fun, and would like to replay it.",2026-04-02
+O207,ridge_racer_2,Ridge Racer 2,completed,,4,1,5,5,3,1,4,1,5,1,high,"User finished it at 100 percent, found it very fun, and would like to replay it.",2026-04-02
+O208,the_last_of_us_part_i,The Last of Us Part I,completed,,5,5,5,5,5,5,4,1,5,5,high,"User liked it a lot and finished the story.",2026-04-02
+O209,the_last_of_us_part_ii,The Last of Us Part II,completed,,5,5,5,5,5,5,5,1,5,5,high,"User liked it a lot and finished the story.",2026-04-02
+O210,a_plague_tale_innocence,A Plague Tale: Innocence,completed,,4,4,4,4,4,4,3,2,4,4,high,"User liked the concept a lot and finished it.",2026-04-02
+O211,captain_toad_treasure_tracker,Captain Toad: Treasure Tracker,completed,,4,3,5,5,4,2,2,1,5,3,high,"User liked it a lot, finished it, and would like to replay it.",2026-04-02
+O212,red_dead_redemption,Red Dead Redemption,completed,,5,5,5,4,5,5,3,1,4,5,high,"User played it and completed it at 100 percent.",2026-04-02
+O213,red_dead_redemption_2,Red Dead Redemption 2,completed,,4,4,4,3,5,5,3,1,3,4,medium,"User finished the story but would like to replay it because not enough attention was paid at the time and it may not have been the right moment.",2026-04-02
+O214,metal_gear_solid_3,Metal Gear Solid 3: Snake Eater,completed,,5,5,5,5,5,5,4,1,5,5,high,"User liked it a lot and finished it.",2026-04-02
+O215,metal_gear_solid_4,Metal Gear Solid 4: Guns of the Patriots,completed,,5,5,4,4,5,5,4,1,4,5,high,"User liked it a lot and finished it.",2026-04-02
+O216,metal_gear_rising_revengeance,Metal Gear Rising: Revengeance,completed,,5,4,4,5,5,3,5,1,5,4,high,"User liked it a lot and finished it.",2026-04-02
+O217,silent_hill_2,Silent Hill 2,completed,,5,5,4,4,5,5,3,1,4,5,high,"User liked it a lot and finished it.",2026-04-02
+O218,max_payne_3,Max Payne 3,completed,,4,4,5,5,4,4,5,1,5,4,high,"User liked it a lot and finished it.",2026-04-02
+O219,need_for_speed_the_run,Need for Speed: The Run,completed,,4,1,5,5,3,1,4,1,5,1,high,"User liked it a lot and finished it.",2026-04-02
+O220,need_for_speed_prostreet,Need for Speed: ProStreet,completed,,4,1,5,5,3,1,4,1,5,1,high,"User liked it a lot and finished it.",2026-04-02
+O221,need_for_speed_carbon,Need for Speed: Carbon,completed,,4,1,5,5,3,1,4,1,5,1,high,"User liked it a lot and finished it.",2026-04-02
+O222,prince_of_persia_the_two_thrones,Prince of Persia: The Two Thrones,completed,,4,4,4,4,4,3,4,1,5,4,high,"User liked it a lot and finished it.",2026-04-02
+O223,prince_of_persia_the_forgotten_sands,Prince of Persia: The Forgotten Sands,completed,,4,3,4,4,4,2,4,1,5,3,high,"User liked it a lot and finished it.",2026-04-02
+O224,prince_of_persia_the_sands_of_time,Prince of Persia: The Sands of Time,on_hold,,,,,,,,,,,,high,"User started it, and it is still pending.",2026-04-02
+O225,prince_of_persia_warrior_within,Prince of Persia: Warrior Within,interested_not_started,,,,,,,,,,,,high,"User wants to play it.",2026-04-02
+O226,la_noire,L.A. Noire,completed,,4,4,4,4,4,4,1,1,4,4,high,"User finished it, liked it, and would like to replay it.",2026-04-02
+O227,gears_of_war,Gears of War,completed,,4,3,5,5,4,3,4,1,5,4,high,"User finished it and would like to replay it.",2026-04-02
+O228,gears_of_war_2,Gears of War 2,completed,,4,4,5,5,4,4,4,1,5,4,medium,"User finished it as part of the trilogy run.",2026-04-02
+O229,gears_of_war_3,Gears of War 3,completed,,4,4,5,5,4,4,4,1,5,4,medium,"User finished it as part of the trilogy run.",2026-04-02
+O230,pokemon_legends_arceus,Pokemon Legends: Arceus,dropped_then_watched,,4,2,5,5,4,2,3,3,4,2,high,"User played a lot, had fun, and enjoyed it, but later finished the rest on YouTube.",2026-04-02
+O231,broken_age,Broken Age,completed_or_watched,,,,,,,,,,,,low,"User finished watching it on YouTube.",2026-04-02
+O232,vanquish,Vanquish,on_hold,,,,,,,,,,,,medium,"User started it and left it halfway; it is still pending.",2026-04-02
+O233,mirrors_edge,Mirror's Edge,dropped,,2,1,3,3,4,1,2,2,3,1,medium,"User abandoned it.",2026-04-02
+O234,kirby_star_allies,Kirby Star Allies,completed,,4,1,4,4,4,1,2,1,4,2,high,"User finished it and liked it.",2026-04-02
+O235,final_fantasy_crystal_chronicles,Final Fantasy Crystal Chronicles,dropped_then_watched,,3,3,3,4,4,3,3,3,3,3,high,"The premise attracted the user a lot, but it was later abandoned and the rest was watched on YouTube.",2026-04-02
+O236,child_of_light,Child of Light,completed,,5,4,5,4,5,4,3,1,4,4,high,"User finished it at 100 percent.",2026-04-02
+O237,final_fantasy_xiii,Final Fantasy XIII,completed,,5,4,5,4,5,4,4,2,4,4,high,"User finished it at 100 percent despite its reputation for being linear.",2026-04-02
+O238,final_fantasy_xiii_2,Final Fantasy XIII-2,completed,,4,4,4,4,5,4,4,2,4,4,high,"User finished the story.",2026-04-02
+O239,lightning_returns_final_fantasy_xiii,Lightning Returns: Final Fantasy XIII,interested_not_started,,,,,,,,,,,,high,"User wants to play it.",2026-04-02
+O240,yakuza_like_a_dragon,Yakuza: Like a Dragon,on_hold,,,,,,,,,,,,high,"User started it, but it is still pending.",2026-04-02
+O241,kingdom_hearts_iii,Kingdom Hearts III,completed,,5,5,4,4,5,4,4,1,4,5,high,"Completed on Xbox. Strong positive: lore, gameplay variety/modes, and overall pacing landed well.",2026-05-12
+O242,kingdom_hearts_iii_re_mind,Kingdom Hearts III Re Mind,completed,,5,5,4,4,5,4,4,1,4,5,high,"Completed on Xbox. Extra story/payoff content that matched your taste for lore and momentum.",2026-05-12
+O243,kingdom_hearts_back_cover,Kingdom Hearts χ Back Cover,completed_or_watched,,4,4,,,4,3,,,4,4,high,"Watched on Xbox. Lore-dense context piece; enjoyed it mainly for story/worldbuilding.",2026-05-12
+O244,kingdom_hearts_hd_2_8_final_chapter_prologue,Kingdom Hearts HD 2.8 Final Chapter Prologue,completed,,4,4,3,3,4,4,3,2,3,4,medium,"Completed on Xbox. Overall positive; note: as a collection, the pacing/structure varies by component.",2026-05-12
+O245,final_fantasy_vii_rebirth,Final Fantasy VII Rebirth,completed,,4,4,4,4,5,4,4,2,4,4,medium,"Played the Xbox demo. Very positive first impression: lore/characters, combat feel, and pacing were appealing; full-game scores TBD.",2026-05-12
+O246,metaphor_refantazio,Metaphor: ReFantazio,completed,,4,4,4,4,5,4,4,2,4,4,medium,"Played the Xbox demo. Strong fit so far: lore, rhythm, and overall gameplay loop landed; full-game scores TBD.",2026-05-12
+O247,shadow_of_mordor,Middle-earth: Shadow of Mordor,completed,,3,2,5,4,4,2,4,4,4,2,high,"Finished main story on Xbox (GOTY). Nemesis system was fun and interesting, but the main story disappointed; felt like it would become repetitive if it went longer. Used paid add-ons to move faster. Skipped extras.",2026-05-16

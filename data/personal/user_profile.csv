@@ -1,0 +1,69 @@
+preference_id,category,key,value,weight,confidence,evidence,last_updated
+P001,profile,core_taste,story_rich_jrpg_action_rpg,5,high,"User likes FFVII original and the aesthetic of FFXV.",2026-03-30
+P002,story,priority,strong_story,5,high,"Historia fuerte was selected as a top priority.",2026-03-30
+P003,progression,priority,clear_progression,5,high,"Progresion clara was selected as a top priority.",2026-03-30
+P004,pacing,priority,fast_engagement,5,high,"User wants to get hooked relatively fast.",2026-03-30
+P005,aesthetic,priority,jrpg_action_rpg_style,5,high,"User prefers JRPG or action RPG vibes.",2026-03-30
+P006,story,likes,tragic_personal_stories,5,high,"Episode Ignis and Episode Ardyn resonated strongly.",2026-03-30
+P007,story,likes,lore_heavy_worlds,4,high,"User asks for lore, universe details, and expanded material.",2026-03-30
+P008,story,likes,morally_complex_villains,5,high,"Ardyn resonated strongly.",2026-03-30
+P009,gameplay,likes,engaging_action_combat,5,high,"User wants action combat more engaging than FFXV.",2026-03-30
+P010,gameplay,avoid,shallow_combat,5,high,"FFXV combat felt simple or lineal.",2026-03-30
+P011,gameplay,avoid,repetitive_endgame,5,high,"Hunts and repetitive endgame are not appealing.",2026-03-30
+P012,pacing,avoid,slow_menu_heavy_pacing,4,medium,"Final Fantasy X did not appeal.",2026-03-30
+P013,story,tolerance,narrative_weirdness_if_gameplay_good,3,medium,"User can accept some weirdness if the gameplay is worth it.",2026-03-30
+P014,platform,available,xbox_series_s,5,high,"User stated it.",2026-03-30
+P015,platform,available,nintendo_switch_1,5,high,"User stated it.",2026-03-30
+P016,platform,available,macbook_air_m4,5,high,"User stated it.",2026-03-30
+P017,platform,available,gba,5,high,"User stated it.",2026-03-30
+P037,platform,available,ds,5,high,"User stated it.",2026-03-30
+P038,platform,available,3ds,5,high,"User stated it.",2026-03-30
+P039,platform,available,psp,5,high,"User stated it.",2026-03-30
+P040,platform,available,ps1,5,high,"User stated it.",2026-03-30
+P018,gameplay,tolerance,tactical_or_turn_based_if_payoff_is_high,4,high,"The World Ends With You and The Banner Saga Trilogy both landed despite not being straightforward action RPG comfort picks.",2026-03-30
+P019,gameplay,avoid,grind_or_resource_friction,5,high,"User used cheats in The Banner Saga Trilogy to avoid money grind and explicitly dislikes repetitive endgame loops.",2026-03-30
+P020,aesthetic,likes,strong_art_direction_and_music_identity,5,high,"TWEWY, Banner Saga, FFVII, and FFXV all point to strong sensitivity to style and soundtrack identity.",2026-03-30
+P021,story,likes,companion_journey_and_bonding,5,high,"ICO's accompanied journey, FFXV's road-group dynamic, and Banner Saga's caravan framing all point to valuing relational travel stories.",2026-03-30
+P022,story,likes,strong_ending_payoff,5,high,"ICO's ending and other liked games suggest the emotional landing matters a lot, even when the path has friction.",2026-03-30
+P023,gameplay,avoid,guide_heavy_or_opaque_progression,4,high,"ICO required heavy guide use and NieR: Automata was paused early because the opening was hard to understand.",2026-03-30
+P024,aesthetic,tolerance,can_accept_clunky_gameplay_if_the_game_feels_unique,4,high,"ICO was liked a lot despite unoptimized gameplay because its concept and overall feel were distinct.",2026-03-30
+P025,tone,likes,humor_when_it_keeps_the_pacing_lively,3,medium,"Daxter and Portal 2 both landed partly because humor helped the experience stay engaging.",2026-03-30
+P026,gameplay,likes,fluid_mobility_and_agility,4,high,"Ori, Daxter, and parts of Kingdom Hearts point to strong enjoyment of agile movement and responsiveness.",2026-03-30
+P027,gameplay,likes,sense_of_achievement_from_skillful_progression,4,high,"Ori stood out specifically for the feeling of achievement, dynamism, and progression through action.",2026-03-30
+P028,gameplay,avoid,optional_side_content_without_strong_narrative_pull,4,high,"Uncharted's open-area side content did not attract the user, and FFXV hunts/endgame were also unappealing.",2026-03-30
+P029,gameplay,likes,systemic_buildcraft_and_loadout_customization,5,high,"FFXII license board and gambits, Crisis Core materias, Mario + Rabbids 1 progression, and TWEWY pin/equipment systems all landed strongly.",2026-03-30
+P030,story,likes,branching_choice_driven_narratives,5,high,"Detroit Become Human and Heavy Rain both landed strongly because of decisions and ramifications.",2026-03-30
+P031,story,likes,dense_fantasy_worldbuilding_and_factions,5,high,"Ivalice, the judges, and broader Final Fantasy lore preferences show strong attachment to rich settings and political texture.",2026-03-30
+P032,story,likes,party_bonds_and_long_arc_series_payoff,5,high,"Mass Effect trilogy, FFXV, Banner Saga, and other favorites point to strong attachment to companion dynamics across a long-form journey.",2026-03-30
+P033,story,likes,plot_twists_and_major_story_reframes,4,high,"Ni no Kuni was highlighted partly for its plot twist or story shift, which matches earlier responses to emotionally charged narrative turns.",2026-03-30
+P034,gameplay,likes,mode_variety_and_replayable_fun_loops,3,medium,"Tekken Dark Resurrection, Dissidia, and other long-played PSP titles suggest content variety and a fun core loop can sustain engagement even outside story-first games.",2026-03-30
+P035,story,avoid,style_or_concept_without_emotional_anchor,5,high,"John Wick Hex and No More Heroes seemed like theoretical fits but still failed, suggesting style alone is not enough without stronger emotional or narrative attachment.",2026-03-30
+P036,gameplay,avoid,repetitive_mission_or_chore_loops_with_weak_payoff,5,high,"Marvel Ultimate Alliance 3, John Wick Hex, and No More Heroes all point to low tolerance for loops that feel repetitive or padded without strong payoff.",2026-03-30
+P041,gameplay,tolerance,can_tolerate_some_repetition_if_story_hook_is_strong,4,high,"NEO: The World Ends with You was completed despite some repetition because the story carried it, similar to other narrative-forward cases.",2026-03-30
+P042,pacing,avoid,long_or_slow_openings_even_in_high_fit_games,5,high,"Persona 5 Royal slowed down in backlog at the start, reinforcing earlier friction with slow starts like Kingdom Hearts II and other slower openings.",2026-03-30
+P043,gameplay,likes,tactical_story_driven_campaigns_with_political_or_mystery_payoff,5,high,"13 Sentinels, Fire Emblem: Three Houses, TRIANGLE STRATEGY, Banner Saga, and Mario + Rabbids Kingdom Battle all landed strongly.",2026-03-30
+P044,gameplay,avoid,difficulty_spikes_that_block_narrative_progress,5,high,"Expedition 33 and Bravely Default both landed in atmosphere and systems, but the user bailed when difficulty stopped the story from flowing.",2026-03-31
+P045,gameplay,avoid,systems_or_tactics_without_strong_character_pull,5,high,"Advance Wars kept attracting the user conceptually, but boredom set in; in contrast, tactics with stronger story or cast investment land much better.",2026-03-31
+P046,story,avoid,atmosphere_or_lore_without_enough_momentum,5,high,"Baten Kaitos, SMT V, and Astral Chain all attracted through world, lore, or style, but still failed to sustain play momentum.",2026-03-31
+P047,gameplay,likes,high_challenge_when_controls_and_feedback_feel_tight,4,high,"Donkey Kong Country 2 was fully completed with over 100 percent, suggesting challenge is welcome when the feel is precise and rewarding.",2026-03-31
+P048,codex_hint,behavior,may_watch_the_rest_if_gameplay_friction_beats_story_momentum,5,high,"The user often finishes story interest through YouTube after dropping the game itself when difficulty, repetition, or pacing take over.",2026-03-31
+P049,gameplay,likes,metroidvania_progression_and_map_unlocking,5,high,"Ori plus Castlevania Aria of Sorrow and Dawn of Sorrow strongly confirm love for map unlocking, backtracking payoff, and progression via new abilities.",2026-03-31
+P050,gameplay,avoid,puzzle_or_exploration_progression_that_needs_heavy_guides,5,high,"Link's Awakening and Twelve Minutes both became guide-heavy forced completions instead of enjoyable discovery.",2026-03-31
+P051,tone,likes,atmospheric_action_horror_with_good_momentum,4,high,"Resident Evil Village landed strongly due to atmosphere, pacing, and gameplay.",2026-03-31
+P052,story,likes,experimental_or_meta_narrative_hooks,4,high,"Doki Doki Literature Club Plus and Catherine both show attraction to unusual psychological or meta-driven premises.",2026-03-31
+P053,gameplay,avoid,self_directed_open_world_exploration_without_strong_pull,5,high,"Breath of the Wild stalled mid-run even with hacks, and other open or drift-heavy games often lose momentum unless the narrative or progression pull is strong.",2026-04-01
+P054,gameplay,likes,focused_action_horror_with_clear_forward_drive,5,high,"Resident Evil 4 and Resident Evil Village both landed strongly through pacing, atmosphere, and satisfying combat progression.",2026-04-01
+P055,gameplay,avoid,stylish_action_without_enough_emotional_or_progression_pull,5,high,"Bayonetta 2 and Bayonetta 3 did not sustain enjoyment, reinforcing that pure stylish action is not enough by itself.",2026-04-01
+P056,gameplay,likes,structured_resource_or_time_management_campaigns,4,high,"Pikmin 1 through 4 all landed strongly and remain replay candidates, suggesting strong affinity for structured objective play with planning and execution.",2026-04-01
+P057,gameplay,likes,classic_handheld_metroidvania_mastery_loops,5,high,"Metroid Fusion, Castlevania Aria of Sorrow, Dawn of Sorrow, Circle of the Moon, Harmony of Dissonance, and Hollow Knight all point to a very stable love for exploration-plus-mastery loops.",2026-04-01
+P058,codex_hint,behavior,strong_interest_backlog_in_story_heavy_jrpgs_and_ps1_classics,4,high,"The user repeatedly marks major JRPGs, tactics RPGs, and PS1 story-heavy classics as games they still want to play, even when not started yet.",2026-04-01
+P059,gameplay,likes,portable_2d_exploration_with_completion_motivation,5,high,"Metroid Fusion, multiple Castlevanias, and Hollow Knight show that the user strongly enjoys map completion and 100 percent style goals in exploration-heavy action games.",2026-04-01
+P060,backlog,priority,classic_story_rpgs_and_detective_mysteries,4,high,"Chrono Trigger, Ghost Trick, 999, Parasite Eve, Xenogears, Vagrant Story, and Disco Elysium indicate strong future interest in story-heavy classics and mysteries.",2026-04-01
+P061,gameplay,likes,survival_horror_with_strong_pacing_and_completion_drive,5,high,"Resident Evil 4, Resident Evil 7, Dead Space, Dead Space 2, Silent Hill, and Metal Gear Solid all suggest high engagement with tightly paced atmospheric action-horror and stealth-horror adjacent games.",2026-04-02
+P062,gameplay,likes,dark_or_demanding_metroidvanias_when_the_loop_stays_clean,5,high,"Blasphemous, Hollow Knight, Metroid Dread, Metroid Fusion, and multiple Castlevanias suggest strong tolerance for challenge when exploration and combat flow stay satisfying.",2026-04-02
+P063,gameplay,likes,cinematic_story_campaigns_with_clear_mainline_momentum,5,high,"Spider-Man, Jedi Survivor, The Last of Us 1 and 2, A Plague Tale games, Guardians of the Galaxy, and Max Payne 3 all reinforce strong fit for focused story-driven campaigns.",2026-04-02
+P064,story,likes,low_combat_or_narrative_first_games_when_concept_is_strong,4,high,"Pentiment, The Quarry, Doki Doki Literature Club Plus, Heavy Rain, and Detroit Become Human all landed strongly despite lower mechanical intensity.",2026-04-02
+P065,gameplay,likes,arcade_racing_with_clear_progression_and_replay_value,4,high,"Ridge Racer 1 and 2 plus Need for Speed Carbon, ProStreet, and The Run all landed well and were fully completed.",2026-04-02
+P066,gameplay,tolerance,stylish_action_when_campaign_hook_is_strong,4,medium,"Devil May Cry 4, Metal Gear Rising, and Zone of the Enders suggest stylish action can land when the campaign and fantasy are compelling, despite Bayonetta 2 and 3 not landing.",2026-04-02
+P067,gameplay,likes,linearity_is_not_a_problem_when_momentum_and_payoff_are_strong,5,high,"Prince of Persia entries, Gears of War, Final Fantasy XIII, Max Payne 3, and The Last of Us all show strong fit for focused campaigns when pacing stays high.",2026-04-02
+P068,story,likes,investigation_and_case_based_narratives_with_strong_setting,4,medium,"Pentiment and L.A. Noire both landed well, suggesting strong fit for mystery and case-based stories even when combat is minimal.",2026-04-02
