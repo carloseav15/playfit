@@ -1,4 +1,5 @@
 import { ArrowRight, Brain, Compass, Database, ShieldCheck, Sparkles } from "lucide-react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -6,39 +7,45 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+export const metadata: Metadata = {
+  title: "Playfit | Find your next game",
+  description:
+    "Playfit recommends what to continue, start, resume, or avoid based on what you actually like and how you actually play, not popularity or hype.",
+};
+
 const outputs = [
   {
     label: "Current run",
-    title: "Keep momentum visible",
-    copy: "The active game stays in focus instead of getting buried under endless new suggestions.",
+    title: "Your current game",
+    copy: "Stays front and center so you never lose track of what you're playing.",
   },
   {
     label: "Next up",
-    title: "Choose a safer next play",
-    copy: "Surface stronger-fit options before you lose time on the wrong kind of recommendation.",
+    title: "Your next play",
+    copy: "The best fit waiting for you, picked based on your actual taste.",
   },
   {
     label: "Avoid for now",
-    title: "Spot false fits early",
-    copy: "Flag games that look attractive on paper but are likely to stall in practice.",
+    title: "Skip the traps",
+    copy: "Games that look good on paper but probably won't click — before you start them.",
   },
 ];
 
 const stack = [
   {
     icon: Brain,
-    title: "Explainable scoring",
-    copy: "Affinity, friction, confidence, and access are separated instead of hidden in one opaque score.",
+    title: "Clear picks, no black box",
+    copy: "See exactly why a game fits — or why it might not — instead of a single mystery score.",
   },
   {
     icon: Database,
-    title: "Local-first state",
-    copy: "Seed data loads from public CSVs; user profile and ratings persist in IndexedDB.",
+    title: "Saved to your account",
+    copy: "Your profile, ratings, and library sync to your account — pick up where you left off.",
   },
   {
     icon: ShieldCheck,
-    title: "Human truth first",
-    copy: "AI is positioned as enrichment later, not the source of preference truth.",
+    title: "Your taste, your rules",
+    copy: "You decide what you like. Playfit helps organize that into better picks.",
   },
 ];
 
@@ -76,7 +83,7 @@ export default function HomePage() {
             <a href="#problem">Problem</a>
             <a href="#product">Product</a>
             <a href="#proof">Proof</a>
-            <Link href="/case-study">Case study</Link>
+            <Link href="/how-it-works">How it works</Link>
           </nav>
           <Button asChild size="sm">
             <Link href="/app">Open app</Link>
@@ -86,19 +93,16 @@ export default function HomePage() {
 
       <section className="mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-12 py-16 lg:grid-cols-[1.08fr_0.92fr] lg:py-24">
         <div className="grid content-start gap-7">
-          <Badge
-            variant="outline"
-            className="border-[color-mix(in_srgb,var(--ink),transparent_70%)] text-[var(--ink)]"
-          >
-            Local-first recommendation product
+          <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+            Recommendations built for you
           </Badge>
           <div className="grid gap-5">
-            <h1 className="max-w-4xl text-balance font-display text-5xl font-black leading-[0.96] tracking-tight md:text-7xl">
+            <h1 className="max-w-4xl text-balance font-display text-4xl font-black leading-[0.96] tracking-tight md:text-6xl">
               Find games that actually fit you.
             </h1>
             <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Playfit recommends what to continue, start, resume, or avoid based on personal taste
-              and follow-through, not popularity or hype.
+              Playfit recommends what to continue, start, resume, or avoid based on what you
+              actually like and how you actually play, not popularity or hype.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -108,14 +112,14 @@ export default function HomePage() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg">
-              <Link href="/case-study">Read case study</Link>
+              <Link href="/how-it-works">How it works</Link>
             </Button>
           </div>
           <div className="grid gap-4 pt-6 md:grid-cols-3">
             {outputs.map((item) => (
               <Card key={item.label} className="bg-card/70">
                 <CardHeader>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     {item.label}
                   </p>
                   <CardTitle>{item.title}</CardTitle>
@@ -156,7 +160,7 @@ export default function HomePage() {
           <Card className="bg-card/78">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="size-5 text-[var(--ink)]" />
+                <Sparkles className="size-5 text-muted-foreground" />
                 Not every acclaimed game is your game.
               </CardTitle>
               <CardDescription>
@@ -167,13 +171,13 @@ export default function HomePage() {
         </aside>
       </section>
 
-      <section id="problem" className="border-y border-border bg-white/30 py-16">
+      <section id="problem" className="scroll-mt-24 border-y border-border bg-muted py-16">
         <div className="mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-8 md:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[var(--ink)]">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Problem
             </p>
-            <h2 className="font-display text-4xl font-black tracking-tight">
+            <h2 className="font-display text-3xl font-extrabold tracking-tight">
               Players choose by prestige, then lose time forcing the wrong fit.
             </h2>
           </div>
@@ -192,7 +196,7 @@ export default function HomePage() {
 
       <section
         id="product"
-        className="mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-6 py-16 md:grid-cols-3"
+        className="scroll-mt-24 mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-6 py-16 md:grid-cols-3"
       >
         {stack.map((item) => (
           <Card key={item.title}>
@@ -208,11 +212,11 @@ export default function HomePage() {
       <section id="proof" className="mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-6 pb-20">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[var(--ink)]">
-              Product surfaces
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              What you get
             </p>
-            <h2 className="font-display text-4xl font-black tracking-tight">
-              A portfolio piece that behaves like a product.
+            <h2 className="font-display text-3xl font-extrabold tracking-tight">
+              Helps you decide what to play next, not just browse.
             </h2>
           </div>
           <Button asChild variant="secondary">
@@ -241,8 +245,18 @@ export default function HomePage() {
 
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex w-[min(1180px,calc(100%-2rem))] flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>Playfit · Next.js, React, TypeScript, Tailwind, shadcn/ui</span>
-          <span>Local-first. Explainable. Portfolio-ready.</span>
+          <span>Playfit · Find games that actually fit you.</span>
+          <nav className="flex flex-wrap gap-4">
+            <Link href="/how-it-works" className="hover:text-foreground transition-colors">
+              How it works
+            </Link>
+            <Link href="/legal/privacy" className="hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+            <Link href="/legal/terms" className="hover:text-foreground transition-colors">
+              Terms
+            </Link>
+          </nav>
         </div>
       </footer>
     </main>

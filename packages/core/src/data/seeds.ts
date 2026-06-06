@@ -1,472 +1,208 @@
-import type { Level, Pace } from "../taste-types";
 import type { ProductPlatformOption, ProductSeedData, SeedGame } from "../types";
-import { loadCsvText, type ProductDataFile, parseCsv } from "./csv";
+import { supabase } from "./supabase";
 
-interface CatalogCsvRow {
+interface GameRow {
   game_id: string;
   title: string;
+  aliases: string[];
   series: string;
   primary_genre: string;
-  combat_style: string;
-  story_strength: Level;
-  progression_clarity: Level;
-  early_hook: Level;
-  aesthetic_fit: Level;
-  emotional_complexity: Level;
-  combat_depth: Level;
-  endgame_repetition_risk: Level;
-  pacing_speed: Pace;
-  notes: string;
-}
-
-interface GameCoverCsvRow {
-  asset_id: string;
-  game_id: string;
-  title: string;
-  source_type: string;
-  source_ref: string;
-  cover_path: string;
-  resolved_image_url: string;
-  download_status: string;
-  notes: string;
-}
-
-interface GamePlatformCsvRow {
-  mapping_id: string;
-  game_id: string;
-  platform_id: string;
-  availability_status: string;
-  source_type: string;
-  source_ref: string;
-  notes: string;
-}
-
-interface GameUniverseCsvRow {
-  game_id: string;
-  title: string;
-  aliases: string;
-  series: string;
+  platforms: string[];
+  platform_names: string[];
   release_year: string;
   release_state: string;
-  primary_genre: string;
-  platforms: string;
   source_type: string;
-  source_id: string;
+  source_ref: string;
   cover_url: string;
+  tags: string[];
   notes: string;
-}
-
-interface PlatformCsvRow {
-  platform_id: string;
-  display_name: string;
-  family: string;
-  vendor: string;
-  generation: string;
-  kind: string;
-  sort_order: string;
-  active_status: string;
-  notes: string;
-}
-
-interface UpcomingReleaseCsvRow {
-  release_id: string;
-  game_id: string;
-  title: string;
-  series: string;
-  platforms: string;
   sort_date: string;
   release_label: string;
-  primary_genre: string;
-  combat_style: string;
-  story_strength: Level;
-  progression_clarity: Level;
-  early_hook: Level;
-  aesthetic_fit: Level;
-  emotional_complexity: Level;
-  combat_depth: Level;
-  endgame_repetition_risk: Level;
-  pacing_speed: Pace;
-  source_ref: string;
-  notes: string;
 }
 
-interface MasterGameUniverseRow {
-  game_id: string;
-  title: string;
-  series: string;
-  platforms: string;
-  release_year: string;
-  primary_genre: string;
-  combat_style: string;
-  story_strength: Level;
-  progression_clarity: Level;
-  early_hook: Level;
-  aesthetic_fit: Level;
-  emotional_complexity: Level;
-  combat_depth: Level;
-  endgame_repetition_risk: Level;
-  pacing_speed: Pace;
-  universe_status: string;
-  source_type: string;
-  notes: string;
+interface PlatformRow {
+  id: string;
+  name: string;
+  rawg_id: number | null;
 }
 
-const CATALOG_HEADERS = [
-  "game_id",
-  "title",
-  "series",
-  "primary_genre",
-  "combat_style",
-  "story_strength",
-  "progression_clarity",
-  "early_hook",
-  "aesthetic_fit",
-  "emotional_complexity",
-  "combat_depth",
-  "endgame_repetition_risk",
-  "pacing_speed",
-  "notes",
-];
+async function fetchGames(): Promise<GameRow[]> {
+  const all: GameRow[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  let done = false;
 
-const COVER_HEADERS = [
-  "asset_id",
-  "game_id",
-  "title",
-  "source_type",
-  "source_ref",
-  "cover_path",
-  "resolved_image_url",
-  "download_status",
-  "notes",
-];
+  while (!done) {
+    const { data, error } = await supabase
+      .schema("games_library")
+      .from("games")
+      .select("*")
+      .order("title")
+      .range(from, from + pageSize - 1);
 
-const PLATFORM_HEADERS = [
-  "platform_id",
-  "display_name",
-  "family",
-  "vendor",
-  "generation",
-  "kind",
-  "sort_order",
-  "active_status",
-  "notes",
-];
+    if (error) throw new Error(`Failed to load games: ${error.message}`);
 
-const GAME_PLATFORM_HEADERS = [
-  "mapping_id",
-  "game_id",
-  "platform_id",
-  "availability_status",
-  "source_type",
-  "source_ref",
-  "notes",
-];
+    const batch = (data as GameRow[]) ?? [];
+    all.push(...batch);
+    from += pageSize;
+    if (batch.length < pageSize) done = true;
+  }
 
-const GAME_UNIVERSE_HEADERS = [
-  "game_id",
-  "title",
-  "aliases",
-  "series",
-  "release_year",
-  "release_state",
-  "primary_genre",
-  "platforms",
-  "source_type",
-  "source_id",
-  "cover_url",
-  "notes",
-];
-
-const MASTER_HEADERS = [
-  "game_id",
-  "title",
-  "series",
-  "platforms",
-  "release_year",
-  "primary_genre",
-  "combat_style",
-  "story_strength",
-  "progression_clarity",
-  "early_hook",
-  "aesthetic_fit",
-  "emotional_complexity",
-  "combat_depth",
-  "endgame_repetition_risk",
-  "pacing_speed",
-  "universe_status",
-  "source_type",
-  "notes",
-];
-
-const UPCOMING_HEADERS = [
-  "release_id",
-  "game_id",
-  "title",
-  "series",
-  "platforms",
-  "sort_date",
-  "release_label",
-  "primary_genre",
-  "combat_style",
-  "story_strength",
-  "progression_clarity",
-  "early_hook",
-  "aesthetic_fit",
-  "emotional_complexity",
-  "combat_depth",
-  "endgame_repetition_risk",
-  "pacing_speed",
-  "source_ref",
-  "notes",
-];
-
-function toNumber(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  return all;
 }
 
-function sortPlatformNames(
-  rows: GamePlatformCsvRow[],
-  platformById: Map<string, ProductPlatformOption>,
-) {
-  return [...rows].sort((left, right) => {
-    const leftPlatform = platformById.get(left.platform_id);
-    const rightPlatform = platformById.get(right.platform_id);
+async function fetchPlatforms(): Promise<PlatformRow[]> {
+  const { data, error } = await supabase
+    .schema("games_library")
+    .from("platforms")
+    .select("*")
+    .order("id");
+  if (error) throw new Error(`Failed to load platforms: ${error.message}`);
+  return (data as PlatformRow[]) ?? [];
+}
 
-    return (
-      (leftPlatform?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
-        (rightPlatform?.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
-      (leftPlatform?.displayName ?? left.platform_id).localeCompare(
-        rightPlatform?.displayName ?? right.platform_id,
-      )
-    );
+interface PlatformMeta {
+  family: string;
+  vendor: string;
+  kind: ProductPlatformOption["kind"];
+  gen: number;
+}
+
+function platformsToOptions(rows: PlatformRow[]): ProductPlatformOption[] {
+  const known: Record<string, PlatformMeta> = {
+    switch_2: { family: "nintendo", vendor: "Nintendo", kind: "hybrid", gen: 10 },
+    ps5: { family: "playstation", vendor: "Sony", kind: "console", gen: 9 },
+    xbox_series_xs: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 9 },
+    switch_1: { family: "nintendo", vendor: "Nintendo", kind: "hybrid", gen: 9 },
+    ps4: { family: "playstation", vendor: "Sony", kind: "console", gen: 8 },
+    xbox_one: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 8 },
+    wii_u: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 8 },
+    "3ds": { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 8 },
+    ps_vita: { family: "playstation", vendor: "Sony", kind: "handheld", gen: 8 },
+    ps3: { family: "playstation", vendor: "Sony", kind: "console", gen: 7 },
+    xbox_360: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 7 },
+    wii: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 7 },
+    psp: { family: "playstation", vendor: "Sony", kind: "handheld", gen: 7 },
+    ds: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 7 },
+    ps2: { family: "playstation", vendor: "Sony", kind: "console", gen: 6 },
+    gamecube: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 6 },
+    gba: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 6 },
+    dreamcast: { family: "sega", vendor: "SEGA", kind: "console", gen: 6 },
+    xbox_original: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 6 },
+    ps1: { family: "playstation", vendor: "Sony", kind: "console", gen: 5 },
+    n64: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 5 },
+    saturn: { family: "sega", vendor: "SEGA", kind: "console", gen: 5 },
+    snes: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 4 },
+    genesis: { family: "sega", vendor: "SEGA", kind: "console", gen: 4 },
+    gbc: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 4 },
+    nes: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 3 },
+    gb: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 4 },
+    pc: { family: "pc", vendor: "PC", kind: "computer", gen: 0 },
+    macos: { family: "pc", vendor: "Apple", kind: "computer", gen: 0 },
+    ios: { family: "apple", vendor: "Apple", kind: "other", gen: 0 },
+    android: { family: "google", vendor: "Google", kind: "other", gen: 0 },
+    linux: { family: "pc", vendor: "Linux", kind: "computer", gen: 0 },
+    sega_master_system: { family: "sega", vendor: "SEGA", kind: "console", gen: 3 },
+    neo_geo: { family: "snk", vendor: "SNK", kind: "console", gen: 4 },
+    game_gear: { family: "sega", vendor: "SEGA", kind: "handheld", gen: 3 },
+    atari_2600: { family: "atari", vendor: "Atari", kind: "console", gen: 2 },
+  };
+
+  return rows.map((row) => {
+    const meta = known[row.id] ?? {
+      family: "other",
+      vendor: "Other",
+      kind: "other" as const,
+      gen: 99,
+    };
+    return {
+      platformId: row.id,
+      displayName: row.name,
+      family: meta.family,
+      kind: meta.kind,
+      activeStatus: "active",
+      sortOrder: meta.gen,
+    };
   });
 }
 
-function splitList(value: string) {
-  return value
-    .split(";")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+const SEED_CACHE_KEY = "playfit_seed_cache_v1";
+const SEED_CACHE_TTL = 86_400_000; // 24 hours
+
+function mapGames(gameRows: GameRow[], platformById: Map<string, ProductPlatformOption>) {
+  return gameRows.map((row) => {
+    const resolvedPlatformNames =
+      row.platform_names.length > 0
+        ? row.platform_names
+        : row.platforms.map((id) => platformById.get(id)?.displayName ?? id).filter(Boolean);
+
+    const releaseState = row.release_state === "unreleased" ? "unreleased" : "released";
+
+    return {
+      gameId: row.game_id,
+      title: row.title,
+      aliases: row.aliases ?? [],
+      series: row.series ?? "",
+      source: row.source_type as SeedGame["source"],
+      primaryGenre: row.primary_genre || "unknown",
+      tags: row.tags ?? [],
+      notes: row.notes ?? "",
+      coverPath: row.cover_url,
+      externalCoverUrl: row.cover_url.startsWith("http") ? row.cover_url : undefined,
+      releaseYear: row.release_year || undefined,
+      sourceRef: row.source_ref || undefined,
+      availablePlatformIds: row.platforms ?? [],
+      availablePlatformNames: resolvedPlatformNames,
+      releaseState,
+      sortDate: row.sort_date || undefined,
+      releaseLabel: row.release_label || undefined,
+    } satisfies SeedGame;
+  });
 }
 
-function inferPlatformIds(
-  platformNames: string[],
-  platformById: Map<string, ProductPlatformOption>,
-) {
-  const normalizedByName = new Map(
-    [...platformById.values()].map((platform) => [
-      platform.displayName.toLowerCase(),
-      platform.platformId,
-    ]),
-  );
-
-  const inferred = platformNames
-    .map((platform) => {
-      const normalized = platform.toLowerCase();
-      if (normalizedByName.has(normalized)) return normalizedByName.get(normalized);
-      if (
-        normalized.includes("pc") ||
-        normalized.includes("windows") ||
-        normalized.includes("mac") ||
-        normalized.includes("linux")
-      )
-        return "pc";
-      if (normalized.includes("playstation 5") || normalized === "ps5") return "ps5";
-      if (normalized.includes("xbox series")) return "xbox_series_xs";
-      if (normalized.includes("switch 2")) return "switch_2";
-      if (normalized.includes("switch")) return "switch_1";
+function readSeedCache(): { gameRows: GameRow[]; platformRows: PlatformRow[] } | null {
+  try {
+    const raw = localStorage.getItem(SEED_CACHE_KEY);
+    if (!raw) return null;
+    const { timestamp, gameRows, platformRows } = JSON.parse(raw);
+    if (Date.now() - timestamp > SEED_CACHE_TTL) {
+      localStorage.removeItem(SEED_CACHE_KEY);
       return null;
-    })
-    .filter((platformId): platformId is string => Boolean(platformId));
-
-  return [...new Set(inferred)];
+    }
+    return { gameRows, platformRows };
+  } catch {
+    return null;
+  }
 }
 
-function buildSeedGame(
-  row: CatalogCsvRow | MasterGameUniverseRow,
-  source: SeedGame["source"],
-  coverByGameId: Map<string, string>,
-  gamePlatformsById: Map<string, GamePlatformCsvRow[]>,
-  platformById: Map<string, ProductPlatformOption>,
-  releaseState: SeedGame["releaseState"],
-  upcomingByGameId?: Map<string, UpcomingReleaseCsvRow>,
-) {
-  const platformRows = sortPlatformNames(gamePlatformsById.get(row.game_id) ?? [], platformById);
-  const fallbackPlatforms =
-    "platforms" in row && row.platforms && row.platforms !== "TBA" ? splitList(row.platforms) : [];
-  const platformNames =
-    platformRows.length > 0
-      ? [
-          ...new Set(
-            platformRows.map((entry) => platformById.get(entry.platform_id)?.displayName ?? ""),
-          ),
-        ].filter(Boolean)
-      : fallbackPlatforms;
-
-  const upcomingRow = upcomingByGameId?.get(row.game_id);
-
-  return {
-    gameId: row.game_id,
-    title: row.title,
-    aliases: [],
-    series: row.series,
-    source,
-    scoringStatus: "scored",
-    primaryGenre: row.primary_genre,
-    combatStyle: row.combat_style,
-    storyStrength: row.story_strength,
-    progressionClarity: row.progression_clarity,
-    earlyHook: row.early_hook,
-    aestheticFit: row.aesthetic_fit,
-    emotionalComplexity: row.emotional_complexity,
-    combatDepth: row.combat_depth,
-    endgameRepetitionRisk: row.endgame_repetition_risk,
-    pacingSpeed: row.pacing_speed,
-    notes: row.notes,
-    coverPath: coverByGameId.get(row.game_id) ?? "",
-    releaseYear: "release_year" in row ? row.release_year : "",
-    sourceRef: "",
-    availablePlatformIds: [...new Set(platformRows.map((entry) => entry.platform_id))],
-    availablePlatformNames: platformNames,
-    releaseState,
-    sortDate: upcomingRow?.sort_date,
-    releaseLabel: upcomingRow?.release_label,
-  } satisfies SeedGame;
+function writeSeedCache(gameRows: GameRow[], platformRows: PlatformRow[]) {
+  try {
+    const payload = JSON.stringify({ timestamp: Date.now(), gameRows, platformRows });
+    localStorage.setItem(SEED_CACHE_KEY, payload);
+  } catch {
+    // storage full or unavailable — silently ignore
+  }
 }
 
-function buildBasicUniverseGame(
-  row: GameUniverseCsvRow,
-  coverByGameId: Map<string, string>,
-  platformById: Map<string, ProductPlatformOption>,
-) {
-  const platformNames = splitList(row.platforms);
-  const releaseState = row.release_state === "unreleased" ? "unreleased" : "released";
+export async function loadProductSeedData(): Promise<ProductSeedData> {
+  const cached = readSeedCache();
+  let gameRows: GameRow[];
+  let platformRows: PlatformRow[];
 
-  return {
-    gameId: row.game_id,
-    title: row.title,
-    aliases: splitList(row.aliases),
-    series: row.series,
-    source: "finder",
-    scoringStatus: "basic",
-    primaryGenre: row.primary_genre || "unknown",
-    combatStyle: "unknown",
-    storyStrength: "medium",
-    progressionClarity: "medium",
-    earlyHook: "medium",
-    aestheticFit: "medium",
-    emotionalComplexity: "medium",
-    combatDepth: "medium",
-    endgameRepetitionRisk: "medium",
-    pacingSpeed: "medium",
-    notes: row.notes,
-    coverPath: coverByGameId.get(row.game_id) ?? "",
-    externalCoverUrl: row.cover_url,
-    releaseYear: row.release_year,
-    sourceRef: row.source_id,
-    availablePlatformIds: inferPlatformIds(platformNames, platformById),
-    availablePlatformNames: platformNames,
-    releaseState,
-  } satisfies SeedGame;
-}
+  if (cached) {
+    gameRows = cached.gameRows;
+    platformRows = cached.platformRows;
+  } else {
+    [gameRows, platformRows] = await Promise.all([fetchGames(), fetchPlatforms()]);
+    writeSeedCache(gameRows, platformRows);
+  }
 
-export type ProductSeedCsvTexts = Record<ProductDataFile, string>;
-
-export function loadSeedDataFromCsv(csvTexts: ProductSeedCsvTexts): ProductSeedData {
-  const catalogText = csvTexts["games_catalog.csv"];
-  const coverText = csvTexts["game_cover_assets.csv"];
-  const platformText = csvTexts["platforms.csv"];
-  const gamePlatformText = csvTexts["game_platforms.csv"];
-  const gameUniverseText = csvTexts["game_universe.csv"];
-  const masterText = csvTexts["master_game_universe.csv"];
-  const upcomingText = csvTexts["upcoming_releases.csv"];
-
-  const catalogRows = parseCsv<CatalogCsvRow>(catalogText, "games_catalog.csv", CATALOG_HEADERS);
-  const coverRows = parseCsv<GameCoverCsvRow>(coverText, "game_cover_assets.csv", COVER_HEADERS);
-  const platformRows = parseCsv<PlatformCsvRow>(platformText, "platforms.csv", PLATFORM_HEADERS);
-  const gamePlatformRows = parseCsv<GamePlatformCsvRow>(
-    gamePlatformText,
-    "game_platforms.csv",
-    GAME_PLATFORM_HEADERS,
-  );
-  const gameUniverseRows = parseCsv<GameUniverseCsvRow>(
-    gameUniverseText,
-    "game_universe.csv",
-    GAME_UNIVERSE_HEADERS,
-  );
-  const masterRows = parseCsv<MasterGameUniverseRow>(
-    masterText,
-    "master_game_universe.csv",
-    MASTER_HEADERS,
-  );
-  const upcomingRows = parseCsv<UpcomingReleaseCsvRow>(
-    upcomingText,
-    "upcoming_releases.csv",
-    UPCOMING_HEADERS,
-  );
-
-  const platforms = platformRows
-    .map((row) => ({
-      platformId: row.platform_id,
-      displayName: row.display_name,
-      family: row.family,
-      activeStatus: row.active_status,
-      sortOrder: toNumber(row.sort_order),
-    }))
-    .sort((left, right) => left.sortOrder - right.sortOrder);
+  const platforms = platformsToOptions(platformRows);
   const platformById = new Map(platforms.map((row) => [row.platformId, row]));
-  const coverByGameId = new Map(
-    coverRows.filter((row) => row.cover_path).map((row) => [row.game_id, row.cover_path]),
-  );
-  const gamePlatformsById = new Map<string, GamePlatformCsvRow[]>();
 
-  gamePlatformRows.forEach((row) => {
-    const existing = gamePlatformsById.get(row.game_id) ?? [];
-    existing.push(row);
-    gamePlatformsById.set(row.game_id, existing);
-  });
-
-  const upcomingByGameId = new Map(upcomingRows.map((row) => [row.game_id, row]));
-  const upcomingGameIds = new Set(upcomingByGameId.keys());
-  const catalogGames = catalogRows.map((row) =>
-    buildSeedGame(
-      row,
-      "catalog",
-      coverByGameId,
-      gamePlatformsById,
-      platformById,
-      upcomingGameIds.has(row.game_id) ? "unreleased" : "released",
-      upcomingByGameId,
-    ),
-  );
-  const knownCatalogIds = new Set(catalogGames.map((row) => row.gameId));
-  const universeGames = masterRows
-    .filter((row) => !knownCatalogIds.has(row.game_id))
-    .map((row) =>
-      buildSeedGame(
-        row,
-        "universe",
-        coverByGameId,
-        gamePlatformsById,
-        platformById,
-        "unreleased",
-        upcomingByGameId,
-      ),
-    );
-  const knownScoredIds = new Set([...knownCatalogIds, ...universeGames.map((row) => row.gameId)]);
-  const knownScoredTitles = new Set(
-    [...catalogGames, ...universeGames].map((row) => row.title.trim().toLowerCase()),
-  );
-  const finderUniverseGames = gameUniverseRows
-    .filter((row) => row.game_id && row.title)
-    .filter((row) => !knownScoredIds.has(row.game_id))
-    .filter((row) => !knownScoredTitles.has(row.title.trim().toLowerCase()))
-    .map((row) => buildBasicUniverseGame(row, coverByGameId, platformById));
-  const allGames = [...catalogGames, ...universeGames, ...finderUniverseGames].sort((left, right) =>
-    left.title.localeCompare(right.title),
-  );
+  const allGames = mapGames(gameRows, platformById);
   const gamesById = new Map(allGames.map((row) => [row.gameId, row]));
+  const catalogGames = allGames.filter((game) => game.source === "catalog");
 
   return {
     allGames,
@@ -474,34 +210,4 @@ export function loadSeedDataFromCsv(csvTexts: ProductSeedCsvTexts): ProductSeedD
     gamesById,
     platforms,
   };
-}
-
-export async function loadProductSeedData(baseUrl?: string): Promise<ProductSeedData> {
-  const [
-    catalogText,
-    coverText,
-    platformText,
-    gamePlatformText,
-    gameUniverseText,
-    masterText,
-    upcomingText,
-  ] = await Promise.all([
-    loadCsvText("games_catalog.csv", baseUrl),
-    loadCsvText("game_cover_assets.csv", baseUrl),
-    loadCsvText("platforms.csv", baseUrl),
-    loadCsvText("game_platforms.csv", baseUrl),
-    loadCsvText("game_universe.csv", baseUrl),
-    loadCsvText("master_game_universe.csv", baseUrl),
-    loadCsvText("upcoming_releases.csv", baseUrl),
-  ]);
-
-  return loadSeedDataFromCsv({
-    "games_catalog.csv": catalogText,
-    "game_cover_assets.csv": coverText,
-    "platforms.csv": platformText,
-    "game_platforms.csv": gamePlatformText,
-    "game_universe.csv": gameUniverseText,
-    "master_game_universe.csv": masterText,
-    "upcoming_releases.csv": upcomingText,
-  });
 }

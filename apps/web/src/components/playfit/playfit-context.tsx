@@ -2,23 +2,25 @@
 
 import {
   buildAdaptiveProfile,
-  buildFinderIndex,
   createInitialState,
   loadProductSeedData,
   loadProductState,
   nowIso,
   type ProductGameState,
   type ProductProfile,
-  type ProductProfileOverrides,
   type ProductRating,
   type ProductSeedData,
   type ProductState,
   type SeedGame,
   saveProductState,
-  searchSeedGames,
+  supabase,
 } from "@playfit/core";
+import { useRouter } from "next/navigation";
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+
+import { Spinner } from "@/components/ui/spinner";
+import { AuthPanel } from "./auth-panel";
 
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 
@@ -27,7 +29,8 @@ export interface ProductUiState {
   onboardingQuery: string;
   finderQuery: string;
   libraryQuery: string;
-  dossierGameId: string | null;
+  libraryTab: "all" | "backlog" | "wishlist";
+  librarySort: "title" | "rating-desc" | "rating-asc" | "status";
   profileMode: "overview" | "edit";
   statusMessage: string | null;
   upcomingPlatformFilters: Set<string>;
@@ -39,22 +42,24 @@ interface PlayfitContextValue {
   state: ProductState;
   ui: ProductUiState;
   isPending: boolean;
+  isSaving: boolean;
   setUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
   updateState: (updater: (draft: ProductState) => void) => void;
   getSeedGame: (gameId: string) => SeedGame | null;
   searchGames: (query: string) => SeedGame[];
   buildProfileFromCurrentData: () => ProductProfile;
   refreshAdaptiveProfile: () => void;
-  ensureProfileOverrides: () => ProductProfileOverrides;
   getOrCreateGameState: (
     gameId: string,
     source?: ProductGameState["source"],
   ) => ProductGameState | null;
-  toggleFlag: (gameId: string, flag: "inBacklog" | "inWishlist" | "storyCompleted") => void;
+  toggleFlag: (gameId: string, flag: "inBacklog" | "inWishlist") => void;
   setPlayStatus: (gameId: string, status: ProductGameState["status"] | undefined) => void;
-  setRating: (gameId: string, rating: ProductRating) => void;
+  setRating: (gameId: string, rating: ProductRating | undefined) => void;
+  excludeGame: (gameId: string) => void;
   setStatusMessage: (message: string | null) => void;
   resetLocalState: () => void;
+  signOut: () => Promise<void>;
   openDossier: (gameId: string) => void;
   closeDossier: () => void;
 }
@@ -62,16 +67,28 @@ interface PlayfitContextValue {
 const PlayfitContext = createContext<PlayfitContextValue | null>(null);
 
 function cloneState(state: ProductState): ProductState {
-  return JSON.parse(JSON.stringify(state)) as ProductState;
+  return structuredClone(state);
 }
 
 function initialUi(state: ProductState): ProductUiState {
+  const validTabs: ProductTab[] = [
+    "today",
+    "library",
+    "finder",
+    "upcoming",
+    "profile",
+    "onboarding",
+  ];
+  const hashTab =
+    typeof window !== "undefined" ? (window.location.hash.replace("#", "") as ProductTab) : null;
+  const defaultTab = state.user.onboardingCompletedAt ? "today" : "onboarding";
   return {
-    activeTab: state.user.onboardingCompletedAt ? "today" : "onboarding",
+    activeTab: hashTab && validTabs.includes(hashTab) ? hashTab : defaultTab,
     onboardingQuery: "",
     finderQuery: "",
     libraryQuery: "",
-    dossierGameId: null,
+    libraryTab: "all",
+    librarySort: "title",
     profileMode: "overview",
     statusMessage: null,
     upcomingPlatformFilters: new Set(
@@ -90,6 +107,7 @@ function buildGameState(game: SeedGame, source: ProductGameState["source"]): Pro
     title: game.title,
     inBacklog: false,
     inWishlist: false,
+    excluded: false,
     source,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -97,25 +115,72 @@ function buildGameState(game: SeedGame, source: ProductGameState["source"]): Pro
 }
 
 export function PlayfitProvider({ children }: { children: React.ReactNode }) {
+  const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
+  const [authBusy, setAuthBusy] = useState(true);
   const [seedData, setSeedData] = useState<ProductSeedData | null>(null);
   const [state, setState] = useState<ProductState | null>(null);
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
+
+  const handleAuth = useCallback((userId: string, email: string) => {
+    setAuthUser({ id: userId, email });
+  }, []);
 
   useEffect(() => {
+    supabase.auth.getUser().then((res) => {
+      const user = res.data?.user;
+      if (user) {
+        setAuthUser({ id: user.id, email: user.email ?? "" });
+      }
+      setAuthBusy(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setAuthUser({ id: session.user.id, email: session.user.email ?? "" });
+      } else {
+        setAuthUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
     let cancelled = false;
 
     async function boot() {
       try {
         const [loadedSeedData, loadedState] = await Promise.all([
-          loadProductSeedData("/data/public/"),
+          loadProductSeedData(),
           loadProductState(),
         ]);
 
         if (cancelled) return;
         setSeedData(loadedSeedData);
-        setState(loadedState);
-        setUi(initialUi(loadedState));
+
+        if (loadedState.user.onboardingCompletedAt && !loadedState.user.profile) {
+          const profile = buildAdaptiveProfile(
+            loadedState.user.onboarding,
+            loadedSeedData.gamesById,
+            loadedState.user.gameStates,
+          );
+          const restored: ProductState = {
+            ...loadedState,
+            user: { ...loadedState.user, profile },
+          };
+          setState(restored);
+          setUi(initialUi(restored));
+          void saveProductState(restored);
+        } else {
+          setState(loadedState);
+          setUi(initialUi(loadedState));
+        }
       } catch (error) {
         if (!cancelled) {
           setBootError(error instanceof Error ? error.message : "Unexpected boot error.");
@@ -128,16 +193,64 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!ui) return;
+    const hash = ui.activeTab === "today" ? "" : ui.activeTab;
+    if (hash) {
+      window.location.hash = hash;
+    } else if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname);
+    }
+  }, [ui?.activeTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "") as ProductTab;
+      const validTabs: ProductTab[] = [
+        "today",
+        "library",
+        "finder",
+        "upcoming",
+        "profile",
+        "onboarding",
+      ];
+      if (hash && validTabs.includes(hash) && hash !== ui?.activeTab) {
+        setUi((current) =>
+          current ? { ...current, activeTab: hash, profileMode: "overview" } : current,
+        );
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, [ui?.activeTab]);
+
+  if (authBusy) {
+    return (
+      <main className="grid min-h-screen place-items-center p-6 text-center">
+        <div className="grid gap-3">
+          <Spinner size="lg" className="mx-auto" />
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            Playfit
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!authUser) {
+    return <AuthPanel onAuth={handleAuth} />;
+  }
 
   if (bootError) {
     return (
       <main className="grid min-h-screen place-items-center p-6 text-center">
         <div className="grid max-w-md gap-3 rounded-lg border border-border bg-card p-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
             Playfit
           </p>
-          <h1 className="font-display text-3xl font-black">Playfit could not be loaded</h1>
+          <h1 className="font-display text-3xl font-extrabold">Playfit could not be loaded</h1>
           <p className="text-muted-foreground">{bootError}</p>
         </div>
       </main>
@@ -148,11 +261,11 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
     return (
       <main className="grid min-h-screen place-items-center p-6 text-center">
         <div className="grid gap-3">
-          <div className="mx-auto size-10 animate-spin rounded-full border-2 border-border border-t-accent" />
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
+          <Spinner size="lg" className="mx-auto" />
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
             Playfit
           </p>
-          <h1 className="font-display text-3xl font-black">Loading Playfit</h1>
+          <h1 className="font-display text-3xl font-extrabold">Loading Playfit</h1>
           <p className="text-muted-foreground">Reading game catalog and your saved profile.</p>
         </div>
       </main>
@@ -165,13 +278,20 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
       const next = cloneState(current);
       updater(next);
       next.user.lastUpdatedAt = nowIso();
-      void saveProductState(next).catch(() => {
-        setUi((currentUi) => {
-          return currentUi
-            ? { ...currentUi, statusMessage: "Could not save your data." }
-            : currentUi;
-        });
-      });
+      setIsSaving(true);
+      void saveProductState(next)
+        .then((result) => {
+          if (!result.ok && result.reason === "auth_expired") {
+            setAuthUser(null);
+          } else if (!result.ok) {
+            setUi((currentUi) => {
+              return currentUi
+                ? { ...currentUi, statusMessage: "Couldn't save your changes." }
+                : currentUi;
+            });
+          }
+        })
+        .finally(() => setIsSaving(false));
       return next;
     });
   };
@@ -188,22 +308,28 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
     state,
     ui,
     isPending: false,
+    isSaving,
     setUi: updateUi,
     updateState,
     getSeedGame(gameId: string) {
       return seedData.gamesById.get(gameId) ?? null;
     },
     searchGames(query: string) {
-      const finderIndex = buildFinderIndex(seedData.allGames);
-      return searchSeedGames(seedData.allGames, query, finderIndex);
+      const normalized = query.trim().toLowerCase();
+      if (!normalized) return [];
+
+      const q = normalized;
+      return seedData.allGames
+        .filter(
+          (g) =>
+            g.title.toLowerCase().includes(q) ||
+            g.series?.toLowerCase().includes(q) ||
+            g.aliases?.some((a) => a.toLowerCase().includes(q)),
+        )
+        .slice(0, 12);
     },
     buildProfileFromCurrentData() {
-      return buildAdaptiveProfile(
-        state.user.onboarding,
-        seedData.gamesById,
-        state.user.gameStates,
-        state.user.profileOverrides,
-      );
+      return buildAdaptiveProfile(state.user.onboarding, seedData.gamesById, state.user.gameStates);
     },
     refreshAdaptiveProfile() {
       updateState((draft) => {
@@ -212,20 +338,23 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
             draft.user.onboarding,
             seedData.gamesById,
             draft.user.gameStates,
-            draft.user.profileOverrides,
           );
         }
       });
-    },
-    ensureProfileOverrides() {
-      return state.user.profileOverrides ?? {};
+      setTimeout(() => {
+        setUi((current) =>
+          current
+            ? { ...current, statusMessage: "Profile refreshed based on your ratings." }
+            : current,
+        );
+      }, 0);
     },
     getOrCreateGameState(gameId: string, source: ProductGameState["source"] = "manual") {
       const game = seedData.gamesById.get(gameId);
       if (!game) return null;
       return state.user.gameStates[gameId] ?? buildGameState(game, source);
     },
-    toggleFlag(gameId: string, flag: "inBacklog" | "inWishlist" | "storyCompleted") {
+    toggleFlag(gameId: string, flag: "inBacklog" | "inWishlist") {
       updateState((draft) => {
         const game = seedData.gamesById.get(gameId);
         if (!game) return;
@@ -234,8 +363,6 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
           ...existing,
           inBacklog: flag === "inBacklog" ? !existing.inBacklog : existing.inBacklog,
           inWishlist: flag === "inWishlist" ? !existing.inWishlist : existing.inWishlist,
-          storyCompleted:
-            flag === "storyCompleted" ? !existing.storyCompleted : existing.storyCompleted,
           updatedAt: nowIso(),
         };
         if (draft.user.profile) {
@@ -243,7 +370,6 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
             draft.user.onboarding,
             seedData.gamesById,
             draft.user.gameStates,
-            draft.user.profileOverrides,
           );
         }
       });
@@ -253,32 +379,50 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
         const game = seedData.gamesById.get(gameId);
         if (!game) return;
         const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-        if (status === "playing") {
-          for (const record of Object.values(draft.user.gameStates)) {
-            if (record.status === "playing" && record.gameId !== gameId) {
-              record.status = "on_hold";
-              record.updatedAt = nowIso();
-            }
-          }
+        const next = { ...existing, updatedAt: nowIso() };
+        if (status) {
+          next.status = status;
+        } else {
+          delete next.status;
         }
-        draft.user.gameStates[gameId] = { ...existing, status, updatedAt: nowIso() };
+        draft.user.gameStates[gameId] = next;
       });
     },
-    setRating(gameId: string, rating: ProductRating) {
+    setRating(gameId: string, rating: ProductRating | undefined) {
       updateState((draft) => {
         const game = seedData.gamesById.get(gameId);
         if (!game) return;
         const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-        draft.user.gameStates[gameId] = { ...existing, rating, updatedAt: nowIso() };
+        const next = { ...existing, updatedAt: nowIso() };
+        if (rating != null && rating > 0) {
+          next.rating = rating;
+        } else {
+          delete next.rating;
+        }
+        draft.user.gameStates[gameId] = next;
         if (draft.user.profile) {
           draft.user.profile = buildAdaptiveProfile(
             draft.user.onboarding,
             seedData.gamesById,
             draft.user.gameStates,
-            draft.user.profileOverrides,
           );
         }
       });
+    },
+    excludeGame(gameId: string) {
+      updateState((draft) => {
+        const game = seedData.gamesById.get(gameId);
+        if (!game) return;
+        const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
+        draft.user.gameStates[gameId] = { ...existing, excluded: true, updatedAt: nowIso() };
+      });
+      setTimeout(() => {
+        setUi((current) =>
+          current
+            ? { ...current, statusMessage: "We'll show you something else instead." }
+            : current,
+        );
+      }, 0);
     },
     setStatusMessage(message: string | null) {
       setUi((current) => (current ? { ...current, statusMessage: message } : current));
@@ -289,11 +433,18 @@ export function PlayfitProvider({ children }: { children: React.ReactNode }) {
       setState(clean);
       setUi(initialUi(clean));
     },
+    async signOut() {
+      await supabase.auth.signOut();
+      setAuthUser(null);
+      const clean = createInitialState();
+      setState(clean);
+      setUi(initialUi(clean));
+    },
     openDossier(gameId: string) {
-      setUi((current) => (current ? { ...current, dossierGameId: gameId } : current));
+      router.push(`/app/game/${gameId}`);
     },
     closeDossier() {
-      setUi((current) => (current ? { ...current, dossierGameId: null } : current));
+      router.replace("/app");
     },
   } satisfies PlayfitContextValue;
 

@@ -21,6 +21,10 @@ coverage/
 
 # Agent artifacts
 .claude/
+.playwright-mcp/
+
+# Local scraper inputs
+scripts/grove.html
 
 # Build cache
 .next/

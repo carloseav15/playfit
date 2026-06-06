@@ -1,5 +1,3 @@
-import type { Level, Pace } from "./taste-types";
-
 export type ProductAccessStatus = "available" | "limited" | "planned";
 export type ProductPriority = "low" | "medium" | "high";
 export type ProductConfidence = "low" | "medium" | "high";
@@ -11,7 +9,8 @@ export type ProductPlayStatus =
   | "shelved"
   | "beaten"
   | "completed"
-  | "abandoned";
+  | "abandoned"
+  | "want_to_play";
 export type PlatformAvailability = "available" | "unavailable" | "unknown";
 export type GameAccessStatus = "playable" | "not_on_platforms" | "unknown_platform" | "unreleased";
 export type ProfileSignalTone = "positive" | "negative";
@@ -21,20 +20,11 @@ export type ProductRating = 0 | 0.5 | 1 | 1.5 | 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5;
 export interface SeedGame {
   gameId: string;
   title: string;
-  aliases?: string[];
+  aliases: string[];
   series: string;
   source: SeedSource;
-  scoringStatus?: "scored" | "basic";
   primaryGenre: string;
-  combatStyle: string;
-  storyStrength: Level;
-  progressionClarity: Level;
-  earlyHook: Level;
-  aestheticFit: Level;
-  emotionalComplexity: Level;
-  combatDepth: Level;
-  endgameRepetitionRisk: Level;
-  pacingSpeed: Pace;
+  tags: string[];
   notes: string;
   coverPath: string;
   externalCoverUrl?: string;
@@ -51,6 +41,7 @@ export interface ProductPlatformOption {
   platformId: string;
   displayName: string;
   family: string;
+  kind: "console" | "handheld" | "hybrid" | "computer" | "other";
   activeStatus: string;
   sortOrder: number;
 }
@@ -64,32 +55,12 @@ export interface ProductProfileSignal {
 
 export interface ProductProfile {
   summary: string;
-  priorities: {
-    story: ProductPriority;
-    progression: ProductPriority;
-    hook: ProductPriority;
-    aesthetic: ProductPriority;
-    emotional: ProductPriority;
-    combat: ProductPriority;
-    pace: ProductPriority;
-  };
-  avoidPatterns: {
-    slowStart: boolean;
-    repetition: boolean;
-    confusingSystems: boolean;
-    weakEmotionalPull: boolean;
-    shallowCombat: boolean;
-  };
   likedGenres: string[];
   avoidedGenres: string[];
-  watchVsPlayRisk: ProductConfidence;
+  likedTags: Record<string, number>;
+  dislikedTags: Record<string, number>;
+  ratedCount: number;
   signals: ProductProfileSignal[];
-}
-
-export interface ProductProfileOverrides {
-  priorities?: Partial<ProductProfile["priorities"]>;
-  avoidPatterns?: Partial<ProductProfile["avoidPatterns"]>;
-  watchVsPlayRisk?: ProductConfidence;
 }
 
 export interface ProductPlatformSelection {
@@ -108,9 +79,9 @@ export interface ProductGameState {
   title: string;
   status?: ProductPlayStatus;
   rating?: ProductRating;
-  storyCompleted?: boolean;
   inBacklog: boolean;
   inWishlist: boolean;
+  excluded?: boolean;
   source: "onboarding" | "finder" | "manual";
   createdAt: string;
   updatedAt: string;
@@ -120,7 +91,6 @@ export interface ProductUserState {
   onboarding: ProductOnboardingDraft;
   onboardingCompletedAt: string | null;
   profile: ProductProfile | null;
-  profileOverrides: ProductProfileOverrides;
   gameStates: Record<string, ProductGameState>;
   lastUpdatedAt: string | null;
 }
@@ -148,15 +118,11 @@ export interface RankedSeedGame {
   accessStatus: GameAccessStatus;
   inBacklog: boolean;
   inWishlist: boolean;
+  similarGames: Array<{ gameId: string; title: string; similarity: number }>;
 }
 
 export interface ProductTodayModel {
-  currentRun: RankedSeedGame | null;
-  playingNow: RankedSeedGame[];
-  nextUp: RankedSeedGame | null;
-  avoid: RankedSeedGame | null;
-  resume: RankedSeedGame | null;
-  wishlistFit: RankedSeedGame | null;
-  worthTracking: RankedSeedGame | null;
-  playableAlternative: RankedSeedGame | null;
+  currentRun: RankedSeedGame[];
+  nextUp: RankedSeedGame[];
+  resume: RankedSeedGame[];
 }

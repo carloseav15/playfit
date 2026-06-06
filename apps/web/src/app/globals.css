@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
-  --font-display: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono Fallback", ui-monospace, monospace;
+  --font-display: var(--font-geist-sans), "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -21,49 +21,73 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-positive: var(--positive);
+  --color-positive-bg: var(--positive-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-negative: var(--negative);
+  --color-negative-bg: var(--negative-bg);
+  --color-tone-accent: var(--tone-accent);
+  --color-tone-accent-bg: var(--tone-accent-bg);
 }
 
 :root {
-  --background: #fbf7ef;
+  --background: #faf7f2;
   --foreground: #1f1b17;
-  --card: rgba(255, 255, 255, 0.58);
+  --card: rgba(255, 255, 255, 0.76);
   --card-foreground: #1f1b17;
   --primary: #1f1b17;
   --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.6);
+  --secondary: rgba(31, 27, 23, 0.06);
   --secondary-foreground: #1f1b17;
-  --muted: rgba(56, 42, 28, 0.08);
-  --muted-foreground: #5b5045;
-  --accent: #c75b2f;
+  --muted: rgba(31, 27, 23, 0.07);
+  --muted-foreground: #5c4f42;
+  --accent: #a64222;
   --accent-foreground: #fff7ed;
   --destructive: #be123c;
   --destructive-foreground: #fff1f2;
-  --border: rgba(56, 42, 28, 0.14);
-  --input: rgba(255, 255, 255, 0.7);
-  --ring: rgba(199, 91, 47, 0.45);
-  --ink: #2f7c80;
+  --border: rgba(31, 27, 23, 0.14);
+  --input: rgba(255, 255, 255, 0.82);
+  --ring: rgba(166, 66, 34, 0.85);
+  --ink: #236c73;
   --radius: 0.5rem;
+  --positive: #047857;
+  --positive-bg: rgba(4, 120, 87, 0.1);
+  --warning: #b45309;
+  --warning-bg: rgba(180, 83, 9, 0.1);
+  --negative: #be123c;
+  --negative-bg: rgba(190, 18, 60, 0.1);
+  --tone-accent: #0369a1;
+  --tone-accent-bg: rgba(3, 105, 161, 0.1);
 }
 
-.theme-app {
-  --background: #060913;
+.dark {
+  --background: #070a12;
   --foreground: #f8fafc;
-  --card: rgba(15, 23, 42, 0.68);
+  --card: rgba(15, 23, 42, 0.76);
   --card-foreground: #f8fafc;
   --primary: #f8fafc;
-  --primary-foreground: #060913;
-  --secondary: rgba(255, 255, 255, 0.06);
+  --primary-foreground: #070a12;
+  --secondary: rgba(255, 255, 255, 0.07);
   --secondary-foreground: #f8fafc;
-  --muted: rgba(255, 255, 255, 0.06);
-  --muted-foreground: #94a3b8;
-  --accent: #ff5a26;
-  --accent-foreground: #060913;
-  --destructive: #f43f5e;
-  --destructive-foreground: #fff1f2;
-  --border: rgba(148, 163, 184, 0.16);
-  --input: rgba(6, 9, 19, 0.54);
-  --ring: rgba(255, 90, 38, 0.45);
+  --muted: rgba(255, 255, 255, 0.07);
+  --muted-foreground: #a8b3c7;
+  --accent: #ff6a3d;
+  --accent-foreground: #070a12;
+  --destructive: #fb7185;
+  --destructive-foreground: #070a12;
+  --border: rgba(148, 163, 184, 0.18);
+  --input: rgba(7, 10, 18, 0.66);
+  --ring: rgba(255, 106, 61, 0.85);
   --ink: #38bdf8;
+  --positive: #34d399;
+  --positive-bg: rgba(52, 211, 153, 0.1);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --negative: #fb7185;
+  --negative-bg: rgba(251, 113, 133, 0.1);
+  --tone-accent: #7dd3fc;
+  --tone-accent-bg: rgba(125, 211, 252, 0.1);
 }
 
 * {
@@ -76,18 +100,7 @@ html {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(
-      circle at top left,
-      color-mix(in srgb, var(--ink), transparent 88%),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at top right,
-      color-mix(in srgb, var(--accent), transparent 88%),
-      transparent 28%
-    ),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -116,4 +129,49 @@ textarea {
 
 .text-balance {
   text-wrap: balance;
+}
+
+/* ── Native <dialog> ────────────────────────────── */
+
+dialog {
+  opacity: 0;
+  transform: scale(0.98);
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+}
+
+dialog[open] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion) {
+  dialog,
+  dialog::backdrop {
+    transition: none;
+  }
 }

@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-const levelSchema = z.enum(["low", "medium", "high"]);
-const paceSchema = z.enum(["slow", "medium", "fast"]);
-const productPrioritySchema = z.enum(["low", "medium", "high"]);
-const productConfidenceSchema = z.enum(["low", "medium", "high"]);
 const productRatingSchema = z.union([
   z.literal(0),
   z.literal(0.5),
@@ -21,20 +17,11 @@ const productRatingSchema = z.union([
 export const seedGameSchema = z.object({
   gameId: z.string(),
   title: z.string(),
-  aliases: z.array(z.string()).optional(),
+  aliases: z.array(z.string()),
   series: z.string(),
   source: z.enum(["catalog", "universe", "finder"]),
-  scoringStatus: z.enum(["scored", "basic"]).optional(),
   primaryGenre: z.string(),
-  combatStyle: z.string(),
-  storyStrength: levelSchema,
-  progressionClarity: levelSchema,
-  earlyHook: levelSchema,
-  aestheticFit: levelSchema,
-  emotionalComplexity: levelSchema,
-  combatDepth: levelSchema,
-  endgameRepetitionRisk: levelSchema,
-  pacingSpeed: paceSchema,
+  tags: z.array(z.string()),
   notes: z.string(),
   coverPath: z.string(),
   externalCoverUrl: z.string().optional(),
@@ -50,11 +37,13 @@ export const seedGameSchema = z.object({
 export const productGameStateSchema = z.object({
   gameId: z.string(),
   title: z.string(),
-  status: z.enum(["playing", "on_hold", "shelved", "beaten", "completed", "abandoned"]).optional(),
+  status: z
+    .enum(["playing", "on_hold", "shelved", "beaten", "completed", "abandoned", "want_to_play"])
+    .optional(),
   rating: productRatingSchema.optional(),
-  storyCompleted: z.boolean().optional(),
   inBacklog: z.boolean(),
   inWishlist: z.boolean(),
+  excluded: z.boolean().optional(),
   source: z.enum(["onboarding", "finder", "manual"]),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -62,25 +51,11 @@ export const productGameStateSchema = z.object({
 
 export const productProfileSchema = z.object({
   summary: z.string(),
-  priorities: z.object({
-    story: productPrioritySchema,
-    progression: productPrioritySchema,
-    hook: productPrioritySchema,
-    aesthetic: productPrioritySchema,
-    emotional: productPrioritySchema,
-    combat: productPrioritySchema,
-    pace: productPrioritySchema,
-  }),
-  avoidPatterns: z.object({
-    slowStart: z.boolean(),
-    repetition: z.boolean(),
-    confusingSystems: z.boolean(),
-    weakEmotionalPull: z.boolean(),
-    shallowCombat: z.boolean(),
-  }),
   likedGenres: z.array(z.string()),
   avoidedGenres: z.array(z.string()),
-  watchVsPlayRisk: productConfidenceSchema,
+  likedTags: z.record(z.string(), z.number()),
+  dislikedTags: z.record(z.string(), z.number()),
+  ratedCount: z.number(),
   signals: z.array(
     z.object({
       id: z.string(),
@@ -106,13 +81,6 @@ export const productStateSchema = z.object({
     }),
     onboardingCompletedAt: z.string().nullable(),
     profile: productProfileSchema.nullable(),
-    profileOverrides: z
-      .object({
-        priorities: productProfileSchema.shape.priorities.partial().optional(),
-        avoidPatterns: productProfileSchema.shape.avoidPatterns.partial().optional(),
-        watchVsPlayRisk: productConfidenceSchema.optional(),
-      })
-      .default({}),
     gameStates: z.record(z.string(), productGameStateSchema),
     lastUpdatedAt: z.string().nullable(),
   }),

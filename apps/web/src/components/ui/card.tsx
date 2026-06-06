@@ -19,7 +19,9 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("font-display text-xl leading-tight", className)} {...props} />;
+  return (
+    <h3 className={cn("font-display text-xl font-semibold leading-tight", className)} {...props} />
+  );
 }
 
 export function CardDescription({
