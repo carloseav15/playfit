@@ -1,10 +1,8 @@
+import { supabase } from "../data/supabase";
 import { productStateSchema } from "../schemas";
 import type { ProductState } from "../types";
 
-const DB_NAME = "playfit";
 const DB_VERSION = 2;
-const STORE_NAME = "product_state";
-const STATE_KEY = "singleton";
 
 export const DEFAULT_PRODUCT_STATE: ProductState = {
   version: DB_VERSION,
@@ -16,7 +14,6 @@ export const DEFAULT_PRODUCT_STATE: ProductState = {
     },
     onboardingCompletedAt: null,
     profile: null,
-    profileOverrides: {},
     gameStates: {},
     lastUpdatedAt: null,
   },
@@ -26,75 +23,136 @@ export function createInitialState() {
   return JSON.parse(JSON.stringify(DEFAULT_PRODUCT_STATE)) as ProductState;
 }
 
-function createRequestPromise<T>(request: IDBRequest<T>) {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed."));
-  });
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem("playfit_device_id");
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("playfit_device_id", deviceId);
+  }
+  return deviceId;
 }
 
-async function openDatabase() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const database = request.result;
-
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        database.createObjectStore(STORE_NAME);
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Could not open IndexedDB."));
-  });
+function getAuthToken(session: Awaited<ReturnType<typeof supabase.auth.getSession>>) {
+  return session.data.session?.access_token ?? null;
 }
 
-export async function loadProductState() {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readonly");
-  const store = transaction.objectStore(STORE_NAME);
-  const result = await createRequestPromise(store.get(STATE_KEY));
+async function apiGet(path: string): Promise<Response> {
+  const session = await supabase.auth.getSession();
+  const token = getAuthToken(session);
+  const headers: Record<string, string> = {};
+  if (token) headers.authorization = `Bearer ${token}`;
+  return fetch(path, { headers });
+}
 
-  database.close();
+async function apiPost(path: string, body: unknown): Promise<Response> {
+  const session = await supabase.auth.getSession();
+  const token = getAuthToken(session);
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+}
 
-  if (!result) {
+async function apiDelete(path: string): Promise<Response> {
+  const session = await supabase.auth.getSession();
+  const token = getAuthToken(session);
+  const headers: Record<string, string> = {};
+  if (token) headers.authorization = `Bearer ${token}`;
+  return fetch(path, { method: "DELETE", headers });
+}
+
+export async function loadProductState(): Promise<ProductState> {
+  const deviceId = getDeviceId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id ?? deviceId;
+
+  const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
+
+  const res = await apiGet(url);
+
+  if (!res.ok) {
     return createInitialState();
   }
 
-  const parsed = productStateSchema.safeParse(result);
-  const state = (parsed.success ? parsed.data : result) as ProductState;
-  const defaultState = createInitialState();
-  return {
-    ...defaultState,
-    ...state,
+  const json = await res.json();
+  const data = json.state;
+
+  if (!data) {
+    return createInitialState();
+  }
+
+  const mapped: ProductState = {
+    version: DB_VERSION,
     user: {
-      ...defaultState.user,
-      ...state.user,
       onboarding: {
-        ...defaultState.user.onboarding,
-        ...state.user.onboarding,
+        step: data.onboarding?.step ?? "platforms",
+        platforms: data.onboarding?.platforms ?? [],
+        likedGameIds: data.onboarding?.likedGameIds ?? [],
       },
-      profileOverrides: state.user.profileOverrides ?? {},
-      gameStates: state.user.gameStates ?? {},
+      onboardingCompletedAt: data.onboarding?.onboardingCompletedAt ?? null,
+      profile: data.profile ?? null,
+      gameStates: data.game_states ?? {},
+      lastUpdatedAt: data.created_at ?? null,
     },
-  } satisfies ProductState;
+  };
+
+  const parsed = productStateSchema.safeParse(mapped);
+  return parsed.success ? parsed.data : mapped;
 }
 
-export async function saveProductState(state: ProductState) {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  const store = transaction.objectStore(STORE_NAME);
+export type SaveStateResult =
+  | { ok: true }
+  | { ok: false; reason: "auth_expired" }
+  | { ok: false; reason: "error"; error: string };
 
-  await createRequestPromise(store.put(state, STATE_KEY));
-  database.close();
+export async function saveProductState(state: ProductState): Promise<SaveStateResult> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const hadStaleSession = !!session?.user?.id && !user;
+
+  if (hadStaleSession) {
+    return { ok: false, reason: "auth_expired" };
+  }
+
+  const deviceId = getDeviceId();
+  const userId = user?.id ?? deviceId;
+
+  const body: Record<string, unknown> = {
+    gameStates: state.user.gameStates,
+    profile: state.user.profile,
+    onboarding: {
+      step: state.user.onboarding.step,
+      platforms: state.user.onboarding.platforms,
+      likedGameIds: state.user.onboarding.likedGameIds,
+      onboardingCompletedAt: state.user.onboardingCompletedAt,
+    },
+  };
+
+  if (!user) body.deviceId = userId;
+
+  const res = await apiPost("/api/profile", body);
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
+  }
+
+  return { ok: true };
 }
 
 export async function resetProductState() {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  const store = transaction.objectStore(STORE_NAME);
+  const deviceId = getDeviceId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id ?? deviceId;
 
-  await createRequestPromise(store.put(createInitialState(), STATE_KEY));
-  database.close();
+  const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
+
+  await apiDelete(url);
 }

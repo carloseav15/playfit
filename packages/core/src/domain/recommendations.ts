@@ -1,5 +1,5 @@
 import Fuse from "fuse.js";
-
+import { cosineSimilarity } from "../data/tags";
 import type {
   GameAccessStatus,
   PlatformAvailability,
@@ -10,75 +10,83 @@ import type {
   SeedGame,
 } from "../types";
 
-const SEARCH_KEYS = [
-  { name: "title", weight: 0.62 },
-  { name: "aliases", weight: 0.18 },
-  { name: "series", weight: 0.12 },
-  { name: "primaryGenre", weight: 0.08 },
-];
-
+// Scoring constants
 export const HIGH_FRICTION_THRESHOLD = 58;
 export const STRONG_FIT_THRESHOLD = 78;
 export const PROMISING_FIT_THRESHOLD = 62;
-export const LOW_SIGNAL_CAP = 72;
-export const MEDIUM_SIGNAL_CAP = 88;
+
+const BASE_AFFINITY = 15;
+const BASE_RISK = 10;
+const MAX_AFFINITY_SCORE = 100;
+const GENRE_MATCH_BONUS = 8;
+const GENRE_MISMATCH_PENALTY = 6;
+const BACKLOG_BONUS = 6;
+const SOULS_LIKE_RISK = 15;
+const HORROR_RISK = 12;
+const DISLIKED_TAG_PENALTY_MULTIPLIER = 2;
+const CONFIDENCE_HIGH_THRESHOLD = 6;
+const CONFIDENCE_MEDIUM_THRESHOLD = 3;
+const AFFINITY_MULTIPLIER: Record<string, number> = {
+  low: 0.75,
+  medium: 0.9,
+  high: 1.0,
+};
+
+const SEARCH_KEYS = [
+  { name: "title", weight: 0.7 },
+  { name: "aliases", weight: 0.15 },
+  { name: "series", weight: 0.1 },
+  { name: "tags", weight: 0.05 },
+];
+
+const TAG_WEIGHTS: Record<string, number> = {
+  story_rich: 3,
+  lore_heavy: 2.5,
+  minimalist_story: 1,
+  branching_narrative: 3,
+  text_based: 2,
+
+  souls_like: 4,
+  stealth: 3,
+  puzzle: 2.5,
+  rhythm: 2.5,
+  tactical: 3,
+  deck_building: 3,
+  immersive_sim: 3.5,
+  survival: 2.5,
+
+  open_world: 2,
+  linear: 1.5,
+  hub_based: 1.5,
+  roguelike: 2.5,
+  metroidvania: 3,
+  sandbox: 2,
+
+  demanding: 3,
+  unforgiving: 3.5,
+  chill: 2.5,
+  accessible: 2,
+
+  short_sessions: 1,
+  long_sessions: 1.5,
+  pick_up_and_play: 2,
+
+  dark: 1.5,
+  lighthearted: 1.5,
+  horror: 2.5,
+  cozy: 2,
+};
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-function levelValue(value: SeedGame["storyStrength"]) {
-  switch (value) {
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    case "low":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-function paceValue(value: SeedGame["pacingSpeed"]) {
-  switch (value) {
-    case "fast":
-      return 3;
-    case "medium":
-      return 2;
-    case "slow":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-function priorityValue(value: ProductProfile["priorities"]["story"]) {
-  switch (value) {
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    default:
-      return 1;
-  }
 }
 
 function uniq(items: string[]) {
   return [...new Set(items)].filter(Boolean).slice(0, 4);
 }
 
-function normalizeSearchValue(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function isScoredGame(game: SeedGame) {
-  return game.scoringStatus !== "basic";
+  return game.tags.length > 0;
 }
 
 function isPlayableNow(entry: RankedSeedGame) {
@@ -124,41 +132,6 @@ function buildAccessiblePlatformIds(state: ProductState) {
   );
 }
 
-function buildLikedGenres(state: ProductState, gamesById: Map<string, SeedGame>) {
-  const liked = new Map<string, number>();
-  const disliked = new Map<string, number>();
-  const likedSeries = new Set<string>();
-
-  Object.values(state.user.gameStates).forEach((record) => {
-    const game = gamesById.get(record.gameId);
-
-    if (!game) {
-      return;
-    }
-
-    if (record.rating == null) {
-      return;
-    }
-
-    if (record.rating >= 4) {
-      liked.set(game.primaryGenre, (liked.get(game.primaryGenre) ?? 0) + 1);
-      if (game.series) {
-        likedSeries.add(game.series);
-      }
-    }
-
-    if (record.rating <= 2) {
-      disliked.set(game.primaryGenre, (disliked.get(game.primaryGenre) ?? 0) + 1);
-    }
-  });
-
-  return {
-    likedGenres: [...liked.keys()],
-    dislikedGenres: [...disliked.keys()],
-    likedSeries,
-  };
-}
-
 function getPlatformAvailability(
   game: SeedGame,
   accessiblePlatformIds: Set<string>,
@@ -172,66 +145,35 @@ function getPlatformAvailability(
     : "unavailable";
 }
 
-function confidenceFromProfile(
-  game: SeedGame,
-  state: ProductState,
-  profile: ProductProfile,
-  platformAvailability: PlatformAvailability,
-  likedGenres: string[],
-) {
-  let score = 0;
-  const anchorCount = state.user.onboarding.likedGameIds.length;
-  const ratedCount = Object.values(state.user.gameStates).filter(
-    (record) => record.rating != null,
-  ).length;
-
-  if (anchorCount >= 3 || ratedCount >= 3) {
-    score += 1;
-  }
-
-  if (ratedCount >= 6) {
-    score += 1;
-  }
-
-  if (profile.signals.length >= 4) {
-    score += 1;
-  }
-
-  if (likedGenres.includes(game.primaryGenre)) {
-    score += 1;
-  }
-
-  if (platformAvailability !== "unknown") {
-    score += 1;
-  }
-
-  if (score >= 5) return "high";
-  if (score >= 3) return "medium";
-  return "low";
+function getTagWeight(tag: string): number {
+  return TAG_WEIGHTS[tag] ?? 2;
 }
 
-function capAffinityByConfidence(score: number, confidence: RankedSeedGame["confidence"]) {
-  if (confidence === "low") {
-    return Math.min(score, LOW_SIGNAL_CAP);
-  }
+function buildLikedTagsFromProfile(profile: ProductProfile) {
+  return Object.fromEntries(
+    Object.entries(profile.likedTags).filter(
+      ([tag, count]) => count > (profile.dislikedTags[tag] ?? 0),
+    ),
+  );
+}
 
-  if (confidence === "medium") {
-    return Math.min(score, MEDIUM_SIGNAL_CAP);
-  }
-
-  return score;
+function buildDislikedTagsFromProfile(profile: ProductProfile) {
+  return Object.fromEntries(
+    Object.entries(profile.dislikedTags).filter(
+      ([tag, count]) => count > (profile.likedTags[tag] ?? 0),
+    ),
+  );
 }
 
 export function scoreSeedGame(
   game: SeedGame,
   state: ProductState,
   profile: ProductProfile,
-  gamesById: Map<string, SeedGame>,
+  _gamesById: Map<string, SeedGame>,
 ): RankedSeedGame {
   const fitReasons: string[] = [];
   const cautionReasons: string[] = [];
   const accessiblePlatformIds = buildAccessiblePlatformIds(state);
-  const { likedGenres, dislikedGenres, likedSeries } = buildLikedGenres(state, gamesById);
   const platformAvailability = getPlatformAvailability(game, accessiblePlatformIds);
   const accessStatus = getAccessStatus(game, platformAvailability);
   const gameState = state.user.gameStates[game.gameId];
@@ -244,109 +186,81 @@ export function scoreSeedGame(
       affinityScore: 0,
       riskScore: 0,
       confidence: "low",
-      fitReasons: ["This is a Finder-only catalog record and has not been taste-scored yet."],
-      cautionReasons: ["Add it to My Games or log an outcome before Playfit can learn from it."],
+      fitReasons: ["This game hasn't been categorized yet."],
+      cautionReasons: ["We need more info before Playfit can recommend this game."],
       platformAvailability,
       accessStatus,
       inBacklog,
       inWishlist,
+      similarGames: [],
     };
   }
 
-  let affinity = 18;
-  let risk = 10;
+  const likedTags = buildLikedTagsFromProfile(profile);
+  const dislikedTags = buildDislikedTagsFromProfile(profile);
+  const gameTags = game.tags;
 
-  affinity += priorityValue(profile.priorities.story) * levelValue(game.storyStrength) * 4;
-  affinity +=
-    priorityValue(profile.priorities.progression) * levelValue(game.progressionClarity) * 4;
-  affinity += priorityValue(profile.priorities.hook) * levelValue(game.earlyHook) * 3;
-  affinity += priorityValue(profile.priorities.aesthetic) * levelValue(game.aestheticFit) * 3;
-  affinity +=
-    priorityValue(profile.priorities.emotional) * levelValue(game.emotionalComplexity) * 3;
-  affinity += priorityValue(profile.priorities.combat) * levelValue(game.combatDepth) * 2;
-  affinity += priorityValue(profile.priorities.pace) * paceValue(game.pacingSpeed) * 3;
+  let affinity = BASE_AFFINITY;
+  let risk = BASE_RISK;
 
-  if (likedGenres.includes(game.primaryGenre)) {
-    affinity += 10;
-    fitReasons.push("Matches a genre already visible in your early anchors");
+  for (const tag of gameTags) {
+    const weight = getTagWeight(tag);
+    const likedScore = likedTags[tag] ?? 0;
+    if (likedScore > 0) {
+      const boost = likedScore * weight;
+      affinity += boost;
+      fitReasons.push(`You tend to like ${tag.replace(/_/g, " ")}`);
+    }
   }
 
-  if (dislikedGenres.includes(game.primaryGenre)) {
-    affinity -= 8;
+  for (const tag of gameTags) {
+    const dislikedScore = dislikedTags[tag] ?? 0;
+    if (dislikedScore > 0) {
+      const penalty = dislikedScore * getTagWeight(tag) * DISLIKED_TAG_PENALTY_MULTIPLIER;
+      risk += penalty;
+      cautionReasons.push(`You tend to dislike ${tag.replace(/_/g, " ")}`);
+    }
+  }
+
+  if (profile.likedGenres.includes(game.primaryGenre)) {
+    affinity += GENRE_MATCH_BONUS;
+    fitReasons.push("Matches a genre already visible in your library");
+  }
+
+  if (profile.avoidedGenres.includes(game.primaryGenre)) {
+    affinity -= GENRE_MISMATCH_PENALTY;
     cautionReasons.push("Shares genre overlap with games that already failed for you");
   }
 
-  if (likedSeries.has(game.series)) {
-    affinity += 5;
-    fitReasons.push("Belongs to a series already associated with positive signal");
-  }
-
   if (inBacklog) {
-    affinity += 6;
+    affinity += BACKLOG_BONUS;
     fitReasons.push("Already saved as a title you want to keep in view");
   }
 
-  if (
-    profile.avoidPatterns.slowStart &&
-    (game.earlyHook === "low" || game.pacingSpeed === "slow")
-  ) {
-    risk += 18;
-    cautionReasons.push("Slow start risk is high for your current profile");
+  if (gameTags.includes("souls_like") && gameTags.includes("demanding")) {
+    const dislikedCombo = (dislikedTags.souls_like ?? 0) + (dislikedTags.demanding ?? 0);
+    if (dislikedCombo > 0) {
+      risk += SOULS_LIKE_RISK;
+      cautionReasons.push("High difficulty + souls-like pattern may not fit your preferences");
+    }
   }
 
-  if (profile.avoidPatterns.repetition && game.endgameRepetitionRisk !== "low") {
-    risk += game.endgameRepetitionRisk === "high" ? 22 : 12;
-    cautionReasons.push("Repetition is one of the clearest early risk factors");
+  if (dislikedTags.horror > 0 && (gameTags.includes("horror") || gameTags.includes("dark"))) {
+    risk += HORROR_RISK;
   }
 
-  if (profile.avoidPatterns.confusingSystems && game.progressionClarity === "low") {
-    risk += 14;
-    cautionReasons.push("Opaque progression can create friction quickly");
-  }
+  const ratedCount = profile.ratedCount ?? 0;
+  let confidence: RankedSeedGame["confidence"] = "low";
+  if (ratedCount >= CONFIDENCE_HIGH_THRESHOLD) confidence = "high";
+  else if (ratedCount >= CONFIDENCE_MEDIUM_THRESHOLD) confidence = "medium";
 
-  if (
-    profile.avoidPatterns.weakEmotionalPull &&
-    game.storyStrength !== "high" &&
-    game.emotionalComplexity !== "high"
-  ) {
-    risk += 12;
-    cautionReasons.push("The narrative anchor may be too weak for your current profile");
-  }
+  affinity =
+    BASE_AFFINITY + Math.round((affinity - BASE_AFFINITY) * AFFINITY_MULTIPLIER[confidence]);
+  affinity = Math.min(affinity, MAX_AFFINITY_SCORE);
 
-  if (profile.avoidPatterns.shallowCombat && game.combatDepth === "low") {
-    risk += 12;
-    cautionReasons.push("Combat depth may be weaker than what tends to sustain your interest");
-  }
-
-  if (
-    profile.watchVsPlayRisk === "high" &&
-    game.storyStrength === "high" &&
-    game.pacingSpeed === "slow"
-  ) {
-    risk += 10;
-    cautionReasons.push("This could become a title you follow for story more than active play");
-  }
-
-  if (game.storyStrength === "high") {
-    fitReasons.push("Strong story potential");
-  }
-  if (game.progressionClarity === "high") {
-    fitReasons.push("Clear progression");
-  }
-  if (game.earlyHook === "high") {
-    fitReasons.push("Fast early hook");
-  }
-  if (game.aestheticFit === "high") {
-    fitReasons.push("Strong aesthetic identity");
-  }
-  if (game.endgameRepetitionRisk === "low") {
-    fitReasons.push("Low repetition risk");
-  }
-
-  const confidence = confidenceFromProfile(game, state, profile, platformAvailability, likedGenres);
   return {
     game,
-    affinityScore: capAffinityByConfidence(clamp(affinity), confidence),
+    affinityScore: clamp(affinity),
     riskScore: clamp(risk),
     confidence,
     fitReasons: uniq(fitReasons).slice(0, 4),
@@ -355,7 +269,20 @@ export function scoreSeedGame(
     accessStatus,
     inBacklog,
     inWishlist,
+    similarGames: [],
   };
+}
+
+export function findSimilarGames(game: SeedGame, allGames: SeedGame[], limit = 5): SeedGame[] {
+  return allGames
+    .filter((g) => g.gameId !== game.gameId && isScoredGame(g))
+    .map((g) => ({
+      game: g,
+      similarity: cosineSimilarity(game.tags, g.tags),
+    }))
+    .sort((left, right) => right.similarity - left.similarity)
+    .slice(0, limit)
+    .map((entry) => entry.game);
 }
 
 export function buildTodayModel(
@@ -365,16 +292,7 @@ export function buildTodayModel(
   gamesById: Map<string, SeedGame>,
 ): ProductTodayModel {
   if (!profile) {
-    return {
-      currentRun: null,
-      playingNow: [],
-      nextUp: null,
-      avoid: null,
-      resume: null,
-      wishlistFit: null,
-      worthTracking: null,
-      playableAlternative: null,
-    };
+    return { currentRun: [], nextUp: [], resume: [] };
   }
 
   const ranked = games
@@ -391,24 +309,26 @@ export function buildTodayModel(
         return false;
       }
 
+      if (stateEntry?.excluded) {
+        return false;
+      }
+
       return true;
     });
 
-  const playingNow = ranked
+  const currentRun = ranked
     .filter((entry) => state.user.gameStates[entry.game.gameId]?.status === "playing")
     .sort(sortPlayingNow(state));
 
-  const currentRun = playingNow[0] ?? null;
-
-  const resume =
-    ranked
-      .filter(
-        (entry) =>
-          (state.user.gameStates[entry.game.gameId]?.status === "on_hold" ||
-            state.user.gameStates[entry.game.gameId]?.status === "shelved") &&
-          entry.accessStatus === "playable",
-      )
-      .sort((left, right) => right.affinityScore - left.affinityScore)[0] ?? null;
+  const resume = ranked
+    .filter(
+      (entry) =>
+        (state.user.gameStates[entry.game.gameId]?.status === "on_hold" ||
+          state.user.gameStates[entry.game.gameId]?.status === "shelved") &&
+        entry.accessStatus === "playable",
+    )
+    .sort((left, right) => right.affinityScore - left.affinityScore)
+    .slice(0, 10);
 
   const playableCandidates = ranked.filter((entry) => {
     const stateEntry = state.user.gameStates[entry.game.gameId];
@@ -433,87 +353,9 @@ export function buildTodayModel(
     );
   });
 
-  const nextUp = sortedPlayable[0] ?? null;
-  const playableAlternative = sortedPlayable[1] ?? null;
-  const primaryPlayableIds = new Set(
-    [...playingNow, nextUp, playableAlternative, resume]
-      .map((entry) => entry?.game.gameId)
-      .filter((gameId): gameId is string => Boolean(gameId)),
-  );
+  const nextUp = sortedPlayable.slice(0, 10);
 
-  const wishlistFit =
-    ranked
-      .filter((entry) => {
-        const stateEntry = state.user.gameStates[entry.game.gameId];
-        return (
-          isPlayableNow(entry) &&
-          !primaryPlayableIds.has(entry.game.gameId) &&
-          !entry.inBacklog &&
-          stateEntry?.status !== "playing" &&
-          stateEntry?.status !== "on_hold" &&
-          stateEntry?.status !== "shelved" &&
-          stateEntry?.status !== "completed" &&
-          stateEntry?.status !== "beaten" &&
-          stateEntry?.status !== "abandoned"
-        );
-      })
-      .sort((left, right) => {
-        const leftTracked = left.inWishlist ? 1 : 0;
-        const rightTracked = right.inWishlist ? 1 : 0;
-        return (
-          rightTracked - leftTracked ||
-          right.affinityScore - left.affinityScore ||
-          left.riskScore - right.riskScore
-        );
-      })[0] ?? null;
-
-  const worthTracking =
-    ranked
-      .filter((entry) => {
-        const stateEntry = state.user.gameStates[entry.game.gameId];
-        return (
-          !primaryPlayableIds.has(entry.game.gameId) &&
-          entry.inWishlist &&
-          !isPlayableNow(entry) &&
-          stateEntry?.status !== "completed" &&
-          stateEntry?.status !== "beaten" &&
-          stateEntry?.status !== "abandoned"
-        );
-      })
-      .sort((left, right) => {
-        const leftUnreleased = left.accessStatus === "unreleased" ? 1 : 0;
-        const rightUnreleased = right.accessStatus === "unreleased" ? 1 : 0;
-        return (
-          rightUnreleased - leftUnreleased ||
-          right.affinityScore - left.affinityScore ||
-          left.riskScore - right.riskScore
-        );
-      })[0] ?? null;
-
-  const avoid =
-    ranked
-      .filter((entry) => {
-        const stateEntry = state.user.gameStates[entry.game.gameId];
-        return (
-          entry.accessStatus === "playable" &&
-          !stateEntry?.status &&
-          !entry.inBacklog &&
-          !entry.inWishlist &&
-          entry.riskScore >= HIGH_FRICTION_THRESHOLD
-        );
-      })
-      .sort((left, right) => right.riskScore - left.riskScore)[0] ?? null;
-
-  return {
-    currentRun,
-    playingNow,
-    nextUp,
-    avoid,
-    resume,
-    wishlistFit,
-    worthTracking,
-    playableAlternative,
-  };
+  return { currentRun, nextUp, resume };
 }
 
 export function buildFinderIndex(games: SeedGame[]) {
@@ -539,18 +381,16 @@ export function searchSeedGames(games: SeedGame[], query: string, index: Fuse<Se
 }
 
 export function findExactSeedGame(games: SeedGame[], query: string) {
-  const normalized = normalizeSearchValue(query);
+  const normalized = query.trim().toLowerCase();
 
   if (!normalized) {
     return null;
   }
 
   return (
-    games.find((game) => normalizeSearchValue(game.title) === normalized) ??
-    games.find((game) =>
-      (game.aliases ?? []).some((alias) => normalizeSearchValue(alias) === normalized),
-    ) ??
-    games.find((game) => normalizeSearchValue(game.series) === normalized) ??
+    games.find((game) => game.title.toLowerCase() === normalized) ??
+    games.find((game) => game.aliases?.some((alias) => alias.toLowerCase() === normalized)) ??
+    games.find((game) => game.series.toLowerCase() === normalized) ??
     null
   );
 }

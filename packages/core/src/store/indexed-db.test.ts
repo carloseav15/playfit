@@ -1,30 +1,76 @@
-import "fake-indexeddb/auto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { createInitialState } from "./indexed-db";
 
-import {
-  createInitialState,
-  loadProductState,
-  resetProductState,
-  saveProductState,
-} from "./indexed-db";
+const mockStoredState = vi.hoisted(() => ({
+  current: null as unknown,
+}));
+
+vi.mock("../data/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+    },
+  },
+}));
+
+function mockFetch(response: unknown) {
+  return vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(response),
+    }),
+  );
+}
 
 describe("product indexeddb store", () => {
-  beforeEach(async () => {
-    await resetProductState();
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch({ state: null }));
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn().mockReturnValue("test-device-id"),
+      setItem: vi.fn(),
+    });
+    vi.stubGlobal("crypto", { randomUUID: vi.fn().mockReturnValue("test-device-id") });
+    mockStoredState.current = null;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("returns a clean default state when nothing was saved", async () => {
+    const { loadProductState } = await import("./indexed-db");
     const state = await loadProductState();
     expect(state.user.onboarding.step).toBe("platforms");
     expect(state.user.profile).toBeNull();
   });
 
   it("persists and restores product state", async () => {
+    const { loadProductState, saveProductState } = await import("./indexed-db");
     const state = createInitialState();
     state.user.onboardingCompletedAt = "2026-01-01T00:00:00.000Z";
     state.user.onboarding.platforms = [{ platformId: "ps5", status: "available" }];
     state.user.lastUpdatedAt = "2026-01-01T00:00:00.000Z";
+    const saved = structuredClone(state);
+    saved.user.lastUpdatedAt = null;
+
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        state: {
+          onboarding: {
+            step: saved.user.onboarding.step,
+            platforms: saved.user.onboarding.platforms,
+            likedGameIds: saved.user.onboarding.likedGameIds,
+            onboardingCompletedAt: saved.user.onboardingCompletedAt,
+          },
+          profile: saved.user.profile,
+          game_states: saved.user.gameStates,
+          created_at: saved.user.lastUpdatedAt,
+        },
+      }),
+    );
 
     await saveProductState(state);
     const restored = await loadProductState();
@@ -34,6 +80,7 @@ describe("product indexeddb store", () => {
   });
 
   it("merges legacy v1 state into the v2 schema gracefully", async () => {
+    const { loadProductState, saveProductState } = await import("./indexed-db");
     const legacyState = {
       version: 1,
       user: {
@@ -58,13 +105,29 @@ describe("product indexeddb store", () => {
       },
     };
 
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        state: {
+          onboarding: {
+            step: "anchors",
+            platforms: [{ platformId: "ps5", status: "available" }],
+            likedGameIds: ["a", "b", "c"],
+            onboardingCompletedAt: null,
+          },
+          profile: null,
+          game_states: {},
+          created_at: null,
+        },
+      }),
+    );
+
     await saveProductState(legacyState as never);
     const restored = await loadProductState();
 
     expect(restored.user.onboarding.step).toBe("anchors");
     expect(restored.user.onboarding.platforms).toHaveLength(1);
     expect(restored.user.onboarding.likedGameIds).toHaveLength(3);
-    expect(restored.user.profileOverrides).toEqual({});
     expect(restored.user.gameStates).toEqual({});
     expect(restored.user.profile).toBeNull();
   });

@@ -1,9 +1,0 @@
-access_id,platform_id,access_status,device_label,notes
-UPA001,xbox_series_xs,available,Xbox Series S,Migrated from legacy user_profile platform key xbox_series_s.
-UPA002,switch_1,available,Nintendo Switch,Migrated from legacy user_profile platform key nintendo_switch_1.
-UPA003,pc,available,MacBook Air M4,Migrated from legacy user_profile platform key macbook_air_m4.
-UPA004,gba,available,Game Boy Advance,Migrated from legacy user_profile platform key gba.
-UPA005,ds,available,Nintendo DS,Migrated from legacy user_profile platform key ds.
-UPA006,3ds,available,Nintendo 3DS,Migrated from legacy user_profile platform key 3ds.
-UPA007,psp,available,PSP,Migrated from legacy user_profile platform key psp.
-UPA008,ps1,available,PS1,Migrated from legacy user_profile platform key ps1.

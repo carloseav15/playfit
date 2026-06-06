@@ -16,12 +16,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "fuse.js": "^7.0.0",
-    "papaparse": "^5.5.3",
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@types/papaparse": "^5.3.16",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5.9.3",
     "vitest": "^4.1.3"
