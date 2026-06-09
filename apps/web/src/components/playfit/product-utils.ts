@@ -2,7 +2,9 @@ import {
   HIGH_FRICTION_THRESHOLD,
   PROMISING_FIT_THRESHOLD,
   type ProductPlayStatus,
+  type ProductUserState,
   type RankedSeedGame,
+  type SeedGame,
   STRONG_FIT_THRESHOLD,
 } from "@playfit/core";
 
@@ -13,12 +15,12 @@ export interface StatusOption {
 }
 
 const statusOrder: Record<ProductPlayStatus, number> = {
-  completed: 0,
-  beaten: 1,
-  playing: 2,
-  want_to_play: 3,
-  on_hold: 4,
-  shelved: 5,
+  playing: 0,
+  want_to_play: 1,
+  on_hold: 2,
+  shelved: 3,
+  beaten: 4,
+  completed: 5,
   abandoned: 6,
 };
 
@@ -28,7 +30,6 @@ export function statusPriority(status: ProductPlayStatus | undefined): number {
 }
 
 export const statusOptions: StatusOption[] = [
-  { value: "", label: "No status", description: "" },
   { value: "playing", label: "Playing", description: "Currently playing" },
   { value: "on_hold", label: "On hold", description: "Paused, will return later" },
   { value: "shelved", label: "Shelved", description: "Put aside, maybe return" },
@@ -39,17 +40,32 @@ export const statusOptions: StatusOption[] = [
 ];
 
 export function formatGenre(value: string) {
-  return value.replaceAll("_", " ");
+  const cleaned = value
+    .replace(/[;_/-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || cleaned.toLowerCase() === "unknown") {
+    return "Metadata pending";
+  }
+
+  return cleaned;
+}
+
+export function formatGameDescriptor(game: SeedGame) {
+  if (game.series && game.series.toLowerCase() !== "unknown") return game.series;
+  return formatGenre(game.primaryGenre);
 }
 
 export function confidenceLabel(value: RankedSeedGame["confidence"]) {
-  if (value === "high") return "Strong match";
-  if (value === "medium") return "Good match";
-  return "Needs more data";
+  if (value === "high") return "Strong signal";
+  if (value === "medium") return "Building signal";
+  return "First look";
 }
 
 export function decisionTone(entry: RankedSeedGame): "positive" | "warning" | "negative" | "info" {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) return "negative";
+  if (entry.confidence === "low") return "warning";
   if (entry.affinityScore >= STRONG_FIT_THRESHOLD && entry.riskScore <= 35) return "positive";
   if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) return "info";
   return "warning";
@@ -57,14 +73,38 @@ export function decisionTone(entry: RankedSeedGame): "positive" | "warning" | "n
 
 export function decisionLabel(entry: RankedSeedGame) {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) return "Watch out";
-  if (entry.affinityScore >= STRONG_FIT_THRESHOLD) return "Strong fit";
-  if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) return "Promising fit";
-  return "Inconclusive";
+  if (entry.confidence === "low") return "Too early to tell";
+  if (entry.affinityScore >= STRONG_FIT_THRESHOLD) return "Strong match";
+  if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) return "Promising";
+  return "Still learning";
 }
 
 export function primaryReason(entry: RankedSeedGame) {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD && entry.cautionReasons[0]) {
     return entry.cautionReasons[0];
   }
-  return entry.fitReasons[0] ?? "Playfit needs more signal before making a confident call.";
+  return entry.fitReasons[0] ?? "Rate a few more games to strengthen this signal.";
+}
+
+export function recommendationGroupTitle(entries: RankedSeedGame[]) {
+  if (entries.length > 0 && entries.every((entry) => entry.confidence === "low")) {
+    return "First reads";
+  }
+
+  return "Best matches";
+}
+
+export function recommendationGroupCopy(entries: RankedSeedGame[]) {
+  if (entries.length > 0 && entries.every((entry) => entry.confidence === "low")) {
+    return "First signals from what you shared. Every rating sharpens the read.";
+  }
+
+  return "Games with the strongest signal right now.";
+}
+
+export function buildPlatformsKey(user: ProductUserState): string {
+  return user.onboarding.platforms
+    .map((entry) => entry.platformId)
+    .sort()
+    .join(",");
 }
