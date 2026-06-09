@@ -93,6 +93,64 @@ function uniqueSignals(signals: ProductProfileSignal[]) {
   return [...new Map(signals.map((signal) => [signal.id, signal])).values()];
 }
 
+function formatTrait(tag: string) {
+  return tag.replace(/[_-]/g, " ");
+}
+
+function evidenceStage(ratedCount: number) {
+  if (ratedCount >= 6) return "strong";
+  if (ratedCount >= 3) return "emerging";
+  return "early";
+}
+
+function positiveSignalCopy(tag: string, count: number, ratedCount: number) {
+  const label = formatTrait(tag);
+  const stage = evidenceStage(ratedCount);
+
+  if (stage === "strong") {
+    return {
+      label: `Strong pattern: ${label}`,
+      reason: `${count} positive outcomes point in this direction.`,
+    };
+  }
+
+  if (stage === "emerging") {
+    return {
+      label: `Emerging pattern: ${label}`,
+      reason: "Several favorites or high ratings share this trait.",
+    };
+  }
+
+  return {
+    label: `Early signal: ${label}`,
+    reason: "This shows up in your favorites or first ratings. Rate more games to confirm it.",
+  };
+}
+
+function cautionSignalCopy(tag: string, count: number, ratedCount: number) {
+  const label = formatTrait(tag);
+  const stage = evidenceStage(ratedCount);
+
+  if (stage === "strong") {
+    return {
+      label: `Clear watch-out: ${label}`,
+      reason: `${count} lower-rated outcomes lean this way more than your positive signals.`,
+    };
+  }
+
+  if (stage === "emerging") {
+    return {
+      label: `Emerging watch-out: ${label}`,
+      reason: "A few lower ratings point in this direction.",
+    };
+  }
+
+  return {
+    label: `Possible watch-out: ${label}`,
+    reason: "There is not enough lower-rated evidence to treat this as a firm pattern yet.",
+  };
+}
+
 function countTagsForGames(gameIds: Set<string>, gamesById: Map<string, SeedGame>) {
   const counts = new Map<string, number>();
   let gameCount = 0;
@@ -225,8 +283,8 @@ export function buildFallbackProfile(
     signalDrafts.push({
       id: "genre-fit",
       tone: "positive",
-      label: `You tend to like ${likedGenres[0]}`,
-      reason: "Your favorite games show the genres you tend to enjoy.",
+      label: `Starting point: ${formatTrait(likedGenres[0])}`,
+      reason: "This genre appears in the favorites you chose during setup.",
     });
   }
 
@@ -238,13 +296,13 @@ export function buildFallbackProfile(
     signalDrafts.push({
       id: `tag-fit-${tag}`,
       tone: "positive",
-      label: `You tend to enjoy ${tag.replace(/_/g, " ")}`,
-      reason: "Your favorite games share this trait.",
+      label: `Early signal: ${formatTrait(tag)}`,
+      reason: "Your setup favorites share this trait. Ratings will make the signal sharper.",
     });
   }
 
   return {
-    summary: "Your profile is based on your favorite games. It gets better as you rate more.",
+    summary: "Early profile built from your favorites. Rate a few games to make it sharper.",
     likedGenres,
     avoidedGenres: [],
     likedTags,
@@ -303,29 +361,31 @@ export function buildAdaptiveProfile(
     .slice(0, 3);
 
   for (const [tag] of topLikedTags) {
+    const copy = positiveSignalCopy(tag, likedTags[tag], ratedCount);
     signalDrafts.push({
       id: `tag-fit-${tag}`,
       tone: "positive",
-      label: `You tend to enjoy ${tag.replace(/_/g, " ")}`,
-      reason: `${likedTags[tag]} positive signal(s) share this trait after comparing lower ratings.`,
+      label: copy.label,
+      reason: copy.reason,
     });
   }
 
   for (const [tag] of topDislikedTags) {
+    const copy = cautionSignalCopy(tag, dislikedTags[tag], ratedCount);
     signalDrafts.push({
       id: `tag-risk-${tag}`,
       tone: "negative",
-      label: `Be careful with ${tag.replace(/_/g, " ")}`,
-      reason: `${dislikedTags[tag]} lower-rated game(s) lean this way more than your positive signals.`,
+      label: copy.label,
+      reason: copy.reason,
     });
   }
 
-  if (positiveOutcomeCount > 0 && negativeOutcomeCount === 0) {
+  if (positiveOutcomeCount >= 3 && negativeOutcomeCount === 0) {
     signalDrafts.push({
       id: "positive-momentum",
       tone: "positive",
-      label: "Great track record",
-      reason: "Everything you've rated has been a hit so far.",
+      label: "Clean streak",
+      reason: "Your recent ratings are positive, so Playfit can lean into nearby matches.",
     });
   }
 
@@ -334,9 +394,13 @@ export function buildAdaptiveProfile(
   ].slice(0, 5);
 
   const summary =
-    ratedCount > 0
-      ? `Based on ${ratedCount} rated game(s) and ${draft.likedGameIds.length} favorite(s). It gets better over time.`
-      : "Your profile is based on your favorite games. It gets better as you rate more.";
+    ratedCount >= 6
+      ? `Strong pattern from ${ratedCount} ratings and ${draft.likedGameIds.length} setup favorites.`
+      : ratedCount >= 3
+        ? `Emerging pattern from ${ratedCount} ratings and ${draft.likedGameIds.length} setup favorites.`
+        : ratedCount > 0
+          ? `Early read from ${ratedCount} rating(s) and ${draft.likedGameIds.length} setup favorites.`
+          : "Early profile built from your favorites. Rate a few games to make it sharper.";
 
   return {
     summary,
@@ -347,8 +411,4 @@ export function buildAdaptiveProfile(
     ratedCount,
     signals: uniqueSignals(signalDrafts).slice(0, 8),
   };
-}
-
-export function applyProfileOverrides(profile: ProductProfile): ProductProfile {
-  return profile;
 }

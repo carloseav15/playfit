@@ -8,29 +8,30 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 
 export const metadata: Metadata = {
   title: "How It Works",
-  description: "How Playfit learns your taste and recommends games that actually fit you.",
+  description:
+    "How Playfit turns ratings, library state, and platform access into calm, honest reads.",
 };
 
 const steps = [
   {
     icon: Sparkles,
     title: "Pick your platforms and favorites",
-    copy: "Tell Playfit what you play on and a few games you already love. That's all it needs to start building your profile.",
+    copy: "Tell Playfit what you can play on and a few games you already love. That creates the first read.",
   },
   {
     icon: Star,
     title: "Rate as you play",
-    copy: "Star ratings, play status, backlog, wishlist — every signal sharpens your recommendations.",
+    copy: "Star ratings, play status, backlog, and wishlist choices sharpen the evidence.",
   },
   {
     icon: CalendarDays,
-    title: "Get clear, honest picks",
-    copy: "Current run, next up, resume, or watch out. Instead of one black-box score, you see exactly why a game fits or doesn't.",
+    title: "Get calm, honest reads",
+    copy: "Current run, best match, resume, or watch-out. You see the reason and confidence behind each read.",
   },
   {
     icon: Library,
     title: "Your data, your account",
-    copy: "Your profile syncs to your account so you can pick up where you left off on any device.",
+    copy: "Your library and ratings sync to your account so the product keeps its memory.",
   },
 ];
 
@@ -50,11 +51,11 @@ export default function HowItWorksPage() {
             How it works
           </Badge>
           <h1 className="text-balance font-display text-4xl font-black tracking-tight md:text-6xl">
-            Game recommendations that actually fit you.
+            Game decisions with evidence attached.
           </h1>
           <p className="max-w-3xl text-lg text-muted-foreground">
-            Playfit learns your taste from the games you love, the ones you drop, and everything in
-            between. No algorithms guessing for you.
+            Playfit learns from games you love, games you drop, and the systems you can actually
+            play on. Early signals stay cautious until ratings make the pattern stronger.
           </p>
         </div>
 
@@ -78,7 +79,7 @@ export default function HowItWorksPage() {
             <p>
               Playfit compares tags and genres across your library to figure out what clicks for
               you. Games that share traits with your favorites score higher. Traits from games you
-              rated low add caution flags. Nothing is hidden behind a single number.
+              rated low add watch-outs. Confidence depends on how much evidence exists.
             </p>
           </section>
           <section className="grid gap-3">
@@ -86,17 +87,16 @@ export default function HowItWorksPage() {
               What you can do
             </h2>
             <p>
-              Browse the full catalog, search upcoming releases, check your evolving taste profile,
-              and see signals that explain every recommendation. Every action you take — a rating, a
-              status change, a backlog add — makes the next pick smarter.
+              Search the catalog, track upcoming releases, check your evolving taste signals, and
+              open a dossier before saving a game. Every rating or status change improves the next
+              read.
             </p>
           </section>
           <section className="grid gap-3">
             <h2 className="font-display text-3xl font-extrabold text-foreground">Why it matters</h2>
             <p>
-              Good recommendations should tell you what to play, what to skip, and what to come back
-              to — based on your actual taste, not what's popular. Playfit treats recommendation as
-              a personal decision problem, not a popularity contest.
+              A good game tool should help you decide what to play, what to skip, and what to come
+              back to based on your evidence, not only on what is popular.
             </p>
           </section>
         </article>

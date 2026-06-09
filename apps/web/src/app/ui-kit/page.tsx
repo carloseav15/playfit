@@ -52,23 +52,23 @@ const badgeVariantsList = [
 const spinnerSizes = ["sm", "default", "lg"] as const;
 
 const tokens: Array<{ name: string; var: string; light: string; dark: string }> = [
-  { name: "Background", var: "--background", light: "#faf7f2", dark: "#070a12" },
-  { name: "Foreground", var: "--foreground", light: "#1f1b17", dark: "#f8fafc" },
+  { name: "Background", var: "--background", light: "#f7f8f4", dark: "#070a12" },
+  { name: "Foreground", var: "--foreground", light: "#17201d", dark: "#f8fafc" },
   { name: "Card", var: "--card", light: "rgba(255,255,255,0.76)", dark: "rgba(15,23,42,0.76)" },
-  { name: "Primary", var: "--primary", light: "#1f1b17", dark: "#f8fafc" },
+  { name: "Primary", var: "--primary", light: "#17201d", dark: "#f8fafc" },
   {
     name: "Secondary",
     var: "--secondary",
-    light: "rgba(31,27,23,0.06)",
+    light: "rgba(23,32,29,0.06)",
     dark: "rgba(255,255,255,0.07)",
   },
-  { name: "Accent", var: "--accent", light: "#a64222", dark: "#ff6a3d" },
-  { name: "Muted", var: "--muted", light: "rgba(31,27,23,0.07)", dark: "rgba(255,255,255,0.07)" },
+  { name: "Accent", var: "--accent", light: "#0f766e", dark: "#ff6a3d" },
+  { name: "Muted", var: "--muted", light: "rgba(23,32,29,0.07)", dark: "rgba(255,255,255,0.07)" },
   { name: "Destructive", var: "--destructive", light: "#be123c", dark: "#fb7185" },
-  { name: "Border", var: "--border", light: "rgba(31,27,23,0.14)", dark: "rgba(148,163,184,0.18)" },
+  { name: "Border", var: "--border", light: "rgba(23,32,29,0.14)", dark: "rgba(148,163,184,0.18)" },
   { name: "Input", var: "--input", light: "rgba(255,255,255,0.82)", dark: "rgba(7,10,18,0.66)" },
-  { name: "Ring", var: "--ring", light: "rgba(166,66,34,0.42)", dark: "rgba(255,106,61,0.45)" },
-  { name: "Ink", var: "--ink", light: "#236c73", dark: "#38bdf8" },
+  { name: "Ring", var: "--ring", light: "rgba(15,118,110,0.85)", dark: "rgba(255,106,61,0.85)" },
+  { name: "Ink", var: "--ink", light: "#0d9488", dark: "#38bdf8" },
   { name: "Positive", var: "--positive", light: "#047857", dark: "#34d399" },
   { name: "Warning", var: "--warning", light: "#b45309", dark: "#fbbf24" },
   { name: "Negative", var: "--negative", light: "#be123c", dark: "#fb7185" },
@@ -326,7 +326,7 @@ export default function UiKitPage() {
               <div className="rounded-md border border-border bg-card p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <div className="size-4 rounded bg-ink" />
-                  <strong className="text-sm font-bold">Cyan — Data / Signal</strong>
+                  <strong className="text-sm font-bold">Cyan — Data / Confidence</strong>
                 </div>
                 <code className="font-mono text-xs text-muted-foreground">--ink</code>
                 <p className="mt-1.5 text-xs text-muted-foreground">
@@ -343,7 +343,7 @@ export default function UiKitPage() {
                   positive / warning / negative / info
                 </code>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Green, amber, red, and blue express state: good fit, risk, friction, or
+                  Green, amber, red, and blue express state: strong match, risk, caveat, or
                   information. Never used for chrome or navigation.
                 </p>
               </div>
@@ -496,10 +496,10 @@ export default function UiKitPage() {
                   Decision
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="positive">Strong fit</Badge>
-                  <Badge variant="info">Promising fit</Badge>
+                  <Badge variant="positive">Strong match</Badge>
+                  <Badge variant="info">Worth a look</Badge>
                   <Badge variant="negative">Watch out</Badge>
-                  <Badge variant="warning">Inconclusive</Badge>
+                  <Badge variant="warning">Too early to tell</Badge>
                 </div>
               </div>
               <div>
@@ -514,13 +514,13 @@ export default function UiKitPage() {
               </div>
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Risk / Signal
+                  Match / Confidence
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="positive">Affinity 85+</Badge>
-                  <Badge variant="negative">Friction 70+</Badge>
-                  <Badge variant="info">Good match</Badge>
-                  <Badge variant="warning">Needs more data</Badge>
+                  <Badge variant="positive">Match 85+</Badge>
+                  <Badge variant="negative">Watch-outs 70+</Badge>
+                  <Badge variant="info">Emerging pattern</Badge>
+                  <Badge variant="warning">Early signal</Badge>
                 </div>
               </div>
               <div>
@@ -748,9 +748,9 @@ export default function UiKitPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                      <Metric label="Fit" value={85} />
-                      <Metric label="Friction" value={22} />
-                      <Metric label="Signal" value="Strong match" />
+                      <Metric label="Match" value={85} />
+                      <Metric label="Watch-outs" value={22} />
+                      <Metric label="Confidence" value="High" />
                     </div>
                   </CardContent>
                 </Card>
@@ -778,17 +778,17 @@ export default function UiKitPage() {
                         </p>
                         <CardTitle>Sample Game</CardTitle>
                       </div>
-                      <Badge variant="positive">Strong fit</Badge>
+                      <Badge variant="positive">Strong match</Badge>
                     </div>
                     <CardDescription>
-                      Good match for your taste profile with moderate genre overlap.
+                      Strong match signal with moderate genre overlap.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-4">
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                      <Metric label="Fit" value={85} />
-                      <Metric label="Friction" value={22} />
-                      <Metric label="Signal" value="Strong match" />
+                      <Metric label="Match" value={85} />
+                      <Metric label="Watch-outs" value={22} />
+                      <Metric label="Confidence" value="High" />
                     </div>
                     <Button variant="secondary">
                       View details <ChevronRight className="size-4" />

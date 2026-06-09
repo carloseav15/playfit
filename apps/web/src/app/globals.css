@@ -29,27 +29,28 @@
   --color-negative-bg: var(--negative-bg);
   --color-tone-accent: var(--tone-accent);
   --color-tone-accent-bg: var(--tone-accent-bg);
+  --color-ink: var(--ink);
 }
 
 :root {
-  --background: #faf7f2;
-  --foreground: #1f1b17;
+  --background: #f7f8f4;
+  --foreground: #17201d;
   --card: rgba(255, 255, 255, 0.76);
-  --card-foreground: #1f1b17;
-  --primary: #1f1b17;
+  --card-foreground: #17201d;
+  --primary: #17201d;
   --primary-foreground: #ffffff;
-  --secondary: rgba(31, 27, 23, 0.06);
-  --secondary-foreground: #1f1b17;
-  --muted: rgba(31, 27, 23, 0.07);
-  --muted-foreground: #5c4f42;
-  --accent: #a64222;
-  --accent-foreground: #fff7ed;
+  --secondary: rgba(23, 32, 29, 0.06);
+  --secondary-foreground: #17201d;
+  --muted: rgba(23, 32, 29, 0.07);
+  --muted-foreground: #53625c;
+  --accent: #0f766e;
+  --accent-foreground: #ecfdf5;
   --destructive: #be123c;
   --destructive-foreground: #fff1f2;
-  --border: rgba(31, 27, 23, 0.14);
+  --border: rgba(23, 32, 29, 0.14);
   --input: rgba(255, 255, 255, 0.82);
-  --ring: rgba(166, 66, 34, 0.85);
-  --ink: #236c73;
+  --ring: rgba(15, 118, 110, 0.85);
+  --ink: #0d9488;
   --radius: 0.5rem;
   --positive: #047857;
   --positive-bg: rgba(4, 120, 87, 0.1);
@@ -169,9 +170,31 @@ dialog[open]::backdrop {
   }
 }
 
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
 @media (prefers-reduced-motion) {
   dialog,
   dialog::backdrop {
     transition: none;
+  }
+
+  .snap-x {
+    mask-image: none;
   }
 }

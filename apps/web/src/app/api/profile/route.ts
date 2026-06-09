@@ -1,4 +1,8 @@
+import { resolve } from "node:path";
+import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+
+loadEnvConfig(resolve(process.cwd(), "../.."));
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;

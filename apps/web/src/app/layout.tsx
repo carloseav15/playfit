@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import type React from "react";
@@ -6,13 +6,23 @@ import "./globals.css";
 
 import { ThemeToggle } from "../components/theme-toggle";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f8f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#070a12" },
+  ],
+};
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   name: "Playfit",
   url: "https://playfit.app",
   description:
-    "A local-first game concierge that recommends what to play next based on personal fit, not hype.",
+    "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
   applicationCategory: "LifestyleApplication",
   operatingSystem: "Web",
 };
@@ -30,23 +40,23 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://playfit.app"),
   title: {
-    default: "Playfit | Find your next game",
+    default: "Playfit | Game decisions you can trust",
     template: "%s | Playfit",
   },
   description:
-    "A local-first game concierge that recommends what to play next based on personal fit, not hype.",
+    "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
   openGraph: {
-    title: "Playfit | Find your next game",
+    title: "Playfit | Game decisions you can trust",
     description:
-      "A local-first game concierge that recommends what to play next based on personal fit, not hype.",
+      "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
     type: "website",
     images: ["/screenshots/dashboard.jpg"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Playfit | Find your next game",
+    title: "Playfit | Game decisions you can trust",
     description:
-      "A local-first game concierge that recommends what to play next based on personal fit, not hype.",
+      "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
     images: ["/screenshots/dashboard.jpg"],
   },
   other: {
