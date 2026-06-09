@@ -32,29 +32,37 @@ function getDeviceId(): string {
   return deviceId;
 }
 
-function getAuthToken(session: Awaited<ReturnType<typeof supabase.auth.getSession>>) {
-  return session.data.session?.access_token ?? null;
+let cachedToken: string | null = null;
+
+export function setCachedToken(token: string | null) {
+  cachedToken = token;
+}
+
+async function getToken(): Promise<string | null> {
+  if (cachedToken) return cachedToken;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  cachedToken = session?.access_token ?? null;
+  return cachedToken;
 }
 
 async function apiGet(path: string): Promise<Response> {
-  const session = await supabase.auth.getSession();
-  const token = getAuthToken(session);
+  const token = await getToken();
   const headers: Record<string, string> = {};
   if (token) headers.authorization = `Bearer ${token}`;
   return fetch(path, { headers });
 }
 
 async function apiPost(path: string, body: unknown): Promise<Response> {
-  const session = await supabase.auth.getSession();
-  const token = getAuthToken(session);
+  const token = await getToken();
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (token) headers.authorization = `Bearer ${token}`;
   return fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 async function apiDelete(path: string): Promise<Response> {
-  const session = await supabase.auth.getSession();
-  const token = getAuthToken(session);
+  const token = await getToken();
   const headers: Record<string, string> = {};
   if (token) headers.authorization = `Bearer ${token}`;
   return fetch(path, { method: "DELETE", headers });
@@ -63,8 +71,9 @@ async function apiDelete(path: string): Promise<Response> {
 export async function loadProductState(): Promise<ProductState> {
   const deviceId = getDeviceId();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   const userId = user?.id ?? deviceId;
 
   const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
@@ -108,11 +117,22 @@ export type SaveStateResult =
 
 export async function saveProductState(state: ProductState): Promise<SaveStateResult> {
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const {
     data: { session },
   } = await supabase.auth.getSession();
+  let user = session?.user ?? null;
+
+  cachedToken = session?.access_token ?? null;
+
+  if (session?.user?.id) {
+    const {
+      data: { user: verifiedUser },
+    } = await supabase.auth.getUser();
+    user = verifiedUser;
+    if (!verifiedUser) {
+      cachedToken = null;
+    }
+  }
+
   const hadStaleSession = !!session?.user?.id && !user;
 
   if (hadStaleSession) {
@@ -148,8 +168,9 @@ export async function saveProductState(state: ProductState): Promise<SaveStateRe
 export async function resetProductState() {
   const deviceId = getDeviceId();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   const userId = user?.id ?? deviceId;
 
   const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;

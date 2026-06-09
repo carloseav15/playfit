@@ -95,7 +95,7 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(strongFit.gameId, strongFit);
-    const ranked = scoreSeedGame(strongFit, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(strongFit, state, getProfile(state));
 
     expect(ranked.affinityScore).toBeGreaterThan(40);
     expect(ranked.platformAvailability).toBe("available");
@@ -112,7 +112,7 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(riskyFit.gameId, riskyFit);
-    const ranked = scoreSeedGame(riskyFit, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(riskyFit, state, getProfile(state));
 
     expect(ranked.riskScore).toBeGreaterThan(30);
     expect(ranked.cautionReasons.length).toBeGreaterThan(0);
@@ -130,10 +130,10 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(actionGame.gameId, actionGame);
-    const ranked = scoreSeedGame(actionGame, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(actionGame, state, getProfile(state));
 
-    expect(ranked.fitReasons).toContain("You tend to like action combat");
-    expect(ranked.cautionReasons).not.toContain("You tend to dislike action combat");
+    expect(ranked.fitReasons).toContain("Strong history with action combat");
+    expect(ranked.cautionReasons).not.toContain("Strong watch-out around action combat");
   });
 
   it("keeps early recommendations low confidence until enough outcomes exist", () => {
@@ -147,7 +147,7 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(strongFit.gameId, strongFit);
-    const ranked = scoreSeedGame(strongFit, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(strongFit, state, getProfile(state));
 
     expect(ranked.confidence).toBe("low");
     expect(ranked.affinityScore).toBeLessThanOrEqual(75);
@@ -164,7 +164,7 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(game.gameId, game);
-    const ranked = scoreSeedGame(game, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(game, state, getProfile(state));
 
     expect(ranked.confidence).toBe("high");
   });
@@ -177,7 +177,7 @@ describe("recommendations domain", () => {
     });
 
     gamesById.set(untagged.gameId, untagged);
-    const ranked = scoreSeedGame(untagged, state, getProfile(state), gamesById);
+    const ranked = scoreSeedGame(untagged, state, getProfile(state));
 
     expect(ranked.affinityScore).toBe(0);
     expect(ranked.confidence).toBe("low");
@@ -199,17 +199,11 @@ describe("recommendations domain", () => {
     gamesById.set(available.gameId, available);
     gamesById.set(unavailable.gameId, unavailable);
 
-    const rankedAvailable = scoreSeedGame(
-      available,
-      availableState,
-      getProfile(availableState),
-      gamesById,
-    );
+    const rankedAvailable = scoreSeedGame(available, availableState, getProfile(availableState));
     const rankedUnavailable = scoreSeedGame(
       unavailable,
       unavailableState,
       getProfile(unavailableState),
-      gamesById,
     );
 
     expect(rankedAvailable.accessStatus).toBe("playable");
@@ -235,7 +229,6 @@ describe("recommendations domain", () => {
       tags: ["story_rich", "action_combat"],
     });
     const games = [currentRun, sideRun, nextUp, alternative, unreleased];
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[currentRun.gameId] = makeGameState(currentRun.gameId, currentRun.title, {
       status: "playing",
@@ -250,7 +243,7 @@ describe("recommendations domain", () => {
       alternative.title,
     );
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.currentRun.map((entry) => entry.game.gameId)).toContain("current");
     expect(model.currentRun.map((entry) => entry.game.gameId)).toContain("side");
@@ -271,14 +264,13 @@ describe("recommendations domain", () => {
       tags: ["story_rich", "tactical"],
     });
     const games = [completed, nextUp];
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[completed.gameId] = makeGameState(completed.gameId, completed.title, {
       status: "completed",
     });
     state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.currentRun.length).toBe(0);
     expect(model.nextUp[0].game.gameId).toBe("next");
@@ -291,14 +283,13 @@ describe("recommendations domain", () => {
       tags: ["story_rich", "tactical"],
     });
     const games = [terminated, nextUp];
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[terminated.gameId] = makeGameState(terminated.gameId, terminated.title, {
       status: "abandoned",
     });
     state.user.gameStates[nextUp.gameId] = makeGameState(nextUp.gameId, nextUp.title);
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.nextUp[0].game.gameId).toBe("next");
     expect(model.nextUp[0].game.gameId).not.toBe("terminated");
@@ -313,7 +304,6 @@ describe("recommendations domain", () => {
       tags: ["story_rich"],
     });
     const games = [higherScored, lowerScored];
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     state.user.gameStates[higherScored.gameId] = makeGameState(
       higherScored.gameId,
@@ -324,7 +314,7 @@ describe("recommendations domain", () => {
       lowerScored.title,
     );
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.nextUp[0].game.gameId).toBe("higher");
     expect(model.nextUp[1].game.gameId).toBe("lower");
@@ -338,9 +328,8 @@ describe("recommendations domain", () => {
       }),
     );
     const games = likedTagGames;
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.nextUp.length).toBe(10);
     expect(model.currentRun.length).toBe(0);
@@ -355,7 +344,6 @@ describe("recommendations domain", () => {
       }),
     );
     const games = heldGames;
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
 
     for (const game of heldGames) {
       state.user.gameStates[game.gameId] = makeGameState(game.gameId, game.title, {
@@ -363,7 +351,7 @@ describe("recommendations domain", () => {
       });
     }
 
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const model = buildTodayModel(games, state, state.user.profile);
 
     expect(model.resume.length).toBe(10);
     expect(model.nextUp.length).toBe(0);
@@ -401,18 +389,35 @@ describe("recommendations domain", () => {
       tags: [],
     });
     const games = [scored, basic];
-    const gamesById = new Map(games.map((game) => [game.gameId, game]));
     state.user.gameStates[scored.gameId] = makeGameState(scored.gameId, scored.title);
 
-    const rankedBasic = scoreSeedGame(basic, state, getProfile(state), gamesById);
-    const model = buildTodayModel(games, state, state.user.profile, gamesById);
+    const rankedBasic = scoreSeedGame(basic, state, getProfile(state));
+    const model = buildTodayModel(games, state, state.user.profile);
     const index = buildFinderIndex(games);
 
     expect(rankedBasic.confidence).toBe("low");
-    expect(rankedBasic.fitReasons[0]).toContain("hasn't been categorized");
+    expect(rankedBasic.fitReasons[0]).toContain("better catalog data");
     expect(model.nextUp[0].game.gameId).toBe("scored");
     expect(searchSeedGames(games, "Basic Alias", index)[0]?.gameId).toBe("steam-basic");
     expect(findExactSeedGame(games, "Basic Alias")?.gameId).toBe("steam-basic");
+  });
+
+  it("ranks clean exact and alias matches above low-quality catalog records", () => {
+    const main = createGame("zelda-main", "The Legend of Zelda: Breath of the Wild", {
+      aliases: ["zelda"],
+      series: "The Legend of Zelda",
+      coverPath: "/covers/zelda.jpg",
+    });
+    const bonus = createGame("zelda-bonus", "The Legend of Zelda: Collector's Edition Bonus Disc", {
+      primaryGenre: "unknown",
+      tags: [],
+    });
+    const games = [bonus, main];
+    const index = buildFinderIndex(games);
+    const results = searchSeedGames(games, "zelda", index);
+
+    expect(results[0]?.gameId).toBe("zelda-main");
+    expect(results.map((game) => game.gameId)).toContain("zelda-bonus");
   });
 
   it("distinguishes exact title matches from nearby fuzzy results", () => {

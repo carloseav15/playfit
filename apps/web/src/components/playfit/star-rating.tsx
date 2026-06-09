@@ -2,6 +2,7 @@
 
 import type { ProductRating } from "@playfit/core";
 import { Star, X } from "lucide-react";
+import { motion } from "motion/react";
 import { useId, useState } from "react";
 
 interface StarRatingProps {
@@ -75,7 +76,12 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
           const fill = starFill(star);
 
           return (
-            <div key={star} className="relative size-6 shrink-0">
+            <motion.div
+              key={star}
+              whileTap={{ scale: 0.85 }}
+              transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              className="relative size-6 shrink-0"
+            >
               <label
                 className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer rounded-l-sm has-focus-visible:ring-2 has-focus-visible:ring-ring"
                 onMouseEnter={() => setPreview(half)}
@@ -86,7 +92,7 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
                   value={half}
                   checked={value === half}
                   onChange={() => onChange?.(half)}
-                  className="sr-only"
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
                   aria-label={`${half} stars`}
                 />
               </label>
@@ -100,7 +106,7 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
                   value={whole}
                   checked={value === whole}
                   onChange={() => onChange?.(whole)}
-                  className="sr-only"
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
                   aria-label={`${whole} stars`}
                 />
               </label>
@@ -120,7 +126,7 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>

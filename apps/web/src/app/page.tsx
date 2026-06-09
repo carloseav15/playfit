@@ -8,44 +8,44 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Playfit | Find your next game",
+  title: "Playfit | Game decisions you can trust",
   description:
-    "Playfit recommends what to continue, start, resume, or avoid based on what you actually like and how you actually play, not popularity or hype.",
+    "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
 };
 
 const outputs = [
   {
-    label: "Current run",
+    label: "Now playing",
     title: "Your current game",
-    copy: "Stays front and center so you never lose track of what you're playing.",
+    copy: "Keeps active games visible without turning your library into noise.",
   },
   {
-    label: "Next up",
+    label: "Best match",
     title: "Your next play",
-    copy: "The best fit waiting for you, picked based on your actual taste.",
+    copy: "Surfaces the clearest read when Playfit has enough evidence.",
   },
   {
-    label: "Avoid for now",
-    title: "Skip the traps",
-    copy: "Games that look good on paper but probably won't click — before you start them.",
+    label: "Watch-outs",
+    title: "Know the caveats",
+    copy: "Shows what could get in the way before you commit time.",
   },
 ];
 
 const stack = [
   {
     icon: Brain,
-    title: "Clear picks, no black box",
-    copy: "See exactly why a game fits — or why it might not — instead of a single mystery score.",
+    title: "Clear reads, no black box",
+    copy: "See why a game might work, what could get in the way, and how confident Playfit is.",
   },
   {
     icon: Database,
     title: "Saved to your account",
-    copy: "Your profile, ratings, and library sync to your account — pick up where you left off.",
+    copy: "Your ratings, library, and setup sync to your account so the app survives a reload.",
   },
   {
     icon: ShieldCheck,
-    title: "Your taste, your rules",
-    copy: "You decide what you like. Playfit helps organize that into better picks.",
+    title: "Evidence over certainty",
+    copy: "Early reads stay cautious. Stronger language appears only after enough ratings.",
   },
 ];
 
@@ -62,21 +62,21 @@ const screenshots = [
   },
   {
     src: "/screenshots/dossier.jpg",
-    alt: "Playfit game dossier with fit and friction signals",
+    alt: "Playfit game dossier with match and watch-out signals",
     title: "Inspectable dossier",
   },
 ];
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen overflow-x-hidden">
       <header className="sticky top-0 z-40 border-b border-border bg-background/82 backdrop-blur-xl">
         <div className="mx-auto flex min-h-20 w-[min(1180px,calc(100%-2rem))] items-center justify-between gap-5">
           <Link href="/" className="flex items-center gap-3 no-underline">
             <span className="size-3 rounded-full bg-accent shadow-[0_0_0_7px_color-mix(in_srgb,var(--accent),transparent_86%)]" />
             <span className="grid leading-tight">
               <strong className="font-display text-base">Playfit</strong>
-              <span className="text-sm text-muted-foreground">Find your next game</span>
+              <span className="text-sm text-muted-foreground">Game decisions you can trust</span>
             </span>
           </Link>
           <nav className="hidden items-center gap-5 text-sm font-semibold text-muted-foreground md:flex">
@@ -98,11 +98,11 @@ export default function HomePage() {
           </Badge>
           <div className="grid gap-5">
             <h1 className="max-w-4xl text-balance font-display text-4xl font-black leading-[0.96] tracking-tight md:text-6xl">
-              Find games that actually fit you.
+              Know your next game before you start it.
             </h1>
             <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Playfit recommends what to continue, start, resume, or avoid based on what you
-              actually like and how you actually play, not popularity or hype.
+              Playfit turns your library, ratings, and platforms into calm, honest reads for what to
+              start, resume, watch, or skip.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -133,7 +133,7 @@ export default function HomePage() {
         </div>
 
         <aside className="grid gap-5">
-          <div className="relative min-h-[520px]">
+          <div className="relative min-h-[520px] overflow-hidden">
             <Image
               className="absolute left-0 top-0 w-[68%] rounded-xl border border-border object-cover shadow-2xl"
               src="/covers/games/kingdom_hearts_iii.jpg"
@@ -148,6 +148,7 @@ export default function HomePage() {
               alt="Chrono Trigger cover"
               width={330}
               height={460}
+              loading="eager"
             />
             <Image
               className="absolute bottom-0 left-[34%] w-[40%] -rotate-6 rounded-xl border border-border object-cover shadow-2xl"
@@ -155,6 +156,7 @@ export default function HomePage() {
               alt="Bayonetta 3 cover"
               width={316}
               height={440}
+              loading="eager"
             />
           </div>
           <Card className="bg-card/78">
@@ -164,7 +166,7 @@ export default function HomePage() {
                 Not every acclaimed game is your game.
               </CardTitle>
               <CardDescription>
-                The product turns that idea into a working decision system with explainable outputs.
+                Playfit treats that as a decision problem, not a popularity contest.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -187,8 +189,8 @@ export default function HomePage() {
               answering whether a specific player will enjoy and finish a specific game.
             </p>
             <p>
-              Playfit models that as a product problem: reduce wasted time by making fit, friction,
-              and confidence inspectable.
+              Playfit models that as a product problem: reduce wasted time by making match,
+              watch-outs, and confidence inspectable.
             </p>
           </div>
         </div>
@@ -245,7 +247,7 @@ export default function HomePage() {
 
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex w-[min(1180px,calc(100%-2rem))] flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>Playfit · Find games that actually fit you.</span>
+          <span>Playfit · Game decisions you can trust.</span>
           <nav className="flex flex-wrap gap-4">
             <Link href="/how-it-works" className="hover:text-foreground transition-colors">
               How it works

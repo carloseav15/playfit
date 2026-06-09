@@ -64,8 +64,8 @@ export function AuthPanel({ onAuth }: AuthPanelProps) {
           </h1>
           <p className="text-sm text-muted-foreground">
             {isSignUp
-              ? "Create an account to save your profile."
-              : "Sign in to access your saved profile."}
+              ? "Create an account so Playfit remembers your library."
+              : "Sign in to pick up where you left off."}
           </p>
         </div>
 
