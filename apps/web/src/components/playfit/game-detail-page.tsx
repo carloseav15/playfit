@@ -13,16 +13,18 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
 import { CoverArt } from "./cover-art";
 import { Metric } from "./metric";
 import { usePlayfit } from "./playfit-context";
-import { confidenceLabel, statusOptions } from "./product-utils";
+import { buildPlatformsKey, confidenceLabel, statusOptions } from "./product-utils";
 import { StarRating } from "./star-rating";
 
 const statusIcons: Record<string, ComponentType<{ className?: string }>> = {
@@ -47,12 +49,21 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
     excludeGame,
   } = usePlayfit();
   const game = seedData.gamesById.get(gameId) ?? null;
-  const entry =
-    game && state.user.profile
-      ? scoreSeedGame(game, state, state.user.profile, seedData.gamesById)
-      : null;
+  const platformsKey = useMemo(
+    () => buildPlatformsKey(state.user),
+    [state.user.onboarding.platforms],
+  );
+  const entry = useMemo(
+    () => (game && state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null),
+    [game, state.user.profile, state.user.gameStates, platformsKey, seedData.gamesById],
+  );
   const gameState = game ? state.user.gameStates[game.gameId] : null;
-  const similarGames = game ? findSimilarGames(game, seedData.allGames, 5) : [];
+  const similarGames = useMemo(
+    () => (game ? findSimilarGames(game, seedData.allGames, 5) : []),
+    [game, seedData.allGames],
+  );
+
+  const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
   function handleStatusClick(value: ProductPlayStatus | "") {
     if (!game || !value) return;
@@ -65,7 +76,7 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
       <div className="mx-auto grid min-h-screen max-w-[580px] place-items-center px-4 text-center">
         <div className="grid gap-4">
           <h1 className="font-display text-3xl font-extrabold">Game not found</h1>
-          <p className="text-muted-foreground">This game doesn&apos;t exist in our catalog.</p>
+          <p className="text-muted-foreground">This title isn&apos;t in our catalog yet.</p>
           <div>
             <Button type="button" variant="secondary" onClick={closeDossier}>
               ← Back
@@ -100,18 +111,20 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
           {entry ? (
             <>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <Metric label="Fit" value={entry.affinityScore} />
-                <Metric label="Friction" value={entry.riskScore} />
-                <Metric label="Signal" value={confidenceLabel(entry.confidence)} />
+                <Metric label="Match" value={entry.affinityScore} />
+                <Metric label="Watch-outs" value={entry.riskScore} />
+                <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <ReasonPanel title="Why it fits" reasons={entry.fitReasons} tone="positive" />
                 <ReasonPanel
-                  title="Watch out for"
+                  title="Why this might work"
+                  reasons={entry.fitReasons}
+                  tone="positive"
+                />
+                <ReasonPanel
+                  title="What could get in the way"
                   reasons={
-                    entry.cautionReasons.length
-                      ? entry.cautionReasons
-                      : ["Nothing major stands out yet."]
+                    entry.cautionReasons.length ? entry.cautionReasons : ["No major caveat yet."]
                   }
                   tone="warning"
                 />
@@ -121,7 +134,9 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
             <Card>
               <CardHeader>
                 <CardTitle>Finish setup first</CardTitle>
-                <CardDescription>Complete setup so Playfit can rank this game.</CardDescription>
+                <CardDescription>
+                  Set up your platforms and favorites so Playfit can start reading games for you.
+                </CardDescription>
               </CardHeader>
             </Card>
           )}
@@ -129,7 +144,7 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Your progress</CardTitle>
-              <CardDescription>Status and ratings help Playfit learn your taste.</CardDescription>
+              <CardDescription>Every choice here sharpens your next read.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <fieldset className="grid gap-1">
@@ -168,7 +183,7 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
               </fieldset>
               <Separator />
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Intent</p>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Save as</p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -189,10 +204,7 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
                   <Button
                     type="button"
                     variant="destructive"
-                    onClick={() => {
-                      excludeGame(game.gameId);
-                      closeDossier();
-                    }}
+                    onClick={() => setShowExcludeConfirm(true)}
                   >
                     Not for me
                   </Button>
@@ -212,19 +224,23 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
             </CardContent>
           </Card>
 
-          {similarGames.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Similar games</CardTitle>
-                <CardDescription>Other games with similar tags and genres.</CardDescription>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Similar games</CardTitle>
+              <CardDescription>Nearby titles in the catalog.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {similarGames.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No similar titles in the catalog yet.
+                </p>
+              ) : (
                 <div className="grid gap-2">
                   {similarGames.map((sg) => (
                     <button
                       key={sg.gameId}
                       type="button"
-                      className="flex items-center gap-3 rounded-md border border-border bg-secondary p-2 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex items-center gap-3 rounded-md border border-border bg-secondary p-2 text-left text-sm transition-all duration-150 hover:bg-secondary/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => openDossier(sg.gameId)}
                     >
                       <span className="flex-1 font-medium">{sg.title}</span>
@@ -234,11 +250,36 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
                     </button>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      <Dialog
+        open={showExcludeConfirm}
+        onClose={() => setShowExcludeConfirm(false)}
+        title="Exclude this game?"
+      >
+        <p className="text-sm text-muted-foreground">
+          Playfit will stop recommending this title. You can undo this from the game library.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <Button type="button" variant="secondary" onClick={() => setShowExcludeConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => {
+              excludeGame(game.gameId);
+              closeDossier();
+            }}
+          >
+            Exclude
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
