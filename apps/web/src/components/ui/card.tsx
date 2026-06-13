@@ -18,9 +18,16 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
   return <div className={cn("grid gap-1.5 p-5", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+export interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  as?: "h2" | "h3" | "h4";
+}
+
+export function CardTitle({ as: Comp = "h3", className, ...props }: CardTitleProps) {
   return (
-    <h3 className={cn("font-display text-xl font-semibold leading-tight", className)} {...props} />
+    <Comp
+      className={cn("font-display text-xl font-semibold leading-tight", className)}
+      {...props}
+    />
   );
 }
 
