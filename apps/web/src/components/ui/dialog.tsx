@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import type { KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
 import { useCallback, useEffect, useId, useRef } from "react";
 
 import { cn } from "@/lib/utils";
@@ -50,31 +51,43 @@ export function Dialog({ open, onClose, title, eyebrow, children, className }: D
     return () => dialog.removeEventListener("close", handleCloseEvent);
   }, [handleCloseEvent]);
 
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+  const handleBackdropClick = useCallback((e: MouseEvent) => {
     if (e.target === dialogRef.current) {
       onCloseRef.current();
     }
   }, []);
 
-  const handleBackdropKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCloseRef.current();
+      return;
+    }
+
     if ((e.key === "Enter" || e.key === " ") && e.target === dialogRef.current) {
       onCloseRef.current();
     }
+  }, []);
+
+  const handleCancel = useCallback((e: SyntheticEvent<HTMLDialogElement>) => {
+    e.preventDefault();
+    onCloseRef.current();
   }, []);
 
   return (
     <dialog
       ref={dialogRef}
       className={cn(
-        "max-h-[92vh] w-[min(640px,100%)] overflow-auto rounded-lg border border-border bg-background p-0 shadow-2xl backdrop:bg-black/72",
+        "m-auto max-h-[92vh] w-[min(640px,calc(100%-2rem))] overflow-auto rounded-lg border border-border bg-background p-0 shadow-2xl backdrop:bg-black/72",
         className,
       )}
       aria-labelledby={dialogTitleId}
       onClick={handleBackdropClick}
-      onKeyDown={handleBackdropKeyDown}
+      onKeyDown={handleKeyDown}
+      onCancel={handleCancel}
     >
       {(title || eyebrow) && (
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-background/94 p-4 backdrop-blur-xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-background/94 p-4 backdrop-blur-xl">
           <div>
             {eyebrow && (
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -96,7 +109,7 @@ export function Dialog({ open, onClose, title, eyebrow, children, className }: D
           >
             <X className="size-5" />
           </Button>
-        </header>
+        </div>
       )}
       <div className="p-4">{children}</div>
     </dialog>
