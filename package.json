@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22 <26",
+    "npm": ">=10"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -15,7 +19,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint",
     "test": "npm run test --workspaces --if-present",
-    "test:e2e": "npm run test:e2e -w apps/web"
+    "test:e2e": "npm run test:e2e -w apps/web",
+    "check:covers": "node scripts/check-cover-integrity.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",

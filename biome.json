@@ -24,11 +24,17 @@
       "recommended": true,
       "correctness": {
         "noUnusedVariables": "error",
-        "useExhaustiveDependencies": "off"
+        "useExhaustiveDependencies": "error"
       },
       "style": {
         "useConst": "error",
         "noDefaultExport": "off"
+      },
+      "complexity": {
+        "noUselessTernary": "error"
+      },
+      "performance": {
+        "noAccumulatingSpread": "error"
       }
     }
   },
