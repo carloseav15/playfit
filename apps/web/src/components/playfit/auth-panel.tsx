@@ -1,17 +1,19 @@
 "use client";
 
-import { supabase } from "@playfit/core";
 import type React from "react";
 import { useCallback, useState } from "react";
-
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase/client";
 
 interface AuthPanelProps {
   onAuth: (userId: string, email: string) => void;
+  onContinueLocal: () => void;
 }
 
-export function AuthPanel({ onAuth }: AuthPanelProps) {
+export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -70,13 +72,8 @@ export function AuthPanel({ onAuth }: AuthPanelProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="grid gap-3 text-left">
-          <div className="grid gap-1">
-            <label
-              htmlFor="auth-email"
-              className="text-xs font-bold uppercase tracking-wide text-muted-foreground"
-            >
-              Email
-            </label>
+          <FormField>
+            <FormLabel htmlFor="auth-email">Email</FormLabel>
             <Input
               id="auth-email"
               type="email"
@@ -87,14 +84,9 @@ export function AuthPanel({ onAuth }: AuthPanelProps) {
               required
               placeholder="you@example.com"
             />
-          </div>
-          <div className="grid gap-1">
-            <label
-              htmlFor="auth-password"
-              className="text-xs font-bold uppercase tracking-wide text-muted-foreground"
-            >
-              Password
-            </label>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="auth-password">Password</FormLabel>
             <Input
               id="auth-password"
               type="password"
@@ -105,18 +97,12 @@ export function AuthPanel({ onAuth }: AuthPanelProps) {
               minLength={6}
               placeholder="At least 6 characters"
             />
-          </div>
+          </FormField>
 
-          {error && (
-            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="rounded-lg bg-positive/10 px-3 py-2 text-xs text-positive">{success}</p>
-          )}
+          {error && <Alert variant="error">{error}</Alert>}
+          {success && <Alert variant="success">{success}</Alert>}
 
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} loading={busy}>
             {busy
               ? isSignUp
                 ? "Creating account…"
@@ -161,6 +147,16 @@ export function AuthPanel({ onAuth }: AuthPanelProps) {
         >
           {isSignUp ? "Already have an account? Sign in" : "No account? Create one"}
         </button>
+
+        <div className="grid gap-2 border-t border-border pt-4 text-left">
+          <Button type="button" variant="secondary" onClick={onContinueLocal}>
+            Continue locally
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Local profiles use a browser device ID. They are convenient for private testing but are
+            not a strong identity boundary.
+          </p>
+        </div>
       </div>
     </main>
   );

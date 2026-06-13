@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  CalendarDays,
-  type Gamepad2,
-  Library,
-  Radar,
-  Search,
-  Settings2,
-  Sparkles,
-} from "lucide-react";
+import { CalendarDays, Library, Radar, Search, Settings2, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import type { ComponentType } from "react";
 import { useEffect } from "react";
+import { Container } from "@/components/ui/container";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/utils";
 import { FinderSection } from "./finder-section";
 import { LibrarySection } from "./library-section";
@@ -22,7 +17,11 @@ import { StatusToast } from "./status-toast";
 import { TodaySection } from "./today-section";
 import { UpcomingSection } from "./upcoming-section";
 
-const tabItems: Array<{ tab: ProductTab; label: string; icon: typeof Gamepad2 }> = [
+const tabItems: Array<{
+  tab: ProductTab;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+}> = [
   { tab: "today", label: "Today", icon: CalendarDays },
   { tab: "library", label: "My Games", icon: Library },
   { tab: "finder", label: "Discover", icon: Search },
@@ -38,7 +37,7 @@ function NavButton({
 }: {
   tab: ProductTab;
   label: string;
-  icon: typeof Gamepad2;
+  icon: ComponentType<{ className?: string }>;
 }) {
   const { ui, setUi } = usePlayfit();
   const active = ui.activeTab === tab;
@@ -76,13 +75,9 @@ function SaveIndicator() {
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2 py-1 text-[11px] font-bold text-muted-foreground">
-      <span
-        className={cn(
-          "size-1.5 rounded-full",
-          status === "saving" && "animate-pulse bg-warning",
-          status === "saved" && "bg-positive",
-          status === "error" && "bg-negative",
-        )}
+      <StatusDot
+        tone={status === "saved" ? "positive" : status === "error" ? "negative" : "warning"}
+        animate={status === "saving"}
       />
       {label}
     </span>
@@ -96,7 +91,7 @@ function MobileNavButton({
 }: {
   tab: ProductTab;
   label: string;
-  icon: typeof Gamepad2;
+  icon: ComponentType<{ className?: string }>;
 }) {
   const { ui, setUi } = usePlayfit();
   const active = ui.activeTab === tab;
@@ -153,10 +148,17 @@ function ProductShell() {
       <div className="grid min-h-screen md:grid-cols-[240px_1fr]">
         <aside className="sticky top-0 hidden h-screen border-r border-border bg-card/72 p-5 backdrop-blur-xl md:grid md:grid-rows-[auto_1fr_auto]">
           <div className="flex items-center gap-2">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Playfit
-              </p>
+            <div className="flex items-center gap-2">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                aria-hidden="true"
+              >
+                <path d="M12 2L22 12L12 22L2 12L12 2Z" />
+              </svg>
               <strong className="font-display text-xl">Playfit</strong>
             </div>
             <SaveIndicator />
@@ -172,16 +174,23 @@ function ProductShell() {
         <div className="min-w-0 pb-20 md:pb-0">
           <header className="border-b border-border bg-background/90 p-4 backdrop-blur-xl md:hidden">
             <div className="flex items-center gap-2">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Playfit
-                </p>
+              <div className="flex items-center gap-2">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2L22 12L12 22L2 12L12 2Z" />
+                </svg>
                 <strong className="font-display text-xl">Playfit</strong>
               </div>
               <SaveIndicator />
             </div>
           </header>
-          <main className="mx-auto grid w-[min(1180px,calc(100%-2rem))] gap-6 py-6 md:py-8">
+          <Container as="main" size="lg" className="grid gap-6 py-6 md:py-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={ui.activeTab}
@@ -195,7 +204,7 @@ function ProductShell() {
                 </ErrorBoundary>
               </motion.div>
             </AnimatePresence>
-          </main>
+          </Container>
           <nav
             className={`fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-background/95 p-2 backdrop-blur-xl md:hidden ${showSetup ? "grid-cols-6" : "grid-cols-5"}`}
             aria-label="Main navigation"

@@ -1,6 +1,6 @@
 "use client";
 
-import { scoreSeedGame } from "@playfit/core";
+import { scoreSeedGame } from "@playfit/core/domain";
 import { motion } from "motion/react";
 import { useDeferredValue, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";

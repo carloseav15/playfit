@@ -11,7 +11,7 @@ export function ThemeToggle() {
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className="size-9" />;
+  if (!mounted) return <div className="size-10" />;
 
   const next = theme === "dark" ? "light" : "dark";
 
@@ -20,7 +20,7 @@ export function ThemeToggle() {
       type="button"
       whileTap={{ scale: 0.85 }}
       onClick={() => setTheme(next)}
-      className="fixed right-4 top-4 z-50 flex size-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+      className="fixed right-4 top-4 z-50 flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`Switch to ${next} mode`}
     >
       <motion.div

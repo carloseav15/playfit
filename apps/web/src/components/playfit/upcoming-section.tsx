@@ -1,10 +1,13 @@
 "use client";
 
-import { type RankedSeedGame, scoreSeedGame } from "@playfit/core";
-import { useMemo, useState } from "react";
+import { scoreSeedGame } from "@playfit/core/domain";
+import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Stack } from "@/components/ui/stack";
+import { ToggleButton, ToggleGroup } from "@/components/ui/toggle-group";
 import { usePlayfit } from "./playfit-context";
 import { buildPlatformsKey, decisionLabel, decisionTone, primaryReason } from "./product-utils";
 import { SectionHead } from "./section-head";
@@ -12,11 +15,10 @@ import { SectionHead } from "./section-head";
 export function UpcomingSection() {
   const { seedData, state, ui, setUi, openDossier, toggleFlag } = usePlayfit();
   const [showAllPlatforms, setShowAllPlatforms] = useState(false);
+  const [upcomingGames, setUpcomingGames] = useState<SeedGame[]>([]);
+  const [loading, setLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
-  const platformsKey = useMemo(
-    () => buildPlatformsKey(state.user),
-    [state.user.onboarding.platforms],
-  );
+  const platformsKey = useMemo(() => buildPlatformsKey(state.user), [state.user]);
   const preferredPlatformIds = useMemo(
     () => new Set(platformsKey.split(",").filter(Boolean)),
     [platformsKey],
@@ -28,10 +30,35 @@ export function UpcomingSection() {
   const visiblePlatforms = showAllPlatforms
     ? seedData.platforms
     : (preferredPlatforms.length > 0 ? preferredPlatforms : seedData.platforms).slice(0, 8);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUpcoming() {
+      try {
+        const res = await fetch("/api/games?page=1&pageSize=100");
+        if (!res.ok) return;
+        const data = (await res.json()) as { games: SeedGame[] };
+        if (!cancelled) {
+          setUpcomingGames(
+            data.games.filter(
+              (g) => g.releaseState === "unreleased" && g.sortDate && g.sortDate >= today,
+            ),
+          );
+        }
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void fetchUpcoming();
+    return () => {
+      cancelled = true;
+    };
+  }, [today]);
+
   const entries = useMemo(() => {
-    return seedData.allGames
-      .filter((game) => game.releaseState === "unreleased")
-      .filter((game) => game.sortDate && game.sortDate >= today)
+    return upcomingGames
       .filter(
         (game) =>
           ui.upcomingPlatformFilters.size === 0 ||
@@ -40,14 +67,20 @@ export function UpcomingSection() {
       .map((game) => (state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null))
       .filter((entry): entry is RankedSeedGame => Boolean(entry))
       .sort((left, right) => (left.game.sortDate ?? "").localeCompare(right.game.sortDate ?? ""));
-  }, [
-    seedData.allGames,
-    state.user.profile,
-    state.user.gameStates,
-    platformsKey,
-    ui.upcomingPlatformFilters,
-    today,
-  ]);
+  }, [upcomingGames, state, ui.upcomingPlatformFilters]);
+
+  if (loading) {
+    return (
+      <section>
+        <SectionHead
+          eyebrow="Upcoming"
+          title="Release radar"
+          copy="Track what is coming to platforms you care about."
+        />
+        <p className="text-sm text-muted-foreground">Loading upcoming releases...</p>
+      </section>
+    );
+  }
 
   return (
     <section>
@@ -56,17 +89,13 @@ export function UpcomingSection() {
         title="Release radar"
         copy="Track what is coming to platforms you care about."
       />
-      <div className="mb-5 flex flex-wrap gap-2">
+      <ToggleGroup className="mb-5">
         {visiblePlatforms.map((platform) => {
           const active = ui.upcomingPlatformFilters.has(platform.platformId);
           return (
-            <Button
+            <ToggleButton
               key={platform.platformId}
-              type="button"
-              size="sm"
-              variant={active ? "default" : "secondary"}
-              aria-pressed={active}
-              className="transition-colors"
+              active={active}
               onClick={() =>
                 setUi((current) => {
                   const next = new Set(current.upcomingPlatformFilters);
@@ -77,7 +106,7 @@ export function UpcomingSection() {
               }
             >
               {platform.displayName}
-            </Button>
+            </ToggleButton>
           );
         })}
         {seedData.platforms.length > visiblePlatforms.length && (
@@ -90,7 +119,7 @@ export function UpcomingSection() {
             {showAllPlatforms ? "Show fewer" : `Show all (${seedData.platforms.length})`}
           </Button>
         )}
-      </div>
+      </ToggleGroup>
       {entries.length === 0 ? (
         <Card>
           <CardHeader>
@@ -106,16 +135,16 @@ export function UpcomingSection() {
             <Card key={entry.game.gameId}>
               <CardHeader className="grid gap-3 md:grid-cols-[1fr_auto]">
                 <div>
-                  <div className="flex flex-wrap gap-2">
+                  <Stack direction="row" wrap gap={2}>
                     <Badge variant={decisionTone(entry)}>{decisionLabel(entry)}</Badge>
                     <Badge variant="secondary">
                       {entry.game.releaseLabel ?? entry.game.sortDate}
                     </Badge>
-                  </div>
+                  </Stack>
                   <CardTitle className="mt-3">{entry.game.title}</CardTitle>
                   <CardDescription>{primaryReason(entry)}</CardDescription>
                 </div>
-                <div className="flex flex-wrap items-start gap-2">
+                <Stack direction="row" wrap gap={2} align="start">
                   <Button
                     type="button"
                     variant="secondary"
@@ -131,7 +160,7 @@ export function UpcomingSection() {
                   >
                     See why
                   </Button>
-                </div>
+                </Stack>
               </CardHeader>
             </Card>
           ))}

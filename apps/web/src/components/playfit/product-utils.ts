@@ -1,12 +1,28 @@
 import {
   HIGH_FRICTION_THRESHOLD,
   PROMISING_FIT_THRESHOLD,
-  type ProductPlayStatus,
-  type ProductUserState,
-  type RankedSeedGame,
-  type SeedGame,
   STRONG_FIT_THRESHOLD,
-} from "@playfit/core";
+} from "@playfit/core/domain";
+import type {
+  ProductPlayStatus,
+  ProductUserState,
+  RankedSeedGame,
+  SeedGame,
+} from "@playfit/core/types";
+import {
+  AlertTriangle,
+  Archive,
+  Award,
+  BookmarkPlus,
+  Check,
+  Flag,
+  HelpCircle,
+  Pause,
+  Play,
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
+import type { ComponentType } from "react";
 
 export interface StatusOption {
   value: ProductPlayStatus | "";
@@ -108,3 +124,32 @@ export function buildPlatformsKey(user: ProductUserState): string {
     .sort()
     .join(",");
 }
+
+export type BadgeTone = "positive" | "warning" | "negative" | "info" | "default";
+
+export const decisionIcons = {
+  positive: Check,
+  info: TrendingUp,
+  warning: HelpCircle,
+  negative: AlertTriangle,
+} as const;
+
+export const statusIconMap: Record<ProductPlayStatus, ComponentType<{ className?: string }>> = {
+  playing: Play,
+  on_hold: Pause,
+  shelved: Archive,
+  beaten: Flag,
+  completed: Award,
+  abandoned: XCircle,
+  want_to_play: BookmarkPlus,
+};
+
+export const statusBadgeTone: Record<ProductPlayStatus, BadgeTone> = {
+  playing: "positive",
+  on_hold: "warning",
+  shelved: "default",
+  beaten: "info",
+  completed: "positive",
+  abandoned: "negative",
+  want_to_play: "info",
+};
