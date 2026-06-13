@@ -1,95 +1,142 @@
-import { resolve } from "node:path";
-import { loadEnvConfig } from "@next/env";
-import { createClient } from "@supabase/supabase-js";
+import {
+  productGameStateSchema,
+  productProfileSchema,
+  productStateSchema,
+} from "@playfit/core/schemas";
+import { z } from "zod";
 
-loadEnvConfig(resolve(process.cwd(), "../.."));
+import { isValidDeviceId } from "@/lib/device-id";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
+  onboardingCompletedAt: z.string().nullable(),
+});
+
+const profileSaveRequestSchema = z
+  .object({
+    deviceId: z.string().min(1).optional(),
+    gameStates: z.record(z.string(), productGameStateSchema),
+    profile: productProfileSchema.nullable(),
+    onboarding: persistedOnboardingSchema,
+  })
+  .strict();
+
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-function createSupabaseAdminClient() {
-  if (!SUPABASE_SERVICE_KEY) {
-    throw new Error("SUPABASE_SERVICE_KEY is required for profile API routes.");
+async function fireMigrateProfile(
+  fromUserId: string,
+  toUserId: string,
+  onboarding: Record<string, unknown>,
+) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/migrate-profile`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ fromUserId, toUserId, onboarding }),
+    });
+  } catch {
+    // Edge Function is best-effort; migration will retry on next profile save
   }
-
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    db: { schema: "games_library" },
-  });
 }
 
-// Simple in-memory rate limiter: max 30 requests per minute per IP
-const rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT_MAX = 30;
-const RATE_LIMIT_WINDOW = 60_000;
+async function createClient() {
+  return createSupabaseServerClient();
+}
 
-function checkRateLimit(request: Request): boolean {
+async function checkRateLimit(request: Request, userId?: string | null): Promise<boolean> {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
-  const now = Date.now();
-  const windowStart = now - RATE_LIMIT_WINDOW;
 
-  const timestamps = rateLimitMap.get(ip) ?? [];
-  const recent = timestamps.filter((t) => t > windowStart);
-  recent.push(now);
-  rateLimitMap.set(ip, recent);
+  const client = await createClient();
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
 
-  // Prune stale entries periodically
-  if (rateLimitMap.size > 10_000) {
-    for (const [key, ts] of rateLimitMap) {
-      if (ts.filter((t) => t > Date.now() - RATE_LIMIT_WINDOW).length === 0) {
-        rateLimitMap.delete(key);
-      }
-    }
+  const { count: ipCount } = await client
+    .schema("games_library")
+    .from("rate_limits")
+    .select("*", { count: "exact", head: true })
+    .eq("ip_address", ip)
+    .eq("endpoint", "/api/profile")
+    .gte("requested_at", windowStart);
+
+  if (ipCount && ipCount >= RATE_LIMIT_MAX) return false;
+
+  if (userId) {
+    const { count: userCount } = await client
+      .schema("games_library")
+      .from("rate_limits")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("endpoint", "/api/profile")
+      .gte("requested_at", windowStart);
+
+    if (userCount && userCount >= RATE_LIMIT_MAX) return false;
   }
 
-  return recent.length <= RATE_LIMIT_MAX;
+  await client
+    .schema("games_library")
+    .from("rate_limits")
+    .insert({
+      ip_address: ip,
+      endpoint: "/api/profile",
+      user_id: userId ?? null,
+    });
+
+  return true;
 }
 
 async function getUserId(request: Request): Promise<string | null> {
+  const serverSupabase = await createClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
+  if (user?.id) return user.id;
+
   const authHeader = request.headers.get("authorization");
   const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
   if (!jwt) return null;
 
-  const supabase = createClient(
-    SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "local-dev-anon-key",
-    {
-      db: { schema: "games_library" },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
-
-  const { data } = await supabase.auth.getUser(jwt);
+  const { data } = await serverSupabase.auth.getUser(jwt);
   if (data?.user?.id) return data.user.id;
 
   return null;
 }
 
 export async function GET(request: Request) {
-  if (!checkRateLimit(request)) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
-  }
   try {
     const userId = await getUserId(request);
+    if (!(await checkRateLimit(request, userId))) {
+      return Response.json({ error: "Too many requests" }, { status: 429 });
+    }
     const deviceId = new URL(request.url).searchParams.get("device_id");
+    if (deviceId && !isValidDeviceId(deviceId)) {
+      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
+    }
     const resolvedId = userId ?? deviceId;
 
     if (!resolvedId) {
       return Response.json({ state: null }, { status: 200 });
     }
 
-    const supabaseAdmin = createSupabaseAdminClient();
-    const { data, error } = await supabaseAdmin
-      .schema("games_library")
-      .from("profiles")
-      .select("game_states, profile, onboarding, created_at")
-      .eq("user_id", resolvedId)
-      .single();
+    const client = await createClient();
+    const { data, error } = await client.rpc("get_profile", {
+      p_user_id: resolvedId,
+    });
 
     if (error || !data) {
+      // Fallback: authenticated user with no profile, try device migration
+      if (userId && deviceId && deviceId !== userId) {
+        const { data: deviceData } = await client.rpc("get_profile", {
+          p_user_id: deviceId,
+        });
+        if (deviceData) {
+          return Response.json({ state: deviceData }, { status: 200 });
+        }
+      }
       return Response.json({ state: null }, { status: 200 });
     }
 
@@ -100,32 +147,109 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!checkRateLimit(request)) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
-  }
   try {
     const userId = await getUserId(request);
-    const body = await request.json();
-    const resolvedId = userId ?? body.deviceId;
+    if (!(await checkRateLimit(request, userId))) {
+      return Response.json({ error: "Too many requests" }, { status: 429 });
+    }
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
 
+    const parsedBody = profileSaveRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      return Response.json(
+        { error: "Invalid profile payload", issues: parsedBody.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const body = parsedBody.data;
+    const resolvedId = userId ?? body.deviceId;
     if (!resolvedId) {
       return Response.json({ error: "No user identifier" }, { status: 400 });
     }
 
-    const supabaseAdmin = createSupabaseAdminClient();
-    const { error } = await supabaseAdmin.schema("games_library").from("profiles").upsert(
-      {
-        user_id: resolvedId,
-        game_states: body.gameStates,
-        profile: body.profile,
-        onboarding: body.onboarding,
-      },
-      { onConflict: "user_id" },
-    );
+    const client = await createClient();
+
+    // Protection A: reject empty overwrite of existing data
+    const isEmptySave = Object.keys(body.gameStates).length === 0 && body.profile === null;
+    if (isEmptySave && userId) {
+      const { data: existing } = await client.rpc("get_profile", {
+        p_user_id: userId,
+      });
+      if (existing) {
+        const parsed = existing as {
+          game_states?: Record<string, unknown>;
+          profile?: unknown;
+        };
+        if (
+          (parsed.game_states && Object.keys(parsed.game_states).length > 0) ||
+          parsed.profile !== null
+        ) {
+          return Response.json(
+            { error: "Cannot overwrite non-empty profile with empty data" },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
+    // Protection B: migrate anonymous device profile to authenticated user
+    if (userId && body.deviceId && body.deviceId !== userId) {
+      const { data: authProfile } = await client.rpc("get_profile", {
+        p_user_id: userId,
+      });
+      const authParsed = authProfile as {
+        game_states?: Record<string, unknown>;
+        profile?: unknown;
+      } | null;
+      const isAuthEmpty =
+        !authParsed ||
+        (Object.keys(authParsed.game_states ?? {}).length === 0 && !authParsed.profile);
+
+      if (isAuthEmpty) {
+        const { data: deviceProfile } = await client.rpc("get_profile", {
+          p_user_id: body.deviceId,
+        });
+        const deviceParsed = deviceProfile as {
+          game_states?: Record<string, unknown>;
+          profile?: unknown;
+        } | null;
+
+        if (
+          deviceParsed &&
+          (Object.keys(deviceParsed.game_states ?? {}).length > 0 || deviceParsed.profile !== null)
+        ) {
+          void fireMigrateProfile(body.deviceId, userId, body.onboarding);
+          return Response.json({ ok: true, migrated: true }, { status: 200 });
+        }
+      }
+    }
+
+    const { error } = await client.rpc("upsert_profile", {
+      p_user_id: resolvedId,
+      p_game_states: body.gameStates,
+      p_profile: body.profile,
+      p_onboarding: body.onboarding,
+    });
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 });
     }
+
+    await client
+      .schema("games_library")
+      .from("audit_log")
+      .insert({
+        user_id: userId ?? resolvedId,
+        action: "profile.write",
+        ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      })
+      .maybeSingle();
 
     return Response.json({ ok: true }, { status: 200 });
   } catch {
@@ -134,24 +258,35 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!checkRateLimit(request)) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
-  }
   try {
     const userId = await getUserId(request);
+    if (!(await checkRateLimit(request, userId))) {
+      return Response.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const deviceId = new URL(request.url).searchParams.get("device_id");
+    if (deviceId && !isValidDeviceId(deviceId)) {
+      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
+    }
     const resolvedId = userId ?? deviceId;
 
     if (!resolvedId) {
       return Response.json({ error: "No user identifier" }, { status: 400 });
     }
 
-    const supabaseAdmin = createSupabaseAdminClient();
-    const { error } = await supabaseAdmin
+    const client = await createClient();
+
+    await client
       .schema("games_library")
-      .from("profiles")
-      .delete()
-      .eq("user_id", resolvedId);
+      .from("audit_log")
+      .insert({
+        user_id: userId ?? resolvedId,
+        action: "profile.delete",
+        ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      })
+      .maybeSingle();
+
+    const { error } = await client.rpc("delete_profile", { p_user_id: resolvedId });
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 });
