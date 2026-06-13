@@ -1,32 +1,46 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProductPlatformOption, ProductSeedData, SeedGame } from "../types";
-import { supabase } from "./supabase";
+
+// biome-ignore lint/suspicious/noExplicitAny: SupabaseClient generics are overly complex for our usage
+type SeedSupabase = SupabaseClient<any, any, any, any, any>;
 
 interface GameRow {
   game_id: string;
   title: string;
   aliases: string[];
-  series: string;
-  primary_genre: string;
-  platforms: string[];
-  platform_names: string[];
-  release_year: string;
+  series_id: string | null;
+  series_name?: string;
+  genre_id: string | null;
+  release_year: number | null;
   release_state: string;
   source_type: string;
   source_ref: string;
   cover_url: string;
   tags: string[];
   notes: string;
-  sort_date: string;
+  sort_date: string | null;
   release_label: string;
+  platforms?: string[];
+  platform_names?: string[];
 }
 
 interface PlatformRow {
   id: string;
   name: string;
   rawg_id: number | null;
+  family: string;
+  vendor: string;
+  kind: string;
+  gen: number;
 }
 
-async function fetchGames(): Promise<GameRow[]> {
+interface GamePlatformRow {
+  game_id: string;
+  platform_id: string;
+  platforms: { name: string }[] | null;
+}
+
+async function fetchGames(supabase: SeedSupabase): Promise<GameRow[]> {
   const all: GameRow[] = [];
   const pageSize = 1000;
   let from = 0;
@@ -48,10 +62,115 @@ async function fetchGames(): Promise<GameRow[]> {
     if (batch.length < pageSize) done = true;
   }
 
+  const gpAll: GamePlatformRow[] = [];
+  let gpFrom = 0;
+  let gpDone = false;
+
+  while (!gpDone) {
+    const { data, error } = await supabase
+      .schema("games_library")
+      .from("game_platforms")
+      .select("game_id, platform_id, platforms:platform_id(name)")
+      .range(gpFrom, gpFrom + pageSize - 1);
+
+    if (error) throw new Error(`Failed to load game platforms: ${error.message}`);
+
+    const batch = (data as GamePlatformRow[]) ?? [];
+    gpAll.push(...batch);
+    gpFrom += pageSize;
+    if (batch.length < pageSize) gpDone = true;
+  }
+
+  const platformsByGame = new Map<string, { ids: string[]; names: string[] }>();
+  for (const row of gpAll) {
+    const entry = platformsByGame.get(row.game_id) ?? { ids: [], names: [] };
+    entry.ids.push(row.platform_id);
+    const platformName = row.platforms?.[0]?.name ?? row.platform_id;
+    entry.names.push(platformName);
+    platformsByGame.set(row.game_id, entry);
+  }
+
+  for (const game of all) {
+    const p = platformsByGame.get(game.game_id);
+    game.platforms = p?.ids ?? [];
+    game.platform_names = p?.names ?? [];
+  }
+
+  // Resolve tags from game_tags join table
+  const gtAll: { game_id: string; tag_id: string }[] = [];
+  let gtFrom = 0;
+  let gtDone = false;
+
+  while (!gtDone) {
+    const { data, error } = await supabase
+      .schema("games_library")
+      .from("game_tags")
+      .select("game_id, tag_id")
+      .range(gtFrom, gtFrom + pageSize - 1);
+
+    if (error) throw new Error(`Failed to load game tags: ${error.message}`);
+
+    const batch = (data as { game_id: string; tag_id: string }[]) ?? [];
+    gtAll.push(...batch);
+    gtFrom += pageSize;
+    if (batch.length < pageSize) gtDone = true;
+  }
+
+  const tagsByGame = new Map<string, string[]>();
+  for (const row of gtAll) {
+    const entry = tagsByGame.get(row.game_id) ?? [];
+    entry.push(row.tag_id);
+    tagsByGame.set(row.game_id, entry);
+  }
+
+  for (const game of all) {
+    const gameTags = tagsByGame.get(game.game_id);
+    if (gameTags) {
+      game.tags = gameTags;
+    }
+  }
+
+  // Resolve aliases from game_aliases join table
+  const { data: gaData, error: gaError } = await supabase
+    .schema("games_library")
+    .from("game_aliases")
+    .select("game_id, alias");
+
+  if (gaError) throw new Error(`Failed to load game aliases: ${gaError.message}`);
+
+  const aliasesByGame = new Map<string, string[]>();
+  for (const row of (gaData as { game_id: string; alias: string }[]) ?? []) {
+    const entry = aliasesByGame.get(row.game_id) ?? [];
+    entry.push(row.alias);
+    aliasesByGame.set(row.game_id, entry);
+  }
+
+  for (const game of all) {
+    const gameAliases = aliasesByGame.get(game.game_id);
+    if (gameAliases) {
+      game.aliases = gameAliases;
+    }
+  }
+
+  // Resolve series names from the series table
+  const { data: seriesData, error: seriesError } = await supabase
+    .schema("games_library")
+    .from("series")
+    .select("id, name");
+
+  if (seriesError) throw new Error(`Failed to load series: ${seriesError.message}`);
+
+  const seriesNames = new Map((seriesData ?? []).map((s) => [s.id, s.name]));
+  for (const game of all) {
+    if (game.series_id) {
+      game.series_name = seriesNames.get(game.series_id) ?? "";
+    }
+  }
+
   return all;
 }
 
-async function fetchPlatforms(): Promise<PlatformRow[]> {
+async function fetchPlatforms(supabase: SeedSupabase): Promise<PlatformRow[]> {
   const { data, error } = await supabase
     .schema("games_library")
     .from("platforms")
@@ -61,80 +180,28 @@ async function fetchPlatforms(): Promise<PlatformRow[]> {
   return (data as PlatformRow[]) ?? [];
 }
 
-interface PlatformMeta {
-  family: string;
-  vendor: string;
-  kind: ProductPlatformOption["kind"];
-  gen: number;
-}
-
 function platformsToOptions(rows: PlatformRow[]): ProductPlatformOption[] {
-  const known: Record<string, PlatformMeta> = {
-    switch_2: { family: "nintendo", vendor: "Nintendo", kind: "hybrid", gen: 10 },
-    ps5: { family: "playstation", vendor: "Sony", kind: "console", gen: 9 },
-    xbox_series_xs: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 9 },
-    switch_1: { family: "nintendo", vendor: "Nintendo", kind: "hybrid", gen: 9 },
-    ps4: { family: "playstation", vendor: "Sony", kind: "console", gen: 8 },
-    xbox_one: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 8 },
-    wii_u: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 8 },
-    "3ds": { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 8 },
-    ps_vita: { family: "playstation", vendor: "Sony", kind: "handheld", gen: 8 },
-    ps3: { family: "playstation", vendor: "Sony", kind: "console", gen: 7 },
-    xbox_360: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 7 },
-    wii: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 7 },
-    psp: { family: "playstation", vendor: "Sony", kind: "handheld", gen: 7 },
-    ds: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 7 },
-    ps2: { family: "playstation", vendor: "Sony", kind: "console", gen: 6 },
-    gamecube: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 6 },
-    gba: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 6 },
-    dreamcast: { family: "sega", vendor: "SEGA", kind: "console", gen: 6 },
-    xbox_original: { family: "xbox", vendor: "Microsoft", kind: "console", gen: 6 },
-    ps1: { family: "playstation", vendor: "Sony", kind: "console", gen: 5 },
-    n64: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 5 },
-    saturn: { family: "sega", vendor: "SEGA", kind: "console", gen: 5 },
-    snes: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 4 },
-    genesis: { family: "sega", vendor: "SEGA", kind: "console", gen: 4 },
-    gbc: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 4 },
-    nes: { family: "nintendo", vendor: "Nintendo", kind: "console", gen: 3 },
-    gb: { family: "nintendo", vendor: "Nintendo", kind: "handheld", gen: 4 },
-    pc: { family: "pc", vendor: "PC", kind: "computer", gen: 0 },
-    macos: { family: "pc", vendor: "Apple", kind: "computer", gen: 0 },
-    ios: { family: "apple", vendor: "Apple", kind: "other", gen: 0 },
-    android: { family: "google", vendor: "Google", kind: "other", gen: 0 },
-    linux: { family: "pc", vendor: "Linux", kind: "computer", gen: 0 },
-    sega_master_system: { family: "sega", vendor: "SEGA", kind: "console", gen: 3 },
-    neo_geo: { family: "snk", vendor: "SNK", kind: "console", gen: 4 },
-    game_gear: { family: "sega", vendor: "SEGA", kind: "handheld", gen: 3 },
-    atari_2600: { family: "atari", vendor: "Atari", kind: "console", gen: 2 },
-  };
-
-  return rows.map((row) => {
-    const meta = known[row.id] ?? {
-      family: "other",
-      vendor: "Other",
-      kind: "other" as const,
-      gen: 99,
-    };
-    return {
-      platformId: row.id,
-      displayName: row.name,
-      family: meta.family,
-      kind: meta.kind,
-      activeStatus: "active",
-      sortOrder: meta.gen,
-    };
-  });
+  return rows.map((row) => ({
+    platformId: row.id,
+    displayName: row.name,
+    family: row.family,
+    kind: row.kind as ProductPlatformOption["kind"],
+    activeStatus: "active",
+    sortOrder: row.gen,
+  }));
 }
 
-const SEED_CACHE_KEY = "playfit_seed_cache_v1";
+const SEED_CACHE_KEY = "playfit_seed_cache_v4";
 const SEED_CACHE_TTL = 86_400_000; // 24 hours
 
 function mapGames(gameRows: GameRow[], platformById: Map<string, ProductPlatformOption>) {
   return gameRows.map((row) => {
+    const availablePlatformIds = row.platforms ?? [];
+    const availablePlatformNames = row.platform_names ?? [];
     const resolvedPlatformNames =
-      row.platform_names.length > 0
-        ? row.platform_names
-        : row.platforms.map((id) => platformById.get(id)?.displayName ?? id).filter(Boolean);
+      availablePlatformNames.length > 0
+        ? availablePlatformNames
+        : availablePlatformIds.map((id) => platformById.get(id)?.displayName ?? id).filter(Boolean);
 
     const releaseState = row.release_state === "unreleased" ? "unreleased" : "released";
 
@@ -142,16 +209,18 @@ function mapGames(gameRows: GameRow[], platformById: Map<string, ProductPlatform
       gameId: row.game_id,
       title: row.title,
       aliases: row.aliases ?? [],
-      series: row.series ?? "",
+      series: row.series_name ?? row.series_id ?? "",
+      seriesId: row.series_id ?? undefined,
       source: row.source_type as SeedGame["source"],
-      primaryGenre: row.primary_genre || "unknown",
+      primaryGenre: row.genre_id ?? "unknown",
+      genreId: row.genre_id ?? undefined,
       tags: row.tags ?? [],
       notes: row.notes ?? "",
       coverPath: row.cover_url,
       externalCoverUrl: row.cover_url.startsWith("http") ? row.cover_url : undefined,
-      releaseYear: row.release_year || undefined,
+      releaseYear: row.release_year != null ? String(row.release_year) : undefined,
       sourceRef: row.source_ref || undefined,
-      availablePlatformIds: row.platforms ?? [],
+      availablePlatformIds: availablePlatformIds,
       availablePlatformNames: resolvedPlatformNames,
       releaseState,
       sortDate: row.sort_date || undefined,
@@ -184,7 +253,7 @@ function writeSeedCache(gameRows: GameRow[], platformRows: PlatformRow[]) {
   }
 }
 
-export async function loadProductSeedData(): Promise<ProductSeedData> {
+export async function loadProductSeedData(supabase: SeedSupabase): Promise<ProductSeedData> {
   const cached = readSeedCache();
   let gameRows: GameRow[];
   let platformRows: PlatformRow[];
@@ -193,7 +262,7 @@ export async function loadProductSeedData(): Promise<ProductSeedData> {
     gameRows = cached.gameRows;
     platformRows = cached.platformRows;
   } else {
-    [gameRows, platformRows] = await Promise.all([fetchGames(), fetchPlatforms()]);
+    [gameRows, platformRows] = await Promise.all([fetchGames(supabase), fetchPlatforms(supabase)]);
     writeSeedCache(gameRows, platformRows);
   }
 

@@ -1,6 +1,5 @@
-import { supabase } from "../data/supabase";
 import { productStateSchema } from "../schemas";
-import type { ProductState } from "../types";
+import type { ProductGameState, ProductState } from "../types";
 
 const DB_VERSION = 2;
 
@@ -11,6 +10,7 @@ export const DEFAULT_PRODUCT_STATE: ProductState = {
       step: "platforms",
       platforms: [],
       likedGameIds: [],
+      dislikedGameIds: [],
     },
     onboardingCompletedAt: null,
     profile: null,
@@ -33,18 +33,19 @@ function getDeviceId(): string {
 }
 
 let cachedToken: string | null = null;
+let cachedUserId: string | null = null;
 
-export function setCachedToken(token: string | null) {
+export function setCachedAuth(token: string | null, userId: string | null = null) {
   cachedToken = token;
+  cachedUserId = userId;
 }
 
-async function getToken(): Promise<string | null> {
-  if (cachedToken) return cachedToken;
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  cachedToken = session?.access_token ?? null;
+function getToken(): string | null {
   return cachedToken;
+}
+
+function getUserId(): string | null {
+  return cachedUserId;
 }
 
 async function apiGet(path: string): Promise<Response> {
@@ -61,6 +62,13 @@ async function apiPost(path: string, body: unknown): Promise<Response> {
   return fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
+async function apiPatch(path: string, body: unknown): Promise<Response> {
+  const token = await getToken();
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return fetch(path, { method: "PATCH", headers, body: JSON.stringify(body) });
+}
+
 async function apiDelete(path: string): Promise<Response> {
   const token = await getToken();
   const headers: Record<string, string> = {};
@@ -70,13 +78,8 @@ async function apiDelete(path: string): Promise<Response> {
 
 export async function loadProductState(): Promise<ProductState> {
   const deviceId = getDeviceId();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  const userId = user?.id ?? deviceId;
 
-  const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
+  const url = `/api/profile?device_id=${encodeURIComponent(deviceId)}`;
 
   const res = await apiGet(url);
 
@@ -98,6 +101,7 @@ export async function loadProductState(): Promise<ProductState> {
         step: data.onboarding?.step ?? "platforms",
         platforms: data.onboarding?.platforms ?? [],
         likedGameIds: data.onboarding?.likedGameIds ?? [],
+        dislikedGameIds: data.onboarding?.dislikedGameIds ?? [],
       },
       onboardingCompletedAt: data.onboarding?.onboardingCompletedAt ?? null,
       profile: data.profile ?? null,
@@ -107,7 +111,7 @@ export async function loadProductState(): Promise<ProductState> {
   };
 
   const parsed = productStateSchema.safeParse(mapped);
-  return parsed.success ? parsed.data : mapped;
+  return parsed.success ? parsed.data : createInitialState();
 }
 
 export type SaveStateResult =
@@ -116,44 +120,26 @@ export type SaveStateResult =
   | { ok: false; reason: "error"; error: string };
 
 export async function saveProductState(state: ProductState): Promise<SaveStateResult> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  let user = session?.user ?? null;
-
-  cachedToken = session?.access_token ?? null;
-
-  if (session?.user?.id) {
-    const {
-      data: { user: verifiedUser },
-    } = await supabase.auth.getUser();
-    user = verifiedUser;
-    if (!verifiedUser) {
-      cachedToken = null;
-    }
+  const parsedState = productStateSchema.safeParse(state);
+  if (!parsedState.success) {
+    return { ok: false, reason: "error", error: "Invalid local profile state" };
   }
 
-  const hadStaleSession = !!session?.user?.id && !user;
-
-  if (hadStaleSession) {
-    return { ok: false, reason: "auth_expired" };
-  }
-
+  const safeState = parsedState.data;
   const deviceId = getDeviceId();
-  const userId = user?.id ?? deviceId;
 
   const body: Record<string, unknown> = {
-    gameStates: state.user.gameStates,
-    profile: state.user.profile,
+    gameStates: safeState.user.gameStates,
+    profile: safeState.user.profile,
     onboarding: {
-      step: state.user.onboarding.step,
-      platforms: state.user.onboarding.platforms,
-      likedGameIds: state.user.onboarding.likedGameIds,
-      onboardingCompletedAt: state.user.onboardingCompletedAt,
+      step: safeState.user.onboarding.step,
+      platforms: safeState.user.onboarding.platforms,
+      likedGameIds: safeState.user.onboarding.likedGameIds,
+      dislikedGameIds: safeState.user.onboarding.dislikedGameIds,
+      onboardingCompletedAt: safeState.user.onboardingCompletedAt,
     },
+    deviceId,
   };
-
-  if (!user) body.deviceId = userId;
 
   const res = await apiPost("/api/profile", body);
 
@@ -167,13 +153,45 @@ export async function saveProductState(state: ProductState): Promise<SaveStateRe
 
 export async function resetProductState() {
   const deviceId = getDeviceId();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  const userId = user?.id ?? deviceId;
+  const userId = getUserId() ?? deviceId;
 
-  const url = user ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
+  const url = getUserId() ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
 
   await apiDelete(url);
+}
+
+export type SaveGameStateResult = { ok: true } | { ok: false; reason: "error"; error: string };
+
+export async function saveGameState(
+  gameId: string,
+  gameState: Partial<ProductGameState>,
+): Promise<SaveGameStateResult> {
+  const body: Record<string, unknown> = {
+    status: gameState.status ?? null,
+    rating: gameState.rating ?? null,
+    inBacklog: gameState.inBacklog ?? null,
+    inWishlist: gameState.inWishlist ?? null,
+    excluded: gameState.excluded ?? null,
+    source: gameState.source ?? "manual",
+  };
+
+  const res = await apiPatch(`/api/profile/games/${encodeURIComponent(gameId)}`, body);
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
+  }
+
+  return { ok: true };
+}
+
+export async function deleteGameState(gameId: string): Promise<SaveGameStateResult> {
+  const res = await apiDelete(`/api/profile/games/${encodeURIComponent(gameId)}`);
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
+  }
+
+  return { ok: true };
 }

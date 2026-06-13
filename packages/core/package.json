@@ -7,7 +7,12 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./store": "./src/store/indexed-db.ts"
+    "./data": "./src/data/index.ts",
+    "./domain": "./src/domain/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./store": "./src/store/indexed-db.ts",
+    "./types": "./src/types.ts",
+    "./utils": "./src/utils.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -16,11 +21,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
     "fuse.js": "^7.0.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5.9.3",
     "vitest": "^4.1.3"

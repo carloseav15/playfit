@@ -34,7 +34,7 @@ function countGenres(gameIds: string[], gamesById: Map<string, SeedGame>) {
   gameIds.forEach((gameId) => {
     const game = gamesById.get(gameId);
     if (!game) return;
-    const genre = game.primaryGenre;
+    const genre = game.genreId ?? game.primaryGenre;
     if (!genre) return;
     counts.set(genre, (counts.get(genre) ?? 0) + 1);
   });
@@ -198,7 +198,7 @@ export function buildTagPreferenceAnalysis(
   gameStates: Record<string, ProductGameState>,
 ): ProductTagPreferenceAnalysis {
   const goodGameIds = new Set<string>();
-  const badGameIds = new Set<string>();
+  const badGameIds = new Set<string>(draft.dislikedGameIds ?? []);
 
   for (const record of Object.values(gameStates)) {
     if (record.rating == null || record.rating <= 0) continue;
@@ -268,15 +268,21 @@ export function buildTagPreferenceAnalysis(
 }
 
 export function canAdvanceOnboarding(draft: ProductOnboardingDraft) {
-  return draft.platforms.length > 0 && draft.likedGameIds.length >= 3;
+  return (
+    draft.platforms.length > 0 &&
+    draft.likedGameIds.length >= 3 &&
+    (draft.dislikedGameIds?.length ?? 0) >= 1
+  );
 }
 
 export function buildFallbackProfile(
   draft: ProductOnboardingDraft,
   gamesById: Map<string, SeedGame>,
 ): ProductProfile {
-  const likedGenres = countGenres(draft.likedGameIds, gamesById).slice(0, 3);
-  const likedTags = countTags(draft.likedGameIds, gamesById);
+  const dislikedGameIds = new Set(draft.dislikedGameIds ?? []);
+  const positiveAnchorIds = draft.likedGameIds.filter((gameId) => !dislikedGameIds.has(gameId));
+  const likedGenres = countGenres(positiveAnchorIds, gamesById).slice(0, 3);
+  const likedTags = countTags(positiveAnchorIds, gamesById);
   const signalDrafts: ProductProfileSignal[] = [];
 
   if (likedGenres.length > 0) {
@@ -317,7 +323,9 @@ export function buildAdaptiveProfile(
   gamesById: Map<string, SeedGame>,
   gameStates: Record<string, ProductGameState>,
 ): ProductProfile {
-  const likedGenres = countGenres(draft.likedGameIds, gamesById).slice(0, 3);
+  const dislikedGameIds = new Set(draft.dislikedGameIds ?? []);
+  const positiveAnchorIds = draft.likedGameIds.filter((gameId) => !dislikedGameIds.has(gameId));
+  const likedGenres = countGenres(positiveAnchorIds, gamesById).slice(0, 3);
   const positiveTags: Record<string, number> = {};
   const negativeTags: Record<string, number> = {};
   const avoidedGenres = new Map<string, number>();
@@ -325,13 +333,15 @@ export function buildAdaptiveProfile(
   let ratedCount = 0;
   let positiveOutcomeCount = 0;
   let negativeOutcomeCount = 0;
-  const anchorTags = countTags(draft.likedGameIds, gamesById);
+  const anchorTags = countTags(positiveAnchorIds, gamesById);
+  const ratedGameIds = new Set<string>();
 
   Object.values(gameStates).forEach((record) => {
     const game = gamesById.get(record.gameId);
     if (!game) return;
     if (record.rating == null || record.rating <= 0) return;
 
+    ratedGameIds.add(record.gameId);
     ratedCount++;
 
     const positive = record.rating >= 4;
@@ -340,17 +350,35 @@ export function buildAdaptiveProfile(
     if (positive) {
       positiveOutcomeCount++;
       addTagEvidence(positiveTags, game.tags);
-      if (!likedGenres.includes(game.primaryGenre)) {
-        likedGenres.push(game.primaryGenre);
+      const genreKey = game.genreId ?? game.primaryGenre;
+      if (genreKey && !likedGenres.includes(genreKey)) {
+        likedGenres.push(genreKey);
       }
     }
 
     if (negative) {
       negativeOutcomeCount++;
       addTagEvidence(negativeTags, game.tags);
-      avoidedGenres.set(game.primaryGenre, (avoidedGenres.get(game.primaryGenre) ?? 0) + 1);
+      const genreKey = game.genreId ?? game.primaryGenre;
+      if (genreKey) {
+        avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
+      }
     }
   });
+
+  for (const gameId of dislikedGameIds) {
+    if (ratedGameIds.has(gameId)) continue;
+    const game = gamesById.get(gameId);
+    if (!game) continue;
+
+    ratedCount++;
+    negativeOutcomeCount++;
+    addTagEvidence(negativeTags, game.tags);
+    const genreKey = game.genreId ?? game.primaryGenre;
+    if (genreKey) {
+      avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
+    }
+  }
 
   const { likedTags, dislikedTags } = buildNetTagProfiles(positiveTags, negativeTags, anchorTags);
   const topLikedTags = Object.entries(likedTags)
@@ -390,7 +418,7 @@ export function buildAdaptiveProfile(
   }
 
   const mergedLikedGenres = [
-    ...new Set([...countGenres(draft.likedGameIds, gamesById), ...likedGenres]),
+    ...new Set([...countGenres(positiveAnchorIds, gamesById), ...likedGenres]),
   ].slice(0, 5);
 
   const summary =

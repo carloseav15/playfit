@@ -1,5 +1,4 @@
 export * from "./data/seeds";
-export * from "./data/supabase";
 export * from "./data/tags";
 export * from "./domain/onboarding";
 export * from "./domain/recommendations";

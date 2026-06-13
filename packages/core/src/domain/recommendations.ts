@@ -163,7 +163,7 @@ function searchQualityPenalty(game: SeedGame) {
   }
 
   if (!isScoredGame(game)) penalty += 20;
-  if (game.primaryGenre === "unknown") penalty += 16;
+  if ((game.genreId ?? game.primaryGenre) === "unknown") penalty += 16;
   if (!game.coverPath) penalty += 6;
 
   return penalty;
@@ -303,14 +303,15 @@ export function scoreSeedGame(
     }
   }
 
-  if (profile.likedGenres.includes(game.primaryGenre)) {
+  const genreKey = game.genreId ?? game.primaryGenre;
+  if (profile.likedGenres.includes(genreKey)) {
     affinity += GENRE_MATCH_BONUS;
-    fitReasons.push(`Genre match: ${formatTrait(game.primaryGenre)}`);
+    fitReasons.push(`Genre match: ${formatTrait(genreKey)}`);
   }
 
-  if (profile.avoidedGenres.includes(game.primaryGenre)) {
+  if (profile.avoidedGenres.includes(genreKey)) {
     affinity -= GENRE_MISMATCH_PENALTY;
-    cautionReasons.push(`Genre caveat: ${formatTrait(game.primaryGenre)}`);
+    cautionReasons.push(`Genre caveat: ${formatTrait(genreKey)}`);
   }
 
   if (inBacklog) {
@@ -349,6 +350,14 @@ export function scoreSeedGame(
   };
 }
 
+export function findSeriesGames(game: SeedGame, allGames: SeedGame[], limit = 10): SeedGame[] {
+  const seriesKey = game.seriesId ?? game.series;
+  if (!seriesKey) return [];
+  return allGames
+    .filter((g) => (g.seriesId ?? g.series) === seriesKey && g.gameId !== game.gameId)
+    .slice(0, limit);
+}
+
 export function findSimilarGames(game: SeedGame, allGames: SeedGame[], limit = 5): SeedGame[] {
   return allGames
     .filter((g) => g.gameId !== game.gameId && isScoredGame(g))
@@ -366,36 +375,63 @@ export function buildTodayModel(
   state: ProductState,
   profile: ProductProfile | null,
 ): ProductTodayModel {
+  const debug = process.env.NODE_ENV === "development";
   if (!profile) {
     return { currentRun: [], nextUp: [], resume: [] };
   }
 
-  const ranked = games
-    .filter(isScoredGame)
-    .map((game) => scoreSeedGame(game, state, profile))
-    .filter((entry) => {
-      const stateEntry = state.user.gameStates[entry.game.gameId];
+  const onboardingGameIds = new Set([
+    ...state.user.onboarding.likedGameIds,
+    ...(state.user.onboarding.dislikedGameIds ?? []),
+  ]);
 
-      if (stateEntry?.status === "completed" || stateEntry?.status === "beaten") {
-        return false;
-      }
+  const afterScored = games.filter(isScoredGame);
+  const afterMap = afterScored.map((game) => scoreSeedGame(game, state, profile));
+  const rankedFiltered = afterMap.filter((entry) => {
+    const stateEntry = state.user.gameStates[entry.game.gameId];
+    if (onboardingGameIds.has(entry.game.gameId)) return false;
+    if (stateEntry?.status === "completed" || stateEntry?.status === "beaten") return false;
+    if (stateEntry?.status === "abandoned") return false;
+    if (stateEntry?.excluded) return false;
+    return true;
+  });
 
-      if (stateEntry?.status === "abandoned") {
-        return false;
-      }
-
-      if (stateEntry?.excluded) {
-        return false;
-      }
-
-      return true;
+  if (debug) {
+    const platformCounts: Record<string, number> = {};
+    for (const entry of afterMap) {
+      const key = entry.accessStatus;
+      platformCounts[key] = (platformCounts[key] ?? 0) + 1;
+    }
+    const terminal = afterMap.filter((e) => {
+      const s = state.user.gameStates[e.game.gameId];
+      return (
+        s?.status === "completed" ||
+        s?.status === "beaten" ||
+        s?.status === "abandoned" ||
+        s?.excluded
+      );
     });
+    console.log(
+      JSON.stringify({
+        stage: "buildTodayModel",
+        totalGames: games.length,
+        afterIsScoredGame: afterScored.length,
+        afterScore: afterMap.length,
+        afterOnboardingExclusion: afterMap.length - (afterMap.length - rankedFiltered.length),
+        afterTerminal: rankedFiltered.length,
+        filteredAsOnboarding: afterMap.filter((e) => onboardingGameIds.has(e.game.gameId)).length,
+        filteredAsTerminal: terminal.length,
+        accessStatusDistribution: platformCounts,
+        accessiblePlatformIds: [...buildAccessiblePlatformIds(state)],
+      }),
+    );
+  }
 
-  const currentRun = ranked
+  const currentRun = rankedFiltered
     .filter((entry) => state.user.gameStates[entry.game.gameId]?.status === "playing")
     .sort(sortPlayingNow(state));
 
-  const resume = ranked
+  const resume = rankedFiltered
     .filter(
       (entry) =>
         (state.user.gameStates[entry.game.gameId]?.status === "on_hold" ||
@@ -405,7 +441,7 @@ export function buildTodayModel(
     .sort((left, right) => right.affinityScore - left.affinityScore)
     .slice(0, 10);
 
-  const playableCandidates = ranked.filter((entry) => {
+  const playableCandidates = rankedFiltered.filter((entry) => {
     const stateEntry = state.user.gameStates[entry.game.gameId];
     return (
       isPlayableNow(entry) &&
@@ -417,6 +453,40 @@ export function buildTodayModel(
       !entry.inWishlist
     );
   });
+
+  if (debug) {
+    const reasons: Record<string, number> = {};
+    for (const entry of rankedFiltered) {
+      const stateEntry = state.user.gameStates[entry.game.gameId];
+      if (!isPlayableNow(entry)) {
+        const key = `not_playable:${entry.accessStatus}`;
+        reasons[key] = (reasons[key] ?? 0) + 1;
+      } else if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) {
+        reasons[`high_risk:${entry.riskScore}`] =
+          (reasons[`high_risk:${entry.riskScore}`] ?? 0) + 1;
+      } else if (
+        stateEntry?.status === "playing" ||
+        stateEntry?.status === "on_hold" ||
+        stateEntry?.status === "shelved" ||
+        stateEntry?.status === "abandoned"
+      ) {
+        reasons[`status:${stateEntry.status}`] = (reasons[`status:${stateEntry.status}`] ?? 0) + 1;
+      } else if (entry.inWishlist) {
+        reasons.in_wishlist = (reasons.in_wishlist ?? 0) + 1;
+      }
+    }
+    console.log(
+      JSON.stringify({
+        stage: "buildTodayModel.playableCandidates",
+        rankedFiltered: rankedFiltered.length,
+        playableCandidates: playableCandidates.length,
+        notPlayableBreakdown: reasons,
+        currentRun: currentRun.length,
+        resume: resume.length,
+        nextUp: playableCandidates.slice(0, 10).length,
+      }),
+    );
+  }
 
   const sortedPlayable = playableCandidates.sort((left, right) => {
     const leftInterested = left.inBacklog ? 1 : 0;

@@ -276,6 +276,20 @@ describe("recommendations domain", () => {
     expect(model.nextUp[0].game.gameId).toBe("next");
   });
 
+  it("does not recommend onboarding calibration games", () => {
+    const state = createState();
+    state.user.onboarding.dislikedGameIds = ["miss"];
+    const likedAnchor = createGame("liked-a", "Liked Anchor");
+    const dislikedAnchor = createGame("miss", "Missed Anchor");
+    const nextUp = createGame("next", "Next Up", {
+      tags: ["story_rich", "tactical"],
+    });
+
+    const model = buildTodayModel([likedAnchor, dislikedAnchor, nextUp], state, state.user.profile);
+
+    expect(model.nextUp.map((entry) => entry.game.gameId)).toEqual(["next"]);
+  });
+
   it("excludes terminated-status games from Today slots", () => {
     const state = createState();
     const terminated = createGame("terminated", "Terminated Game");
