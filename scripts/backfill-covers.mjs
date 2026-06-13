@@ -18,6 +18,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 const BATCH_SIZE = 50;
 const API_DELAY = 1500;
 const DOWNLOAD_CONCURRENCY = 5;
+const DEFAULT_DOWNLOAD_DIR = path.join(process.cwd(), "apps", "web", "public", "covers", "games");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -115,7 +116,7 @@ async function loadExistingByTitle() {
   return map;
 }
 
-async function importFromGrouvee(htmlPath, downloadDir) {
+async function importFromGrouvee(htmlPath, downloadDir, { apply }) {
   console.error(`Reading HTML from ${htmlPath}...`);
   const html = await fs.readFile(htmlPath, "utf-8");
 
@@ -149,10 +150,6 @@ async function importFromGrouvee(htmlPath, downloadDir) {
         game_id: newId,
         title: game.title,
         aliases: [],
-        series: "",
-        primary_genre: "",
-        platforms: [],
-        platform_names: [],
         release_year: "",
         release_state: "released",
         source_type: "catalog",
@@ -167,6 +164,17 @@ async function importFromGrouvee(htmlPath, downloadDir) {
     }
 
     downloadTasks.push({ url: game.coverUrl, dest: fullPath });
+  }
+
+  console.error("\n=== Impact ===");
+  console.error(`  Parsed games: ${games.length}`);
+  console.error(`  Existing games to update: ${toUpdate.length}`);
+  console.error(`  New games to insert: ${toInsert.length}`);
+  console.error(`  Covers to download: ${downloadTasks.length}`);
+
+  if (!apply) {
+    console.error("\nDry run only. Re-run with --apply to download covers and write DB changes.");
+    return;
   }
 
   // Download covers
@@ -296,23 +304,33 @@ function needsVideoGameSuffix(title) {
 
 async function main() {
   const args = process.argv.slice(2);
+  const apply = args.includes("--apply");
   const grouveeIdx = args.indexOf("--grouvee");
 
   if (grouveeIdx !== -1) {
     const htmlPath = args[grouveeIdx + 1];
     if (!htmlPath) {
-      console.error("Usage: node backfill-covers.mjs --grouvee <path-to-html>");
+      console.error("Usage: node backfill-covers.mjs --grouvee <path-to-html> [--apply]");
       process.exit(1);
     }
-    const downloadDir = path.join(process.cwd(), "apps", "web", "public", "covers", "games");
-    await fs.mkdir(downloadDir, { recursive: true });
-    await importFromGrouvee(htmlPath, downloadDir);
+    if (apply) {
+      await fs.mkdir(DEFAULT_DOWNLOAD_DIR, { recursive: true });
+    }
+    await importFromGrouvee(htmlPath, DEFAULT_DOWNLOAD_DIR, { apply });
     return;
   }
 
   console.error("Loading games without covers...");
   const games = await loadGamesWithoutCovers();
   console.error("  " + games.length + " games need covers");
+  console.error(
+    `  Estimated Wikipedia batches: ${Math.ceil(games.length / BATCH_SIZE)} at ${API_DELAY}ms each pass`,
+  );
+
+  if (!apply) {
+    console.error("\nDry run only. Re-run with --apply to fetch Wikipedia images and write DB changes.");
+    return;
+  }
 
   let exactHits = 0;
   let fallbackHits = 0;
@@ -426,4 +444,7 @@ async function main() {
   console.error("  DB updates: " + updated);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

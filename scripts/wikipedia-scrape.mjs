@@ -230,7 +230,7 @@ async function lookupRawg(title, year, platformId) {
 }
 
 async function loadExistingGames() {
-  const byTitle = new Map(); // normalized title -> { game_id, title, platforms }
+  const byTitle = new Map(); // normalized title -> { game_id, title }
   let offset = 0;
   const pageSize = 1000;
   let done = false;
@@ -238,7 +238,7 @@ async function loadExistingGames() {
   while (!done) {
     const { data, error } = await supabase
       .from("games")
-      .select("game_id, title, platforms")
+      .select("game_id, title")
       .range(offset, offset + pageSize - 1);
 
     if (error) {
@@ -261,6 +261,24 @@ async function loadExistingGames() {
   }
 
   return byTitle;
+}
+
+async function loadExistingGamePlatforms() {
+  const platformsByGame = new Map();
+  const { data, error } = await supabase
+    .from("game_platforms")
+    .select("game_id, platform_id");
+  if (error) {
+    console.error("Error loading game platforms:", error.message);
+    return platformsByGame;
+  }
+  for (const row of data ?? []) {
+    if (!platformsByGame.has(row.game_id)) {
+      platformsByGame.set(row.game_id, new Set());
+    }
+    platformsByGame.get(row.game_id).add(row.platform_id);
+  }
+  return platformsByGame;
 }
 
 async function main() {
@@ -303,6 +321,8 @@ async function main() {
   console.error("Loading existing games for dedup...");
   const existingGames = await loadExistingGames();
   console.error(`  ${existingGames.size} existing games loaded`);
+  const existingPlatforms = await loadExistingGamePlatforms();
+  console.error(`  ${existingPlatforms.size} existing game platforms loaded`);
 
   let allWikiGames = [];
 
@@ -340,13 +360,12 @@ async function main() {
     if (existingGame) {
       existing++;
 
-      // Check if game already has this platform
-      const platforms = existingGame.platforms || [];
-      if (!platforms.includes(platformSlug)) {
+      // Check if game already has this platform via game_platforms
+      const gamePlatforms = existingPlatforms.get(existingGame.game_id);
+      if (!gamePlatforms || !gamePlatforms.has(platformSlug)) {
         platformUpdateRows.push({
           game_id: existingGame.game_id,
-          title: existingGame.title,
-          platforms: [...platforms, platformSlug],
+          platform_id: platformSlug,
         });
         platformLinked++;
       }
@@ -367,12 +386,11 @@ async function main() {
         const existingRawg = existingGames.get(rawgKey);
         if (existingRawg) {
           existing++;
-          const platforms = existingRawg.platforms || [];
-          if (!platforms.includes(platformSlug)) {
+          const gamePlatforms = existingPlatforms.get(existingRawg.game_id);
+          if (!gamePlatforms || !gamePlatforms.has(platformSlug)) {
             platformUpdateRows.push({
               game_id: existingRawg.game_id,
-              title: existingRawg.title,
-              platforms: [...platforms, platformSlug],
+              platform_id: platformSlug,
             });
             platformLinked++;
           }
@@ -388,10 +406,7 @@ async function main() {
           game_id: gameId,
           title: rawgGame.name,
           aliases: [g.title],
-          series: "",
-          primary_genre: (rawgGame.genres || []).map((ge) => ge.slug).join(";"),
-          platforms: [platformSlug],
-          platform_names: [platform.name],
+          genre_id: (rawgGame.genres || []).map((ge) => ge.slug)[0] ?? null,
           release_year: releaseYear,
           release_state: "released",
           source_type: "finder",
@@ -403,11 +418,10 @@ async function main() {
           release_label: "",
         });
 
-        existingGames.set(nt, { game_id: gameId, title: rawgGame.name, platforms: [platformSlug] });
+        existingGames.set(nt, { game_id: gameId, title: rawgGame.name });
         existingGames.set(normalizeTitle(rawgGame.name), {
           game_id: gameId,
           title: rawgGame.name,
-          platforms: [platformSlug],
         });
         if ((i + 1) % 25 === 0) process.stdout.write(".");
         continue;
@@ -424,10 +438,6 @@ async function main() {
       game_id: gameId,
       title: g.title,
       aliases: [],
-      series: "",
-      primary_genre: "",
-      platforms: [platformSlug],
-      platform_names: [platform.name],
       release_year: g.year,
       release_state: "released",
       source_type: "finder",
@@ -439,7 +449,7 @@ async function main() {
       release_label: "",
     });
 
-    existingGames.set(nt, { game_id: gameId, title: g.title, platforms: [platformSlug] });
+    existingGames.set(nt, { game_id: gameId, title: g.title });
 
     if ((i + 1) % 100 === 0) {
       process.stdout.write(".");
@@ -470,12 +480,20 @@ async function main() {
     }
   }
 
-  // Batch update platform links on existing games
+  // Batch insert platform links
   if (platformUpdateRows.length > 0) {
     const BATCH = 100;
     for (let i = 0; i < platformUpdateRows.length; i += BATCH) {
       const batch = platformUpdateRows.slice(i, i + BATCH);
-      const { error } = await supabase.from("games").upsert(batch, { onConflict: "game_id" });
+      // Delete existing then insert to avoid conflicts
+      for (const row of batch) {
+        await supabase
+          .from("game_platforms")
+          .delete()
+          .eq("game_id", row.game_id)
+          .eq("platform_id", row.platform_id);
+      }
+      const { error } = await supabase.from("game_platforms").insert(batch);
 
       if (error) {
         console.error(`  Error updating batch ${i / BATCH + 1}: ${error.message}`);
