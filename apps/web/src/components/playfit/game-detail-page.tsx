@@ -1,31 +1,28 @@
 "use client";
 
-import { findSimilarGames, type ProductPlayStatus, scoreSeedGame } from "@playfit/core";
-import {
-  Archive,
-  ArrowLeft,
-  Award,
-  BookmarkPlus,
-  Check,
-  Flag,
-  Pause,
-  Play,
-  XCircle,
-} from "lucide-react";
+import { scoreSeedGame } from "@playfit/core/domain";
+import type { ProductPlayStatus, RankedSeedGame, SeedGame } from "@playfit/core/types";
+import { Archive, ArrowLeft, Award, BookmarkPlus, Flag, Pause, Play, XCircle } from "lucide-react";
 import type { ComponentType } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Container } from "@/components/ui/container";
 import { Dialog } from "@/components/ui/dialog";
+import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Stack } from "@/components/ui/stack";
 
+import { Carousel } from "./carousel";
+import { CarouselCard } from "./carousel-card";
 import { CoverArt } from "./cover-art";
 import { Metric } from "./metric";
 import { usePlayfit } from "./playfit-context";
-import { buildPlatformsKey, confidenceLabel, statusOptions } from "./product-utils";
+import { confidenceLabel, statusOptions } from "./product-utils";
 import { StarRating } from "./star-rating";
+import { StatusToast } from "./status-toast";
 
 const statusIcons: Record<string, ComponentType<{ className?: string }>> = {
   playing: Play,
@@ -37,43 +34,109 @@ const statusIcons: Record<string, ComponentType<{ className?: string }>> = {
   want_to_play: BookmarkPlus,
 };
 
+type DetailStatusOption = {
+  value: ProductPlayStatus;
+  label: string;
+  description: string;
+};
+
+const detailStatusOptions = statusOptions.filter(
+  (option): option is DetailStatusOption => option.value !== "",
+);
+
 export function GameDetailPage({ gameId }: { gameId: string }) {
   const {
-    seedData,
     state,
     closeDossier,
-    openDossier,
+    setUi,
     setPlayStatus,
     setRating,
     toggleFlag,
     excludeGame,
+    getSeedGame,
   } = usePlayfit();
-  const game = seedData.gamesById.get(gameId) ?? null;
-  const platformsKey = useMemo(
-    () => buildPlatformsKey(state.user),
-    [state.user.onboarding.platforms],
-  );
+  const [game, setGame] = useState<SeedGame | null>(null);
+  const [similarGames, setSimilarGames] = useState<SeedGame[]>([]);
+  const [seriesGames, setSeriesGames] = useState<SeedGame[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchGameData() {
+      const cached = getSeedGame(gameId);
+      if (cancelled) return;
+
+      if (cached) {
+        setGame(cached);
+        setLoading(false);
+      } else {
+        const res = await fetch("/api/games/batch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ gameIds: [gameId] }),
+        });
+        if (!cancelled && res.ok) {
+          const data = (await res.json()) as { games: SeedGame[] };
+          if (data.games[0]) setGame(data.games[0]);
+        }
+        if (!cancelled) setLoading(false);
+      }
+
+      if (!cancelled) {
+        try {
+          const similarRes = await fetch("/api/recommendations/similar", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ gameId }),
+          });
+          if (similarRes.ok) {
+            const data = (await similarRes.json()) as { similar: SeedGame[]; series: SeedGame[] };
+            setSimilarGames(data.similar);
+            setSeriesGames(data.series);
+          }
+        } catch {
+          // Silently fail
+        }
+      }
+    }
+    void fetchGameData();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, getSeedGame]);
+
   const entry = useMemo(
     () => (game && state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null),
-    [game, state.user.profile, state.user.gameStates, platformsKey, seedData.gamesById],
+    [game, state],
   );
   const gameState = game ? state.user.gameStates[game.gameId] : null;
-  const similarGames = useMemo(
-    () => (game ? findSimilarGames(game, seedData.allGames, 5) : []),
-    [game, seedData.allGames],
-  );
+
+  function scoreGame(sg: SeedGame): RankedSeedGame | null {
+    if (!state.user.profile) return null;
+    return scoreSeedGame(sg, state, state.user.profile);
+  }
 
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
-  function handleStatusClick(value: ProductPlayStatus | "") {
-    if (!game || !value) return;
-    const nextStatus = gameState?.status === value ? undefined : (value as ProductPlayStatus);
-    setPlayStatus(game.gameId, nextStatus);
+  function goToSetup() {
+    setUi((current) => ({ ...current, activeTab: "onboarding", profileMode: "overview" }));
+    closeDossier();
+  }
+
+  if (loading) {
+    return (
+      <Container as="main" size="sm" className="grid min-h-screen place-items-center text-center">
+        <div className="grid gap-4">
+          <h1 className="font-display text-3xl font-extrabold">Loading...</h1>
+          <p className="text-muted-foreground">Fetching game details.</p>
+        </div>
+      </Container>
+    );
   }
 
   if (!game) {
     return (
-      <div className="mx-auto grid min-h-screen max-w-[580px] place-items-center px-4 text-center">
+      <Container as="main" size="sm" className="grid min-h-screen place-items-center text-center">
         <div className="grid gap-4">
           <h1 className="font-display text-3xl font-extrabold">Game not found</h1>
           <p className="text-muted-foreground">This title isn&apos;t in our catalog yet.</p>
@@ -83,24 +146,28 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
             </Button>
           </div>
         </div>
-      </div>
+      </Container>
     );
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[980px] px-4 py-6">
+    <Container as="main" size="md" className="min-h-screen py-6">
       <button
         type="button"
         onClick={closeDossier}
-        className="mb-6 flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-6 flex min-h-10 w-fit cursor-pointer items-center gap-1.5 rounded-md px-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ArrowLeft className="size-4" />
         Back to Playfit
       </button>
 
-      <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
-        <CoverArt game={game} className="aspect-[2/3]" />
-        <div className="grid gap-5">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
+        <CoverArt
+          game={game}
+          className="mx-auto aspect-[2/3] w-full max-w-[260px] lg:mx-0"
+          priority
+        />
+        <div className="grid min-w-0 gap-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Game details
@@ -131,60 +198,62 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
               </div>
             </>
           ) : (
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
-                <CardTitle>Finish setup first</CardTitle>
+                <CardTitle as="h2">Finish setup first</CardTitle>
                 <CardDescription>
                   Set up your platforms and favorites so Playfit can start reading games for you.
                 </CardDescription>
               </CardHeader>
+              <CardContent>
+                <Button type="button" variant="secondary" onClick={goToSetup}>
+                  Open setup
+                </Button>
+              </CardContent>
             </Card>
           )}
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Your progress</CardTitle>
+              <CardTitle as="h2">Your progress</CardTitle>
               <CardDescription>Every choice here sharpens your next read.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <fieldset className="grid gap-1">
-                <legend className="sr-only">Play status</legend>
-                {statusOptions.map((option) => {
-                  if (!option.value) return null;
+              <RadioGroup name={`play-status-${game.gameId}`}>
+                {detailStatusOptions.map((option) => {
                   const Icon = statusIcons[option.value];
                   const isActive = gameState?.status === option.value;
                   return (
-                    <button
+                    <RadioItem
                       key={option.value}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => handleStatusClick(option.value)}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        isActive
-                          ? "bg-primary/10 text-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      }`}
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background">
-                        {Icon && <Icon className="size-4" />}
-                      </span>
-                      <span className="flex-1">
-                        <span className="block text-sm font-medium leading-tight">
-                          {option.label}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </span>
-                      {isActive && <Check className="size-4 shrink-0 text-primary" />}
-                    </button>
+                      id={`status-${game.gameId}-${option.value}`}
+                      name={`play-status-${game.gameId}`}
+                      value={option.value}
+                      checked={isActive}
+                      onChange={() => setPlayStatus(game.gameId, option.value)}
+                      label={option.label}
+                      description={option.description}
+                      icon={Icon ? <Icon className="size-4" /> : undefined}
+                    />
                   );
                 })}
-              </fieldset>
+              </RadioGroup>
+              {gameState?.status && (
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPlayStatus(game.gameId, undefined)}
+                  >
+                    Clear status
+                  </Button>
+                </div>
+              )}
               <Separator />
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Save as</p>
-                <div className="flex flex-wrap gap-2">
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">Save as</h3>
+                <Stack direction="row" wrap gap={2}>
                   <Button
                     type="button"
                     variant={gameState?.inBacklog ? "default" : "secondary"}
@@ -201,6 +270,11 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
                   >
                     Wishlist
                   </Button>
+                </Stack>
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">Recommendation</h3>
+                <Stack direction="row" wrap gap={2}>
                   <Button
                     type="button"
                     variant="destructive"
@@ -208,11 +282,11 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
                   >
                     Not for me
                   </Button>
-                </div>
+                </Stack>
               </div>
               <Separator />
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Rating</p>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">Rating</h3>
                 {gameState?.rating == null || gameState.rating <= 0 ? (
                   <p className="mb-2 text-xs text-muted-foreground/60 italic">Not yet rated</p>
                 ) : null}
@@ -224,9 +298,29 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
             </CardContent>
           </Card>
 
-          <Card>
+          {seriesGames.length > 0 && (
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle as="h2">Same series</CardTitle>
+                <CardDescription>Other titles in the {game.series} collection.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Carousel>
+                  {seriesGames.map((sg) => (
+                    <CarouselCard
+                      key={sg.gameId}
+                      game={sg}
+                      entry={scoreGame(sg)}
+                      status={state.user.gameStates[sg.gameId]?.status}
+                    />
+                  ))}
+                </Carousel>
+              </CardContent>
+            </Card>
+          )}
+          <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Similar games</CardTitle>
+              <CardTitle as="h2">Similar games</CardTitle>
               <CardDescription>Nearby titles in the catalog.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -235,21 +329,16 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
                   No similar titles in the catalog yet.
                 </p>
               ) : (
-                <div className="grid gap-2">
+                <Carousel>
                   {similarGames.map((sg) => (
-                    <button
+                    <CarouselCard
                       key={sg.gameId}
-                      type="button"
-                      className="flex items-center gap-3 rounded-md border border-border bg-secondary p-2 text-left text-sm transition-all duration-150 hover:bg-secondary/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => openDossier(sg.gameId)}
-                    >
-                      <span className="flex-1 font-medium">{sg.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {sg.series || sg.primaryGenre}
-                      </span>
-                    </button>
+                      game={sg}
+                      entry={scoreGame(sg)}
+                      status={state.user.gameStates[sg.gameId]?.status}
+                    />
                   ))}
-                </div>
+                </Carousel>
               )}
             </CardContent>
           </Card>
@@ -280,7 +369,8 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
           </Button>
         </div>
       </Dialog>
-    </div>
+      <StatusToast />
+    </Container>
   );
 }
 

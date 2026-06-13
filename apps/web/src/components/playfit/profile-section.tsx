@@ -2,19 +2,24 @@
 
 import {
   buildTagPreferenceAnalysis,
-  type ProductGameState,
-  type ProductProfile,
-  type ProductRating,
   type ProductTagPreferenceAnalysis,
   type ProductTagPreferenceEntry,
-} from "@playfit/core";
+} from "@playfit/core/domain";
+import type {
+  ProductGameState,
+  ProductProfile,
+  ProductRating,
+  SeedGame,
+} from "@playfit/core/types";
 import { ChevronRight, LogOut, RefreshCcw, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { SectionLabel } from "@/components/ui/section-label";
 import { Separator } from "@/components/ui/separator";
+import { Stack } from "@/components/ui/stack";
 import { CoverArt } from "./cover-art";
 import { Metric } from "./metric";
 import { usePlayfit } from "./playfit-context";
@@ -131,7 +136,7 @@ function ProfileSignalList({
 }) {
   return (
     <div className="grid gap-3">
-      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
+      <SectionLabel>{title}</SectionLabel>
       {signals.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
           {emptyCopy}
@@ -164,13 +169,13 @@ function TagEvidenceChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <Stack direction="row" wrap gap={2}>
       {entries.map((entry) => (
         <Badge key={entry.tag} variant={variant}>
           {formatTagEvidence(entry, dominantSide)}
         </Badge>
       ))}
-    </div>
+    </Stack>
   );
 }
 
@@ -188,26 +193,26 @@ function DislikeReasonChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <Stack direction="row" wrap gap={2}>
       {entries.map((entry) => (
         <Badge key={entry.tag} variant={variant}>
           {formatDislikeReasonEvidence(entry)}
         </Badge>
       ))}
-    </div>
+    </Stack>
   );
 }
 
 export function ProfileSection() {
   const {
     state,
-    seedData,
     setUi,
     isSaving,
     refreshAdaptiveProfile,
     resetLocalState,
     signOut,
     openDossier,
+    getSeedGame,
   } = usePlayfit();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const profile = state.user.profile;
@@ -245,21 +250,27 @@ export function ProfileSection() {
       };
     }
     const a = getProfileAnalytics(state.user.gameStates);
-    const te = buildTagPreferenceAnalysis(
-      state.user.onboarding,
-      seedData.gamesById,
-      state.user.gameStates,
-    );
+    const gameIds = [
+      ...new Set([
+        ...state.user.onboarding.likedGameIds,
+        ...(state.user.onboarding.dislikedGameIds ?? []),
+        ...Object.keys(state.user.gameStates),
+      ]),
+    ];
+    const gamesById = new Map<string, SeedGame>();
+    for (const id of gameIds) {
+      const game = getSeedGame(id);
+      if (game) gamesById.set(id, game);
+    }
+    const te = buildTagPreferenceAnalysis(state.user.onboarding, gamesById, state.user.gameStates);
     const vs = getVisibleProfileSignals(profile, te);
     const ps = vs.filter((signal) => signal.tone === "positive").slice(0, 3);
     const ns = vs.filter((signal) => signal.tone === "negative").slice(0, 3);
     const el = profileEvidenceLabel(profile.ratedCount ?? a.rated.length);
     const lr = [...a.rated]
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-      .map((entry) => ({ entry, game: seedData.gamesById.get(entry.gameId) }))
-      .filter((item): item is { entry: ProductGameState; game: import("@playfit/core").SeedGame } =>
-        Boolean(item.game),
-      )
+      .map((entry) => ({ entry, game: getSeedGame(entry.gameId) }))
+      .filter((item): item is { entry: ProductGameState; game: SeedGame } => Boolean(item.game))
       .slice(0, 5);
     return {
       analytics: a,
@@ -270,7 +281,7 @@ export function ProfileSection() {
       evidenceLabel: el,
       latestRatings: lr,
     };
-  }, [state.user.gameStates, state.user.onboarding, seedData.gamesById, profile]);
+  }, [state.user.gameStates, state.user.onboarding, getSeedGame, profile]);
 
   if (!profile) {
     return (
@@ -331,9 +342,7 @@ export function ProfileSection() {
               <Separator />
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Positive evidence
-                  </p>
+                  <SectionLabel className="mb-2">Positive evidence</SectionLabel>
                   <TagEvidenceChips
                     entries={tagEvidence.higherRatedTags}
                     variant="positive"
@@ -342,9 +351,7 @@ export function ProfileSection() {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Lower-rated evidence
-                  </p>
+                  <SectionLabel className="mb-2">Lower-rated evidence</SectionLabel>
                   <TagEvidenceChips
                     entries={tagEvidence.lowerRatedTags}
                     variant="warning"
@@ -356,9 +363,7 @@ export function ProfileSection() {
               <Separator />
               <div className="grid gap-3">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Possible friction
-                  </p>
+                  <SectionLabel className="mb-2">Possible friction</SectionLabel>
                   {tagEvidence.badGameCount < 2 ? (
                     <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
                       Not enough lower ratings to isolate dislike reasons yet.
@@ -366,9 +371,7 @@ export function ProfileSection() {
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Unique to lower ratings
-                        </p>
+                        <SectionLabel className="mb-2">Unique to lower ratings</SectionLabel>
                         <DislikeReasonChips
                           entries={tagEvidence.uniqueLowerRatedTags}
                           variant="negative"
@@ -376,9 +379,9 @@ export function ProfileSection() {
                         />
                       </div>
                       <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        <SectionLabel className="mb-2">
                           Overrepresented in lower ratings
-                        </p>
+                        </SectionLabel>
                         <DislikeReasonChips
                           entries={tagEvidence.overrepresentedLowerRatedTags}
                           variant="warning"
@@ -402,9 +405,7 @@ export function ProfileSection() {
               <div className="grid gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Distribution
-                    </p>
+                    <SectionLabel>Distribution</SectionLabel>
                     <p className="text-sm text-muted-foreground">
                       Scores grouped from 1 to 5 stars.
                     </p>
@@ -445,9 +446,7 @@ export function ProfileSection() {
               <Separator />
               <div className="grid gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Latest ratings
-                  </p>
+                  <SectionLabel>Latest ratings</SectionLabel>
                   <p className="text-sm text-muted-foreground">Most recently updated scores.</p>
                 </div>
                 {latestRatings.length === 0 ? (
@@ -485,7 +484,7 @@ export function ProfileSection() {
               <CardDescription>Recalculate after new ratings or library changes.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
+              <Stack direction="row" wrap gap={2}>
                 <Button
                   type="button"
                   variant="secondary"
@@ -504,7 +503,7 @@ export function ProfileSection() {
                 <Button type="button" variant="outline" onClick={signOut}>
                   <LogOut className="size-4" /> Sign out
                 </Button>
-              </div>
+              </Stack>
             </CardContent>
           </Card>
         </div>

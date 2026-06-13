@@ -1,105 +1,19 @@
 "use client";
 
-import { buildTodayModel, type RankedSeedGame } from "@playfit/core";
+import type { ProductTodayModel } from "@playfit/core/types";
 import { Gamepad2, RotateCcw, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
-import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { SectionLabel } from "@/components/ui/section-label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { CoverArt } from "./cover-art";
+
+import { Carousel } from "./carousel";
+import { CarouselCard } from "./carousel-card";
 import { usePlayfit } from "./playfit-context";
-import {
-  buildPlatformsKey,
-  confidenceLabel,
-  decisionLabel,
-  decisionTone,
-  primaryReason,
-  recommendationGroupCopy,
-  recommendationGroupTitle,
-} from "./product-utils";
+import { recommendationGroupCopy, recommendationGroupTitle } from "./product-utils";
 import { SectionHead } from "./section-head";
-
-function CarouselCard({
-  entry,
-  rank,
-  statusLabel,
-}: {
-  entry: RankedSeedGame;
-  rank?: number;
-  statusLabel?: string;
-}) {
-  const { openDossier } = usePlayfit();
-
-  const barColor =
-    entry.affinityScore >= 78
-      ? "var(--positive)"
-      : entry.affinityScore >= 62
-        ? "var(--warning)"
-        : "var(--muted-foreground)";
-
-  return (
-    <motion.button
-      type="button"
-      whileHover={{ scale: 1.04 }}
-      transition={{ duration: 0.18 }}
-      onClick={() => openDossier(entry.game.gameId)}
-      className="w-56 shrink-0 snap-start cursor-pointer rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <div className="relative">
-        <CoverArt game={entry.game} className="aspect-[2/3]" />
-        {rank != null && (
-          <span className="absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-background/80 text-xs font-bold backdrop-blur-sm">
-            {rank}
-          </span>
-        )}
-        <span
-          className={cn(
-            "absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-xs font-bold backdrop-blur-sm",
-            entry.affinityScore >= 78
-              ? "bg-positive/80"
-              : entry.affinityScore >= 62
-                ? "bg-warning/80"
-                : "bg-muted/80",
-          )}
-        >
-          {entry.affinityScore}
-        </span>
-      </div>
-      <div className="mt-1.5 grid gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <p className="min-h-10 overflow-hidden text-sm font-medium leading-tight">
-            {entry.game.title}
-          </p>
-          <Badge variant={decisionTone(entry)}>{decisionLabel(entry)}</Badge>
-        </div>
-        <div
-          className="h-1 w-full rounded-full bg-muted-foreground/20"
-          role="progressbar"
-          aria-valuenow={entry.affinityScore}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Affinity: ${entry.affinityScore}%`}
-        >
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${entry.affinityScore}%`, backgroundColor: barColor }}
-          />
-        </div>
-        <p className="min-h-8 overflow-hidden text-xs text-muted-foreground">
-          {primaryReason(entry)}
-        </p>
-        <div className="grid gap-1 text-[11px] text-muted-foreground">
-          <span>{confidenceLabel(entry.confidence)}</span>
-          <span>{entry.cautionReasons[0] ?? "No major caveat yet."}</span>
-        </div>
-        {statusLabel && <p className="text-xs text-muted-foreground">{statusLabel}</p>}
-      </div>
-    </motion.button>
-  );
-}
 
 function TodaySkeleton() {
   return (
@@ -163,17 +77,47 @@ function TodaySkeleton() {
 }
 
 export function TodaySection() {
-  const { seedData, state, setUi } = usePlayfit();
-  const platformsKey = useMemo(
-    () => buildPlatformsKey(state.user),
-    [state.user.onboarding.platforms],
-  );
-  const model = useMemo(() => {
-    if (!state.user.profile) return null;
-    return buildTodayModel(seedData.catalogGames, state, state.user.profile);
-  }, [seedData.catalogGames, state.user.profile, state.user.gameStates, platformsKey]);
+  const { state, setUi } = usePlayfit();
+  const [model, setModel] = useState<ProductTodayModel | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!model) return <TodaySkeleton />;
+  useEffect(() => {
+    if (!state.user.profile) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchToday() {
+      try {
+        const res = await fetch("/api/recommendations/today", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            profile: state.user.profile,
+            gameStates: state.user.gameStates,
+            onboarding: state.user.onboarding,
+          }),
+        });
+        if (!cancelled && res.ok) {
+          const data = (await res.json()) as ProductTodayModel;
+          setModel(data);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void fetchToday();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.user.profile, state.user.gameStates, state.user.onboarding]);
+
+  if (loading || !model) return <TodaySkeleton />;
 
   if (!state.user.onboardingCompletedAt) {
     return (
@@ -228,50 +172,53 @@ export function TodaySection() {
       <div className="grid gap-8">
         {model.nextUp.length > 0 && (
           <section aria-labelledby="carousel-next-up" className="grid gap-3">
-            <p
-              id="carousel-next-up"
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground"
-            >
-              <Sparkles className="size-3.5" />
+            <SectionLabel id="carousel-next-up" icon={<Sparkles className="size-3.5" />}>
               {recommendationGroupTitle(model.nextUp)}
-            </p>
-            <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth [mask-image:linear-gradient(to_right,transparent_0,black_24px,black_calc(100%-24px),transparent_100%)]">
+            </SectionLabel>
+            <Carousel>
               {model.nextUp.map((entry, i) => (
-                <CarouselCard key={entry.game.gameId} entry={entry} rank={i + 1} />
+                <CarouselCard
+                  key={entry.game.gameId}
+                  game={entry.game}
+                  entry={entry}
+                  rank={i + 1}
+                />
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
         {model.currentRun.length > 0 && (
           <section aria-labelledby="carousel-current-run" className="grid gap-3">
-            <p
-              id="carousel-current-run"
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground"
-            >
-              <Gamepad2 className="size-3.5" />
+            <SectionLabel id="carousel-current-run" icon={<Gamepad2 className="size-3.5" />}>
               Current Run
-            </p>
-            <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth [mask-image:linear-gradient(to_right,transparent_0,black_24px,black_calc(100%-24px),transparent_100%)]">
+            </SectionLabel>
+            <Carousel>
               {model.currentRun.map((entry) => (
-                <CarouselCard key={entry.game.gameId} entry={entry} statusLabel="Playing" />
+                <CarouselCard
+                  key={entry.game.gameId}
+                  game={entry.game}
+                  entry={entry}
+                  status="playing"
+                />
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
         {model.resume.length > 0 && (
           <section aria-labelledby="carousel-resume" className="grid gap-3">
-            <p
-              id="carousel-resume"
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground"
-            >
-              <RotateCcw className="size-3.5" />
+            <SectionLabel id="carousel-resume" icon={<RotateCcw className="size-3.5" />}>
               Resume
-            </p>
-            <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth [mask-image:linear-gradient(to_right,transparent_0,black_24px,black_calc(100%-24px),transparent_100%)]">
+            </SectionLabel>
+            <Carousel>
               {model.resume.map((entry) => (
-                <CarouselCard key={entry.game.gameId} entry={entry} statusLabel="On hold" />
+                <CarouselCard
+                  key={entry.game.gameId}
+                  game={entry.game}
+                  entry={entry}
+                  status="on_hold"
+                />
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
       </div>

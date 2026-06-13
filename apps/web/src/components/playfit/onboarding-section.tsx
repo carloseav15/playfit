@@ -1,19 +1,27 @@
 "use client";
 
-import { buildAdaptiveProfile, canAdvanceOnboarding, nowIso, type SeedGame } from "@playfit/core";
-import { Check, ChevronRight, X } from "lucide-react";
+import { buildAdaptiveProfile, canAdvanceOnboarding } from "@playfit/core/domain";
+import type { SeedGame } from "@playfit/core/types";
+import { nowIso } from "@playfit/core/utils";
+import { Check, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { Stack } from "@/components/ui/stack";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
 import { usePlayfit } from "./playfit-context";
 import { formatGameDescriptor } from "./product-utils";
 import { SectionHead } from "./section-head";
 
 export function OnboardingSection() {
-  const { seedData, state, ui, setUi, updateState, searchGames } = usePlayfit();
+  const { seedData, state, ui, setUi, updateState, searchGames, getSeedGame } = usePlayfit();
   const draft = state.user.onboarding;
   const [platformError, setPlatformError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(ui.onboardingQuery);
@@ -22,7 +30,9 @@ export function OnboardingSection() {
     [deferredQuery, searchGames],
   );
   const canAdvance = canAdvanceOnboarding(draft);
-  const allSelected = draft.platforms.length === seedData.platforms.length;
+  const platformsUnavailable = seedData.platforms.length === 0;
+  const allSelected =
+    seedData.platforms.length > 0 && draft.platforms.length === seedData.platforms.length;
 
   function togglePlatform(platformId: string, checked: boolean) {
     updateState((next) => {
@@ -54,6 +64,29 @@ export function OnboardingSection() {
       next.user.onboarding.likedGameIds = [
         ...new Set([...next.user.onboarding.likedGameIds, game.gameId]),
       ];
+      next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
+        (id) => id !== game.gameId,
+      );
+      next.user.gameStates[game.gameId] ??= {
+        gameId: game.gameId,
+        title: game.title,
+        inBacklog: false,
+        inWishlist: false,
+        source: "onboarding",
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+    });
+  }
+
+  function addDislikedAnchor(game: SeedGame) {
+    updateState((next) => {
+      next.user.onboarding.dislikedGameIds = [
+        ...new Set([...next.user.onboarding.dislikedGameIds, game.gameId]),
+      ];
+      next.user.onboarding.likedGameIds = next.user.onboarding.likedGameIds.filter(
+        (id) => id !== game.gameId,
+      );
       next.user.gameStates[game.gameId] ??= {
         gameId: game.gameId,
         title: game.title,
@@ -74,65 +107,72 @@ export function OnboardingSection() {
     });
   }
 
+  function removeDislikedAnchor(gameId: string) {
+    updateState((next) => {
+      next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
+        (id) => id !== gameId,
+      );
+    });
+  }
+
   function finalize() {
     updateState((next) => {
-      next.user.profile = buildAdaptiveProfile(
-        next.user.onboarding,
-        seedData.gamesById,
-        next.user.gameStates,
-      );
+      const ids = new Set([
+        ...next.user.onboarding.likedGameIds,
+        ...(next.user.onboarding.dislikedGameIds ?? []),
+        ...Object.keys(next.user.gameStates),
+      ]);
+      const map = new Map<string, SeedGame>();
+      for (const id of ids) {
+        const game = getSeedGame(id);
+        if (game) map.set(id, game);
+      }
+      next.user.profile = buildAdaptiveProfile(next.user.onboarding, map, next.user.gameStates);
       next.user.onboardingCompletedAt = nowIso();
     });
     setUi((current) => ({
       ...current,
       activeTab: "today",
-      statusMessage: "Profile ready. Your first reads are below.",
+      statusMessage: "Profile ready. Your Play Next pick is ready.",
     }));
   }
 
+  const step = draft.step === "platforms" ? 1 : draft.step === "anchors" ? 2 : 3;
+  const progressValue = step === 1 ? 33 : step === 2 ? 67 : 100;
+  const stepTitle =
+    draft.step === "platforms"
+      ? "Where can Playfit look?"
+      : draft.step === "anchors"
+        ? "Pick three games you loved"
+        : "Pick one game that was not for you";
+  const stepCopy =
+    draft.step === "platforms"
+      ? "Your platforms keep recommendations grounded in what you can actually play."
+      : draft.step === "anchors"
+        ? "Start with games that clicked. Playfit will look for nearby signals."
+        : "A single miss helps Playfit avoid the wrong fit instead of only chasing favorites.";
+  const stepCountCopy =
+    draft.step === "platforms"
+      ? `${draft.platforms.length} platforms`
+      : draft.step === "anchors"
+        ? `${draft.likedGameIds.length} / 3 loved`
+        : `${draft.dislikedGameIds.length} / 1 not for me`;
+
   return (
     <section>
-      <SectionHead
-        eyebrow="Setup"
-        title={
-          draft.step === "platforms" ? "Where can Playfit look?" : "Start with three favorites"
-        }
-        copy={
-          draft.step === "platforms"
-            ? "Your platforms are your playground. Playfit keeps recommendations grounded in what you can actually play."
-            : "Start with games you already love. Every rating after this will sharpen the signal."
-        }
-      />
+      <SectionHead eyebrow="Tune your taste" title={stepTitle} copy={stepCopy} />
       <Card>
         <CardHeader>
           <div className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Step {draft.step === "platforms" ? 1 : 2} of 2
+                Step {step} of 3
               </span>
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {draft.step === "platforms"
-                  ? `${draft.platforms.length} platforms`
-                  : `${draft.likedGameIds.length} / 3 anchors`}
+                {stepCountCopy}
               </span>
             </div>
-            <div
-              className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted"
-              role="progressbar"
-              aria-valuenow={draft.step === "platforms" ? 50 : 100}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Step ${draft.step === "platforms" ? 1 : 2} of 2`}
-            >
-              <motion.div
-                className="absolute inset-y-0 left-0 rounded-full bg-accent"
-                initial={{ width: "0%" }}
-                animate={{
-                  width: draft.step === "platforms" ? "50%" : "100%",
-                }}
-                transition={{ type: "spring", stiffness: 200, damping: 25 }}
-              />
-            </div>
+            <ProgressBar value={progressValue} label={`Step ${step} of 3`} />
           </div>
         </CardHeader>
         <CardContent>
@@ -161,22 +201,18 @@ export function OnboardingSection() {
                   Tell Playfit what you can play on. Every read will stay grounded in systems you
                   actually own.
                 </p>
-                <button
-                  type="button"
-                  aria-pressed={allSelected}
-                  onClick={toggleAllPlatforms}
-                  className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-secondary px-4 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="grid size-4 place-items-center rounded-[3px] border border-border bg-transparent">
-                    {allSelected && <Check className="size-3 text-positive" />}
-                  </span>
-                  <span className="flex-1 text-sm font-bold">
-                    {allSelected ? "Deselect all platforms" : "Select all platforms"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {draft.platforms.length} / {seedData.platforms.length}
-                  </span>
-                </button>
+                {platformsUnavailable ? (
+                  <Alert variant="error">
+                    Platforms could not be loaded. Check the catalog connection and try again.
+                  </Alert>
+                ) : null}
+                <Checkbox
+                  id="select-all-platforms"
+                  checked={allSelected}
+                  onChange={toggleAllPlatforms}
+                  label={allSelected ? "Deselect all platforms" : "Select all platforms"}
+                  disabled={platformsUnavailable}
+                />
                 {(["nintendo", "playstation", "xbox", "sega", "pc", "other"] as const).map(
                   (family) => {
                     const group = seedData.platforms
@@ -213,22 +249,18 @@ export function OnboardingSection() {
                                   (entry) => entry.platformId === platform.platformId,
                                 );
                                 return (
-                                  <label
+                                  <Checkbox
                                     key={platform.platformId}
-                                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-secondary px-4 transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:outline-none hover:bg-secondary/60"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={(event) =>
-                                        togglePlatform(
-                                          platform.platformId,
-                                          event.currentTarget.checked,
-                                        )
-                                      }
-                                    />
-                                    <strong className="text-sm">{platform.displayName}</strong>
-                                  </label>
+                                    id={`platform-${platform.platformId}`}
+                                    checked={checked}
+                                    onChange={(event) =>
+                                      togglePlatform(
+                                        platform.platformId,
+                                        event.currentTarget.checked,
+                                      )
+                                    }
+                                    label={platform.displayName}
+                                  />
                                 );
                               })}
                             </div>
@@ -245,22 +277,18 @@ export function OnboardingSection() {
                                   (entry) => entry.platformId === platform.platformId,
                                 );
                                 return (
-                                  <label
+                                  <Checkbox
                                     key={platform.platformId}
-                                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-secondary px-4 transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:outline-none hover:bg-secondary/60"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={(event) =>
-                                        togglePlatform(
-                                          platform.platformId,
-                                          event.currentTarget.checked,
-                                        )
-                                      }
-                                    />
-                                    <strong className="text-sm">{platform.displayName}</strong>
-                                  </label>
+                                    id={`platform-${platform.platformId}`}
+                                    checked={checked}
+                                    onChange={(event) =>
+                                      togglePlatform(
+                                        platform.platformId,
+                                        event.currentTarget.checked,
+                                      )
+                                    }
+                                    label={platform.displayName}
+                                  />
                                 );
                               })}
                             </div>
@@ -270,12 +298,12 @@ export function OnboardingSection() {
                     );
                   },
                 )}
-                {platformError ? <p className="text-sm text-negative">{platformError}</p> : null}
+                {platformError ? <Alert variant="error">{platformError}</Alert> : null}
                 <Button type="submit" className="w-fit" disabled={draft.platforms.length === 0}>
                   Continue <ChevronRight className="size-4" />
                 </Button>
               </motion.form>
-            ) : (
+            ) : draft.step === "anchors" ? (
               <motion.div
                 key="anchors"
                 initial={{ opacity: 0, x: 20 }}
@@ -284,13 +312,8 @@ export function OnboardingSection() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="grid gap-5"
               >
-                <div className="grid gap-2">
-                  <label
-                    className="text-sm font-bold text-muted-foreground"
-                    htmlFor="favorite-search"
-                  >
-                    Search by title or series
-                  </label>
+                <FormField>
+                  <FormLabel htmlFor="favorite-search">Search by title or series</FormLabel>
                   <Input
                     id="favorite-search"
                     type="search"
@@ -300,30 +323,19 @@ export function OnboardingSection() {
                     }
                     placeholder="Search a favorite game"
                   />
-                </div>
+                </FormField>
                 {draft.likedGameIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <Stack direction="row" wrap gap={2}>
                     {draft.likedGameIds.map((gameId) => {
-                      const game = seedData.gamesById.get(gameId);
+                      const game = getSeedGame(gameId);
                       if (!game) return null;
                       return (
-                        <span
-                          key={gameId}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground"
-                        >
+                        <Tag key={gameId} onRemove={() => removeAnchor(gameId)}>
                           {game.title}
-                          <button
-                            type="button"
-                            onClick={() => removeAnchor(gameId)}
-                            className="rounded-sm opacity-60 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Remove ${game.title}`}
-                          >
-                            <X className="size-3" />
-                          </button>
-                        </span>
+                        </Tag>
                       );
                     })}
-                  </div>
+                  </Stack>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
                   {anchorResults.map((game) => {
@@ -360,7 +372,7 @@ export function OnboardingSection() {
                     No games found. Try a different title.
                   </p>
                 )}
-                <div className="flex flex-wrap gap-3">
+                <Stack direction="row" wrap gap={3}>
                   <Button
                     type="button"
                     variant="secondary"
@@ -372,10 +384,113 @@ export function OnboardingSection() {
                   >
                     Back
                   </Button>
-                  <Button type="button" disabled={!canAdvance} onClick={finalize}>
-                    Build my first reads
+                  <Button
+                    type="button"
+                    disabled={draft.likedGameIds.length < 3}
+                    onClick={() => {
+                      updateState((next) => {
+                        next.user.onboarding.step = "dislikes";
+                      });
+                      setUi((current) => ({ ...current, onboardingQuery: "" }));
+                    }}
+                  >
+                    Continue <ChevronRight className="size-4" />
                   </Button>
+                </Stack>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="dislikes"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="grid gap-5"
+              >
+                <FormField>
+                  <FormLabel htmlFor="dislike-search">
+                    Search for a game that missed for you
+                  </FormLabel>
+                  <Input
+                    id="dislike-search"
+                    type="search"
+                    value={ui.onboardingQuery}
+                    onChange={(event) =>
+                      setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
+                    }
+                    placeholder="Search a game that was not for you"
+                  />
+                </FormField>
+                {draft.dislikedGameIds.length > 0 && (
+                  <Stack direction="row" wrap gap={2}>
+                    {draft.dislikedGameIds.map((gameId) => {
+                      const game = getSeedGame(gameId);
+                      if (!game) return null;
+                      return (
+                        <Tag
+                          key={gameId}
+                          variant="default"
+                          onRemove={() => removeDislikedAnchor(gameId)}
+                        >
+                          {game.title}
+                        </Tag>
+                      );
+                    })}
+                  </Stack>
+                )}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {anchorResults.map((game) => {
+                    const selected = draft.dislikedGameIds.includes(game.gameId);
+                    const loved = draft.likedGameIds.includes(game.gameId);
+                    return (
+                      <button
+                        key={game.gameId}
+                        type="button"
+                        aria-pressed={selected}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-md border border-border bg-secondary p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected && "border-[color-mix(in_srgb,var(--negative),transparent_40%)]",
+                        )}
+                        onClick={() => addDislikedAnchor(game)}
+                        disabled={selected}
+                      >
+                        <span>
+                          <strong>{game.title}</strong>
+                          <span className="block text-sm text-muted-foreground">
+                            {loved ? "Moves out of loved picks" : formatGameDescriptor(game)}
+                          </span>
+                        </span>
+                        {selected ? (
+                          <Check className="size-4 text-negative" />
+                        ) : (
+                          <ChevronRight className="size-4" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+                {anchorResults.length === 0 && deferredQuery.trim().length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No games found. Try a different title.
+                  </p>
+                )}
+                <Stack direction="row" wrap gap={3}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      updateState((next) => {
+                        next.user.onboarding.step = "anchors";
+                      });
+                      setUi((current) => ({ ...current, onboardingQuery: "" }));
+                    }}
+                  >
+                    Back
+                  </Button>
+                  <Button type="button" disabled={!canAdvance} onClick={finalize}>
+                    Find Play Next
+                  </Button>
+                </Stack>
               </motion.div>
             )}
           </AnimatePresence>

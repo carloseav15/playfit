@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProductRating } from "@playfit/core";
+import type { ProductRating } from "@playfit/core/types";
 import { Star, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useId, useState } from "react";
@@ -15,11 +15,16 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
   const ratingName = useId();
   const [preview, setPreview] = useState<ProductRating | null>(null);
   const display = preview ?? value ?? 0;
+  const hasRating = value != null && value > 0;
 
   function starFill(star: number): "full" | "half" | "empty" {
     if (display >= star) return "full";
     if (display >= star - 0.5) return "half";
     return "empty";
+  }
+
+  function ratingLabel(rating: ProductRating) {
+    return `${rating} ${rating === 1 ? "star" : "stars"}`;
   }
 
   if (readOnly) {
@@ -55,15 +60,17 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
   }
 
   return (
-    <div className="inline-flex items-center gap-0">
-      <button
-        type="button"
-        onClick={() => onChange?.(undefined)}
-        className="flex size-6 shrink-0 cursor-pointer items-center justify-center text-muted-foreground/30 transition-colors hover:text-muted-foreground"
-        aria-label="Clear rating"
-      >
-        <X className="size-4" />
-      </button>
+    <div className="inline-flex items-center gap-1">
+      {hasRating && (
+        <button
+          type="button"
+          onClick={() => onChange?.(undefined)}
+          className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Clear rating"
+        >
+          <X className="size-4" />
+        </button>
+      )}
       <div
         role="radiogroup"
         aria-label="Rating"
@@ -80,10 +87,10 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
               key={star}
               whileTap={{ scale: 0.85 }}
               transition={{ type: "spring", stiffness: 500, damping: 15 }}
-              className="relative size-6 shrink-0"
+              className="relative size-12 shrink-0"
             >
               <label
-                className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer rounded-l-sm has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer rounded-l-md has-focus-visible:ring-2 has-focus-visible:ring-ring"
                 onMouseEnter={() => setPreview(half)}
               >
                 <input
@@ -93,11 +100,11 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
                   checked={value === half}
                   onChange={() => onChange?.(half)}
                   className="absolute inset-0 size-full cursor-pointer opacity-0"
-                  aria-label={`${half} stars`}
+                  aria-label={ratingLabel(half)}
                 />
               </label>
               <label
-                className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-pointer rounded-r-sm has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-pointer rounded-r-md has-focus-visible:ring-2 has-focus-visible:ring-ring"
                 onMouseEnter={() => setPreview(whole)}
               >
                 <input
@@ -107,24 +114,28 @@ export function StarRating({ value, onChange, readOnly = false }: StarRatingProp
                   checked={value === whole}
                   onChange={() => onChange?.(whole)}
                   className="absolute inset-0 size-full cursor-pointer opacity-0"
-                  aria-label={`${whole} stars`}
+                  aria-label={ratingLabel(whole)}
                 />
               </label>
-              <div className="pointer-events-none absolute inset-0">
-                <Star
-                  className={`size-6 ${
-                    fill === "full" || fill === "half" ? "text-accent" : "text-muted-foreground/30"
-                  }`}
-                />
-                {(fill === "full" || fill === "half") && (
-                  <div
-                    className={`absolute inset-0 overflow-hidden ${
-                      fill === "half" ? "w-1/2" : "w-full"
+              <div className="pointer-events-none absolute inset-0 grid place-items-center">
+                <div className="relative size-7">
+                  <Star
+                    className={`size-7 ${
+                      fill === "full" || fill === "half"
+                        ? "text-accent"
+                        : "text-muted-foreground/55"
                     }`}
-                  >
-                    <Star className="size-6 fill-accent text-accent" />
-                  </div>
-                )}
+                  />
+                  {(fill === "full" || fill === "half") && (
+                    <div
+                      className={`absolute inset-0 overflow-hidden ${
+                        fill === "half" ? "w-1/2" : "w-full"
+                      }`}
+                    >
+                      <Star className="size-7 fill-accent text-accent" />
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           );

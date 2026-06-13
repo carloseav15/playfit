@@ -1,12 +1,12 @@
 "use client";
 
-import type { SeedGame } from "@playfit/core";
+import type { SeedGame } from "@playfit/core/types";
 import { motion } from "motion/react";
 import { useMemo } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Tab, TabGroup } from "@/components/ui/tabs";
 import { CoverArt } from "./cover-art";
 import { usePlayfit } from "./playfit-context";
 import { statusOptions, statusPriority } from "./product-utils";
@@ -56,7 +56,7 @@ const sortOptions = [
 ];
 
 export function LibrarySection() {
-  const { state, seedData, ui, setUi, openDossier } = usePlayfit();
+  const { state, ui, setUi, openDossier, getSeedGame } = usePlayfit();
 
   const { allEntries, tabCounts, filtered } = useMemo(() => {
     const sorted = Object.values(state.user.gameStates).sort((a, b) => {
@@ -101,21 +101,19 @@ export function LibrarySection() {
         title="My Games"
         copy="Your collection, quiet and organized."
       />
-      <div className="mb-5 flex items-center gap-2">
+      <TabGroup className="mb-5">
         {tabs.map((tab) => (
-          <Button
+          <Tab
             key={tab.key}
-            type="button"
-            size="sm"
             variant={ui.libraryTab === tab.key ? "default" : "secondary"}
             aria-pressed={ui.libraryTab === tab.key}
             onClick={() => setUi((current) => ({ ...current, libraryTab: tab.key }))}
+            count={tabCounts[tab.key]}
           >
             {tab.label}
-            <span className="ml-1.5 text-xs opacity-70">({tabCounts[tab.key]})</span>
-          </Button>
+          </Tab>
         ))}
-      </div>
+      </TabGroup>
       <div className="mb-5 flex items-center gap-3">
         <Input
           type="search"
@@ -174,7 +172,7 @@ export function LibrarySection() {
           </Card>
         ) : (
           filtered
-            .map((entry) => ({ entry, game: seedData.gamesById.get(entry.gameId) }))
+            .map((entry) => ({ entry, game: getSeedGame(entry.gameId) }))
             .filter((item): item is { entry: (typeof filtered)[number]; game: SeedGame } =>
               Boolean(item.game),
             )
