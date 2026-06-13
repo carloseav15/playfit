@@ -236,7 +236,7 @@ function rawgToTags(game) {
   return [...new Set(tags.filter(Boolean))].sort();
 }
 
-function toGameRow(game, platformIds, platformNames) {
+function toGameRow(game, platformIds) {
   const gameId = makeGameId(game.name);
   const releaseYear = game.released ? game.released.slice(0, 4) : "";
   const released = game.released && game.released <= new Date().toISOString().slice(0, 10);
@@ -251,14 +251,14 @@ function toGameRow(game, platformIds, platformNames) {
     .filter(Boolean)
     .join(" | ");
 
+  // Use first RAWG genre as primary genre_id; keep full list for backward compat
+  const firstGenre = rawgGenres[0] ?? "";
+
   return {
     game_id: gameId,
     title: game.name,
     aliases: [],
-    series: "",
-    primary_genre: rawgGenres.join(";"),
-    platforms: platformIds,
-    platform_names: platformNames,
+    genre_id: firstGenre || null,
     release_year: releaseYear,
     release_state: released ? "released" : "unreleased",
     source_type: "finder",
@@ -302,12 +302,75 @@ async function loadExistingGames() {
   return { ids, titles };
 }
 
+async function ensureGenres(rows) {
+  const genreSet = new Set();
+  for (const row of rows) {
+    if (row.genre_id) genreSet.add(row.genre_id);
+  }
+  if (genreSet.size === 0) return;
+  const genreRows = [...genreSet].map((slug) => ({
+    id: slug,
+    name: slug,
+  }));
+  const { error } = await supabase.from("genres").upsert(genreRows, {
+    onConflict: "id",
+    ignoreDuplicates: true,
+  });
+  if (error) {
+    console.error("Error ensuring genres:", error.message);
+  }
+}
+
+async function ensureTags(rows) {
+  const tagSet = new Set();
+  for (const row of rows) {
+    for (const t of row.tags || []) {
+      if (t) tagSet.add(t);
+    }
+  }
+  if (tagSet.size === 0) return;
+  const tagRows = [...tagSet].map((id) => ({ id }));
+  const { error } = await supabase.from("tags").upsert(tagRows, {
+    onConflict: "id",
+    ignoreDuplicates: true,
+  });
+  if (error) console.error("  Error ensuring tags:", error.message);
+}
+
+async function syncGameTags(gameId, tags) {
+  // Remove old entries
+  await supabase.from("game_tags").delete().eq("game_id", gameId);
+  // Insert new entries
+  if (tags.length > 0) {
+    await supabase.from("game_tags").insert(
+      tags.map((tag) => ({ game_id: gameId, tag_id: tag })),
+    );
+  }
+}
+
+async function syncGamePlatforms(gameId, platformIds) {
+  // Remove old entries
+  await supabase.from("game_platforms").delete().eq("game_id", gameId);
+  // Insert new entries
+  if (platformIds.length > 0) {
+    await supabase.from("game_platforms").insert(
+      platformIds.map((pid) => ({ game_id: gameId, platform_id: pid })),
+    );
+  }
+}
+
 async function upsertGames(rows) {
   if (rows.length === 0) return;
+  await ensureGenres(rows);
+  await ensureTags(rows);
   const { error } = await supabase.from("games").upsert(rows, { onConflict: "game_id" });
   if (error) {
     console.error("Error upserting games:", error.message);
   } else {
+    // Sync game_tags for each upserted game
+    for (const row of rows) {
+      await syncGameTags(row.game_id, row.tags || []);
+    }
     console.error(`  Upserted ${rows.length} games`);
   }
 }
@@ -363,6 +426,7 @@ async function main() {
     console.error(`\n=== ${p.name} (${platformId}) ===`);
 
     const platformRows = [];
+    const gamePlatformMap = new Map();
 
     for (const year of years) {
       console.error(`  ${year}...`);
@@ -427,8 +491,9 @@ async function main() {
 
         const allPids = [platformId, ...otherPlatforms.filter((p) => p !== platformId)];
         const allNames = [p.name, ...otherNames.filter((n) => n !== p.name)];
-        const row = toGameRow(game, allPids, allNames);
+        const row = toGameRow(game, allPids);
         platformRows.push(row);
+        gamePlatformMap.set(row.game_id, allPids);
         markSeen(game);
         added++;
       }
@@ -439,6 +504,9 @@ async function main() {
 
     if (platformRows.length > 0) {
       await upsertGames(platformRows);
+      for (const [gameId, pids] of gamePlatformMap) {
+        await syncGamePlatforms(gameId, pids);
+      }
     }
   }
 
@@ -449,6 +517,7 @@ async function main() {
     console.error(`\n=== ${p.name} (${platformId}) [added] ===`);
 
     const platformRows = [];
+    const gamePlatformMap = new Map();
 
     for (const year of years) {
       console.error(`  ${year}...`);
@@ -513,8 +582,9 @@ async function main() {
 
         const allPids = [platformId, ...otherPlatforms.filter((p) => p !== platformId)];
         const allNames = [p.name, ...otherNames.filter((n) => n !== p.name)];
-        const row = toGameRow(game, allPids, allNames);
+        const row = toGameRow(game, allPids);
         platformRows.push(row);
+        gamePlatformMap.set(row.game_id, allPids);
         markSeen(game);
         added++;
       }
@@ -564,6 +634,7 @@ async function main() {
     console.error(`\n=== ${p.name} (${platformId}) ===`);
 
     const platformRows = [];
+    const gamePlatformMap = new Map();
 
     for (let page = 1; page <= 50; page++) {
       console.error(`  page ${page}...`);
@@ -576,8 +647,9 @@ async function main() {
 
         const allPids = [platformId];
 
-        const row = toGameRow(game, allPids, [p.name]);
+        const row = toGameRow(game, allPids);
         platformRows.push(row);
+        gamePlatformMap.set(row.game_id, allPids);
         markSeen(game);
         added++;
       }
@@ -587,17 +659,22 @@ async function main() {
 
     if (platformRows.length > 0) {
       await upsertGames(platformRows);
+      for (const [gameId, pids] of gamePlatformMap) {
+        await syncGamePlatforms(gameId, pids);
+      }
       totalAdded += platformRows.length;
     }
   }
 
-  // -- Retro platforms (ordering=-added, second pass) --
+  // -- Modern platforms (ordering=-added, second pass) --
+  for (const platformId of modernPlatforms) {
   for (const platformId of retroPlatforms) {
     const p = RAWG_PLATFORMS[platformId];
     if (!p) continue;
     console.error(`\n=== ${p.name} (${platformId}) [added] ===`);
 
     const platformRows = [];
+    const gamePlatformMap = new Map();
 
     for (let page = 1; page <= 50; page++) {
       console.error(`  page ${page}...`);
@@ -610,8 +687,9 @@ async function main() {
 
         const allPids = [platformId];
 
-        const row = toGameRow(game, allPids, [p.name]);
+        const row = toGameRow(game, allPids);
         platformRows.push(row);
+        gamePlatformMap.set(row.game_id, allPids);
         markSeen(game);
         added++;
       }
@@ -621,6 +699,9 @@ async function main() {
 
     if (platformRows.length > 0) {
       await upsertGames(platformRows);
+      for (const [gameId, pids] of gamePlatformMap) {
+        await syncGamePlatforms(gameId, pids);
+      }
       totalAdded += platformRows.length;
     }
   }
