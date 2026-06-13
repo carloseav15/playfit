@@ -2,19 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInitialState } from "./indexed-db";
 
-const mockStoredState = vi.hoisted(() => ({
-  current: null as unknown,
-}));
-
-vi.mock("../data/supabase", () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
-    },
-  },
-}));
-
 function mockFetch(response: unknown) {
   return vi.fn().mockImplementation(() =>
     Promise.resolve({
@@ -32,7 +19,6 @@ describe("product indexeddb store", () => {
       setItem: vi.fn(),
     });
     vi.stubGlobal("crypto", { randomUUID: vi.fn().mockReturnValue("test-device-id") });
-    mockStoredState.current = null;
   });
 
   afterEach(() => {
@@ -63,6 +49,7 @@ describe("product indexeddb store", () => {
             step: saved.user.onboarding.step,
             platforms: saved.user.onboarding.platforms,
             likedGameIds: saved.user.onboarding.likedGameIds,
+            dislikedGameIds: saved.user.onboarding.dislikedGameIds,
             onboardingCompletedAt: saved.user.onboardingCompletedAt,
           },
           profile: saved.user.profile,
@@ -113,6 +100,7 @@ describe("product indexeddb store", () => {
             step: "anchors",
             platforms: [{ platformId: "ps5", status: "available" }],
             likedGameIds: ["a", "b", "c"],
+            dislikedGameIds: ["d"],
             onboardingCompletedAt: null,
           },
           profile: null,
@@ -128,7 +116,59 @@ describe("product indexeddb store", () => {
     expect(restored.user.onboarding.step).toBe("anchors");
     expect(restored.user.onboarding.platforms).toHaveLength(1);
     expect(restored.user.onboarding.likedGameIds).toHaveLength(3);
+    expect(restored.user.onboarding.dislikedGameIds).toEqual(["d"]);
     expect(restored.user.gameStates).toEqual({});
     expect(restored.user.profile).toBeNull();
+  });
+
+  it("defaults missing disliked setup games when loading older profiles", async () => {
+    const { loadProductState } = await import("./indexed-db");
+
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        state: {
+          onboarding: {
+            step: "anchors",
+            platforms: [{ platformId: "ps5", status: "available" }],
+            likedGameIds: ["a", "b", "c"],
+            onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+          },
+          profile: null,
+          game_states: {},
+          created_at: null,
+        },
+      }),
+    );
+
+    const restored = await loadProductState();
+
+    expect(restored.user.onboarding.dislikedGameIds).toEqual([]);
+  });
+
+  it("falls back to a clean default state when the API returns invalid profile data", async () => {
+    const { loadProductState } = await import("./indexed-db");
+
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        state: {
+          onboarding: {
+            step: "invalid-step",
+            platforms: [{ platformId: "ps5", status: "available" }],
+            likedGameIds: [],
+            onboardingCompletedAt: null,
+          },
+          profile: null,
+          game_states: {},
+          created_at: null,
+        },
+      }),
+    );
+
+    const restored = await loadProductState();
+
+    expect(restored.user.onboarding.step).toBe("platforms");
+    expect(restored.user.onboarding.platforms).toEqual([]);
   });
 });

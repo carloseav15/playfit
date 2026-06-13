@@ -2,7 +2,7 @@ export type ProductAccessStatus = "available" | "limited" | "planned";
 export type ProductPriority = "low" | "medium" | "high";
 export type ProductConfidence = "low" | "medium" | "high";
 export type SeedSource = "catalog" | "universe" | "finder";
-export type ProductOnboardingStep = "platforms" | "anchors";
+export type ProductOnboardingStep = "platforms" | "anchors" | "dislikes";
 export type ProductPlayStatus =
   | "playing"
   | "on_hold"
@@ -11,6 +11,7 @@ export type ProductPlayStatus =
   | "completed"
   | "abandoned"
   | "want_to_play";
+export type ProductDecisionFeedback = "play" | "later" | "loved" | "liked" | "mixed" | "not_for_me";
 export type PlatformAvailability = "available" | "unavailable" | "unknown";
 export type GameAccessStatus = "playable" | "not_on_platforms" | "unknown_platform" | "unreleased";
 export type ProfileSignalTone = "positive" | "negative";
@@ -22,8 +23,10 @@ export interface SeedGame {
   title: string;
   aliases: string[];
   series: string;
+  seriesId?: string;
   source: SeedSource;
   primaryGenre: string;
+  genreId?: string;
   tags: string[];
   notes: string;
   coverPath: string;
@@ -72,6 +75,7 @@ export interface ProductOnboardingDraft {
   step: ProductOnboardingStep;
   platforms: ProductPlatformSelection[];
   likedGameIds: string[];
+  dislikedGameIds: string[];
 }
 
 export interface ProductGameState {

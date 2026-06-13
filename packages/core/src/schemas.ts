@@ -70,7 +70,7 @@ export const productStateSchema = z.object({
   version: z.number(),
   user: z.object({
     onboarding: z.object({
-      step: z.enum(["platforms", "anchors"]),
+      step: z.enum(["platforms", "anchors", "dislikes"]),
       platforms: z.array(
         z.object({
           platformId: z.string(),
@@ -78,6 +78,7 @@ export const productStateSchema = z.object({
         }),
       ),
       likedGameIds: z.array(z.string()),
+      dislikedGameIds: z.array(z.string()).default([]),
     }),
     onboardingCompletedAt: z.string().nullable(),
     profile: productProfileSchema.nullable(),

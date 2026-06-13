@@ -12,6 +12,7 @@ function createDraft(): ProductOnboardingDraft {
     step: "platforms",
     platforms: [],
     likedGameIds: [],
+    dislikedGameIds: [],
   };
 }
 
@@ -51,7 +52,7 @@ function createGameState(gameId: string, rating: ProductRating): ProductGameStat
 }
 
 describe("onboarding domain", () => {
-  it("requires platforms and at least 3 liked games to advance", () => {
+  it("requires platforms, at least 3 liked games, and a disliked game to advance", () => {
     const draft = createDraft();
     expect(canAdvanceOnboarding(draft)).toBe(false);
 
@@ -59,6 +60,9 @@ describe("onboarding domain", () => {
     expect(canAdvanceOnboarding(draft)).toBe(false);
 
     draft.likedGameIds = ["a", "b", "c"];
+    expect(canAdvanceOnboarding(draft)).toBe(false);
+
+    draft.dislikedGameIds = ["d"];
     expect(canAdvanceOnboarding(draft)).toBe(true);
   });
 
@@ -143,6 +147,28 @@ describe("onboarding domain", () => {
     expect(profile.dislikedTags.horror).toBe(1);
     expect(profile.ratedCount).toBe(2);
     expect(profile.signals.length).toBeGreaterThan(0);
+  });
+
+  it("uses disliked setup games as early negative evidence", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["anchor-a", "anchor-b", "anchor-c"];
+    draft.dislikedGameIds = ["bad-anchor"];
+
+    const gamesById = new Map<string, SeedGame>([
+      ["anchor-a", createGame("anchor-a", "Anchor A", "jrpg", ["story_rich"])],
+      ["anchor-b", createGame("anchor-b", "Anchor B", "jrpg", ["turn_based"])],
+      ["anchor-c", createGame("anchor-c", "Anchor C", "jrpg", ["fantasy"])],
+      ["bad-anchor", createGame("bad-anchor", "Bad Anchor", "horror", ["horror", "dark"])],
+    ]);
+
+    const profile = buildAdaptiveProfile(draft, gamesById, {});
+    const analysis = buildTagPreferenceAnalysis(draft, gamesById, {});
+
+    expect(profile.dislikedTags.horror).toBe(1);
+    expect(profile.dislikedTags.dark).toBe(1);
+    expect(profile.avoidedGenres).toContain("horror");
+    expect(analysis.badGameCount).toBe(1);
+    expect(analysis.lowerRatedTags.map((entry) => entry.tag)).toContain("horror");
   });
 
   it("keeps a tag out of caution signals when positive evidence dominates", () => {
