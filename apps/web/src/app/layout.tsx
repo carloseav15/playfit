@@ -59,9 +59,6 @@ export const metadata: Metadata = {
       "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
     images: ["/screenshots/dashboard.jpg"],
   },
-  other: {
-    "application/ld+json": JSON.stringify(jsonLd),
-  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -74,6 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <head />
       <body>
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -87,7 +85,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             Skip to content
           </a>
           <ThemeToggle />
-          <div id="main-content">{children}</div>
+          <div id="main-content" tabIndex={-1}>
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>
