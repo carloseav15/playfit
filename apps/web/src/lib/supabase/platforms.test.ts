@@ -1,16 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  select: vi.fn(),
-  order: vi.fn(),
-}));
-
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: vi.fn(() => ({
-    from: mocks.from,
-  })),
-}));
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 async function loadPlatforms() {
   vi.resetModules();
@@ -18,28 +6,26 @@ async function loadPlatforms() {
 }
 
 describe("fetchPlatforms", () => {
-  beforeEach(() => {
-    mocks.from.mockReturnValue({ select: mocks.select });
-    mocks.select.mockReturnValue({ order: mocks.order });
-  });
-
   afterEach(() => {
-    vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("maps platform rows", async () => {
-    mocks.order.mockResolvedValue({
-      data: [
-        {
-          id: "switch_2",
-          name: "Nintendo Switch 2",
-          family: "nintendo",
-          kind: "hybrid",
-          gen: 9,
-        },
-      ],
-      error: null,
-    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue([
+          {
+            id: "switch_2",
+            name: "Nintendo Switch 2",
+            family: "nintendo",
+            kind: "hybrid",
+            gen: 9,
+          },
+        ]),
+      }),
+    );
 
     const { fetchPlatforms } = await loadPlatforms();
 
@@ -56,14 +42,26 @@ describe("fetchPlatforms", () => {
   });
 
   it("allows an empty platform list", async () => {
-    mocks.order.mockResolvedValue({ data: [], error: null });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue([]),
+      }),
+    );
     const { fetchPlatforms } = await loadPlatforms();
 
     await expect(fetchPlatforms()).resolves.toEqual([]);
   });
 
   it("throws when Supabase fails", async () => {
-    mocks.order.mockResolvedValue({ data: null, error: { message: "invalid api key" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        text: vi.fn().mockResolvedValue("invalid api key"),
+      }),
+    );
     const { fetchPlatforms } = await loadPlatforms();
 
     await expect(fetchPlatforms()).rejects.toThrow("Failed to load platforms: invalid api key");

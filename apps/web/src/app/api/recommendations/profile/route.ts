@@ -1,7 +1,7 @@
 import { buildAdaptiveProfile } from "@playfit/core/domain";
 import type { ProductGameState, ProductOnboardingDraft, SeedGame } from "@playfit/core/types";
 import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
   game_id: string;
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     return Response.json({ profile: fallback });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createAnonClient();
 
   const { data: rawGames, error } = await supabase
     .schema("games_library")

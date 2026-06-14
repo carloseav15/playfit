@@ -1,6 +1,6 @@
 import type { SeedGame } from "@playfit/core/types";
 import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/server";
 
 const LOW_QUALITY_TERMS = [
   "bonus disc",
@@ -142,7 +142,7 @@ interface AliasJoinRow {
   alias: string;
 }
 
-type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+type SupabaseClient = ReturnType<typeof createAnonClient>;
 
 interface CandidateResult {
   rows: GameRow[];
@@ -336,7 +336,7 @@ export async function GET(request: Request) {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize")) || 50));
   const from = (page - 1) * pageSize;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createAnonClient();
 
   if (!query) {
     const baseQuery = supabase
