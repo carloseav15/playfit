@@ -25,10 +25,17 @@ export function OnboardingSection() {
   const draft = state.user.onboarding;
   const [platformError, setPlatformError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(ui.onboardingQuery);
-  const anchorResults = useMemo(
-    () => searchGames(deferredQuery).slice(0, 8),
-    [deferredQuery, searchGames],
-  );
+  const anchorResults = useMemo(() => {
+    const games = searchGames(deferredQuery);
+    const seen = new Set<string>();
+    return games
+      .filter((game) => {
+        if (seen.has(game.gameId)) return false;
+        seen.add(game.gameId);
+        return true;
+      })
+      .slice(0, 8);
+  }, [deferredQuery, searchGames]);
   const canAdvance = canAdvanceOnboarding(draft);
   const platformsUnavailable = seedData.platforms.length === 0;
   const allSelected =
