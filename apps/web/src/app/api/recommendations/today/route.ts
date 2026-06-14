@@ -8,7 +8,8 @@ import type {
 } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
 import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { paginateTable } from "@/lib/supabase/paginate";
+import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
   game_id: string;
@@ -39,9 +40,7 @@ const DB_VERSION = 2;
 const CACHE_KEY = "catalog:games";
 const CACHE_TTL = 300;
 
-async function fetchAllGames(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-): Promise<SeedGame[]> {
+async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Promise<SeedGame[]> {
   const cached = await getCache<SeedGame[]>(CACHE_KEY, supabase);
   if (cached) {
     console.log(
@@ -82,34 +81,24 @@ async function fetchAllGames(
     if (batch.length < pageSize) done = true;
   }
 
-  const fetchedIds = allGames.map((g) => g.game_id);
-
-  const [platformResult, aliasResult] = await Promise.all([
-    supabase
-      .schema("games_library")
-      .from("game_platforms")
-      .select("game_id, platform_id, platforms:platform_id(name)")
-      .in("game_id", fetchedIds),
-    supabase
-      .schema("games_library")
-      .from("game_aliases")
-      .select("game_id, alias")
-      .in("game_id", fetchedIds),
+  const [allPlatforms, allAliases] = await Promise.all([
+    paginateTable<{ game_id: string; platform_id: string; platforms: unknown }>(
+      supabase,
+      "game_platforms",
+      "game_id, platform_id, platforms:platform_id(name)",
+    ),
+    paginateTable<{ game_id: string; alias: string }>(supabase, "game_aliases", "game_id, alias"),
   ]);
 
   const platformsByGame = new Map<string, { platform_id: string; platforms: unknown }[]>();
-  for (const row of (platformResult.data as {
-    game_id: string;
-    platform_id: string;
-    platforms: unknown;
-  }[]) ?? []) {
+  for (const row of allPlatforms) {
     const entry = platformsByGame.get(row.game_id) ?? [];
     entry.push(row);
     platformsByGame.set(row.game_id, entry);
   }
 
   const aliasesByGame = new Map<string, string[]>();
-  for (const row of (aliasResult.data as { game_id: string; alias: string }[]) ?? []) {
+  for (const row of allAliases) {
     const entry = aliasesByGame.get(row.game_id) ?? [];
     entry.push(row.alias);
     aliasesByGame.set(row.game_id, entry);
@@ -148,7 +137,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as TodayRequest;
   const { profile, gameStates, onboarding } = body;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createAnonClient();
   const allGames = await fetchAllGames(supabase);
 
   const catalogGames = allGames.filter((g) => g.source === "catalog");
