@@ -6,7 +6,7 @@ import {
 import { z } from "zod";
 
 import { isValidDeviceId } from "@/lib/device-id";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/server";
 
 const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
   onboardingCompletedAt: z.string().nullable(),
@@ -23,6 +23,10 @@ const profileSaveRequestSchema = z
 
 const RATE_LIMIT_MAX = 30;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function createClient() {
+  return createAnonClient();
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
 
@@ -42,10 +46,6 @@ async function fireMigrateProfile(
   }
 }
 
-async function createClient() {
-  return createSupabaseServerClient();
-}
-
 async function checkRateLimit(request: Request, userId?: string | null): Promise<boolean> {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -53,55 +53,44 @@ async function checkRateLimit(request: Request, userId?: string | null): Promise
     "unknown";
 
   const client = await createClient();
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+  const { data, error } = await client.rpc("check_rate_limit", {
+    p_ip_address: ip,
+    p_endpoint: "/api/profile",
+    p_max_requests: RATE_LIMIT_MAX,
+    p_window_seconds: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+    p_user_id: userId ?? null,
+  });
 
-  const { count: ipCount } = await client
-    .schema("games_library")
-    .from("rate_limits")
-    .select("*", { count: "exact", head: true })
-    .eq("ip_address", ip)
-    .eq("endpoint", "/api/profile")
-    .gte("requested_at", windowStart);
-
-  if (ipCount && ipCount >= RATE_LIMIT_MAX) return false;
-
-  if (userId) {
-    const { count: userCount } = await client
-      .schema("games_library")
-      .from("rate_limits")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("endpoint", "/api/profile")
-      .gte("requested_at", windowStart);
-
-    if (userCount && userCount >= RATE_LIMIT_MAX) return false;
+  if (error) {
+    console.error("checkRateLimit error:", error);
+    return false;
   }
 
-  await client
-    .schema("games_library")
-    .from("rate_limits")
-    .insert({
-      ip_address: ip,
-      endpoint: "/api/profile",
-      user_id: userId ?? null,
-    });
-
-  return true;
+  return data === true;
 }
 
 async function getUserId(request: Request): Promise<string | null> {
-  const serverSupabase = await createClient();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-  if (user?.id) return user.id;
+  try {
+    const serverSupabase = await createClient();
+    const {
+      data: { user },
+    } = await serverSupabase.auth.getUser();
+    if (user?.id) return user.id;
+  } catch (e) {
+    console.error("getUserId (cookie) error:", e);
+  }
 
   const authHeader = request.headers.get("authorization");
   const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!jwt) return null;
 
-  const { data } = await serverSupabase.auth.getUser(jwt);
-  if (data?.user?.id) return data.user.id;
+  try {
+    const serverSupabase = await createClient();
+    const { data } = await serverSupabase.auth.getUser(jwt);
+    if (data?.user?.id) return data.user.id;
+  } catch (e) {
+    console.error("getUserId (bearer) error:", e);
+  }
 
   return null;
 }
@@ -141,7 +130,8 @@ export async function GET(request: Request) {
     }
 
     return Response.json({ state: data }, { status: 200 });
-  } catch {
+  } catch (e) {
+    console.error("GET /api/profile error:", e);
     return Response.json({ error: "Failed to load profile" }, { status: 500 });
   }
 }
@@ -152,6 +142,7 @@ export async function POST(request: Request) {
     if (!(await checkRateLimit(request, userId))) {
       return Response.json({ error: "Too many requests" }, { status: 429 });
     }
+
     let rawBody: unknown;
     try {
       rawBody = await request.json();
@@ -252,7 +243,8 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     return Response.json({ ok: true }, { status: 200 });
-  } catch {
+  } catch (e) {
+    console.error("POST /api/profile error:", e);
     return Response.json({ error: "Failed to save profile" }, { status: 500 });
   }
 }
@@ -293,7 +285,8 @@ export async function DELETE(request: Request) {
     }
 
     return Response.json({ ok: true }, { status: 200 });
-  } catch {
+  } catch (e) {
+    console.error("DELETE /api/profile error:", e);
     return Response.json({ error: "Failed to reset profile" }, { status: 500 });
   }
 }
