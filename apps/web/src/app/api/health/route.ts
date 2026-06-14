@@ -1,11 +1,11 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const checks: Record<string, string> = {};
   let healthy = true;
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createAnonClient();
     const { count, error } = await supabase
       .schema("games_library")
       .from("games")

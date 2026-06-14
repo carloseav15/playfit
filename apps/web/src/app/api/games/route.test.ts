@@ -80,7 +80,7 @@ vi.mock("@/lib/game-mapper", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(() => ({
+  createAnonClient: vi.fn(() => ({
     schema: vi.fn(() => ({
       from: vi.fn((table: string) => createQuery(table)),
     })),

@@ -1,18 +1,22 @@
 import type { ProductPlatformOption } from "@playfit/core/types";
-import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "local-dev-anon-key";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export async function fetchPlatforms(): Promise<ProductPlatformOption[]> {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    db: { schema: "games_library" },
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/platforms?select=*&order=id.asc`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      "Accept-Profile": "games_library",
+    },
+    next: { revalidate: 300 },
   });
-  const { data, error } = await supabase.from("platforms").select("*").order("id");
-  if (error) {
-    throw new Error(`Failed to load platforms: ${error.message}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to load platforms: ${text}`);
   }
-  return (data ?? []).map((row: Record<string, unknown>) => ({
+  const data = (await res.json()) as Record<string, unknown>[];
+  return data.map((row) => ({
     platformId: row.id as string,
     displayName: row.name as string,
     family: row.family as string,
