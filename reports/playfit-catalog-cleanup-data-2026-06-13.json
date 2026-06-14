@@ -1,0 +1,519 @@
+{
+  "generated_at": "2026-06-13T23:00:59.001365+00:00",
+  "source_of_truth": "Local Supabase Docker container supabase_db_games-library, database postgres, schema games_library",
+  "repo": "/Users/carancibia/Projects/experiments/games-library",
+  "read_only": true,
+  "queries": {
+    "table_counts": "\nselect * from (\n  select 1 as sort_order, 'games' as table_name, count(*)::bigint as row_count from games_library.games\n  union all select 2, 'game_platforms', count(*)::bigint from games_library.game_platforms\n  union all select 3, 'game_tags', count(*)::bigint from games_library.game_tags\n  union all select 4, 'game_aliases', count(*)::bigint from games_library.game_aliases\n  union all select 5, 'platforms', count(*)::bigint from games_library.platforms\n  union all select 6, 'genres', count(*)::bigint from games_library.genres\n  union all select 7, 'series', count(*)::bigint from games_library.series\n  union all select 8, 'tags', count(*)::bigint from games_library.tags\n  union all select 9, 'profiles', count(*)::bigint from games_library.profiles\n  union all select 10, 'user_game_states', count(*)::bigint from games_library.user_game_states\n  union all select 11, 'rate_limits', count(*)::bigint from games_library.rate_limits\n  union all select 12, 'audit_log', count(*)::bigint from games_library.audit_log\n  union all select 13, 'api_cache', count(*)::bigint from games_library.api_cache\n) t order by sort_order\n",
+    "source_distribution": "\nselect coalesce(source_type, 'unknown') as source_type, count(*)::bigint as row_count\nfrom games_library.games\ngroup by 1\norder by row_count desc, source_type\n",
+    "release_state": "\nselect coalesce(release_state, 'unknown') as release_state, count(*)::bigint as row_count\nfrom games_library.games\ngroup by 1\norder by row_count desc, release_state\n",
+    "quality_gaps": "\nwith total as (select count(*)::numeric as n from games_library.games)\nselect * from (\n  select 1 as sort_order, 'Missing series' as metric, count(*)::bigint as row_count, round(count(*)::numeric / max(total.n) * 100, 1) as pct_games, 'Often valid for standalone games; review generic contamination separately.' as interpretation\n  from games_library.games, total where series_id is null\n  union all\n  select 2, 'Missing genre', count(*)::bigint, round(count(*)::numeric / max(total.n) * 100, 1), 'Important recommendation/search quality gap.'\n  from games_library.games, total where genre_id is null\n  union all\n  select 3, 'Missing cover', count(*)::bigint, round(count(*)::numeric / max(total.n) * 100, 1), 'Visible product quality gap, not identity.'\n  from games_library.games, total where coalesce(cover_url, '') = ''\n  union all\n  select 4, 'No tags array', count(*)::bigint, round(count(*)::numeric / max(total.n) * 100, 1), 'Can weaken recommendations; validate game_tags too.'\n  from games_library.games, total where cardinality(tags) = 0\n  union all\n  select 5, 'Unknown release year', count(*)::bigint, round(count(*)::numeric / max(total.n) * 100, 1), 'Sentinel year 0; avoid date-based merges until enriched.'\n  from games_library.games, total where release_year = 0\n) q order by sort_order\n",
+    "duplicate_stats": "\nwith norm as (\n  select\n    game_id,\n    title,\n    coalesce(source_type, 'unknown') as source_type,\n    source_ref,\n    nullif(release_year, 0) as known_year,\n    regexp_replace(lower(title), '[^a-z0-9]+', '', 'g') as normalized_title_key\n  from games_library.games\n), groups as (\n  select\n    normalized_title_key,\n    count(*)::int as row_count,\n    count(distinct known_year) as known_year_count,\n    count(distinct source_type) as source_type_count\n  from norm\n  group by normalized_title_key\n  having count(*) > 1\n)\nselect\n  count(*)::bigint as duplicate_groups,\n  sum(row_count)::bigint as affected_rows,\n  max(row_count)::int as max_group_size,\n  sum(case when known_year_count <= 1 then 1 else 0 end)::bigint as same_or_unknown_year_groups,\n  sum(case when known_year_count > 1 then 1 else 0 end)::bigint as different_known_year_groups,\n  sum(case when source_type_count > 1 then 1 else 0 end)::bigint as multi_source_groups\nfrom groups\n",
+    "duplicate_examples": "\nwith norm as (\n  select\n    game_id,\n    title,\n    coalesce(source_type, 'unknown') as source_type,\n    source_ref,\n    release_year,\n    regexp_replace(lower(title), '[^a-z0-9]+', '', 'g') as normalized_title_key\n  from games_library.games\n), groups as (\n  select normalized_title_key, count(*) as row_count, count(distinct nullif(release_year,0)) as known_year_count\n  from norm\n  group by normalized_title_key\n  having count(*) > 1\n)\nselect\n  n.normalized_title_key,\n  g.row_count::int,\n  g.known_year_count::int,\n  jsonb_agg(jsonb_build_object('game_id', n.game_id, 'title', n.title, 'release_year', n.release_year, 'source_type', n.source_type) order by n.release_year, n.source_type, n.game_id) as rows\nfrom norm n\njoin groups g using (normalized_title_key)\nwhere n.normalized_title_key in ('darksoulsiii','darksoulsremastered','deadcells','doom','finalfantasyxx2hdremaster','grandtheftautov','dragonquestiiihd2dremake')\ngroup by n.normalized_title_key, g.row_count, g.known_year_count\norder by g.row_count desc, n.normalized_title_key\n",
+    "profile_divergence": "\nselect * from (\n  select 1 as sort_order, 'profiles' as metric, count(*)::bigint as row_count from games_library.profiles\n  union all select 2, 'profiles_with_json_states', count(*)::bigint from games_library.profiles where game_states <> '{}'::jsonb\n  union all select 3, 'json_state_entries', count(*)::bigint from games_library.profiles p cross join lateral jsonb_object_keys(p.game_states) k\n  union all select 4, 'user_game_states', count(*)::bigint from games_library.user_game_states\n) q order by sort_order\n",
+    "series_contamination": "\nselect * from (\n  select 'series_equal_genres' as check_name, count(*)::bigint as row_count,\n         array_agg(s.name order by s.name) filter (where s.name is not null) as examples\n  from games_library.series s\n  join games_library.genres g on lower(s.name) = lower(g.name)\n  union all\n  select 'series_equal_tags' as check_name, count(*)::bigint as row_count,\n         array_agg(s.name order by s.name) filter (where s.name is not null) as examples\n  from games_library.series s\n  join games_library.tags t on lower(s.name) = lower(t.name)\n) q\n",
+    "orphan_checks": "\nselect * from (\n  select 'game_aliases.game_id' as check_name, count(*)::bigint as orphan_count from games_library.game_aliases a left join games_library.games g using (game_id) where g.game_id is null\n  union all select 'game_platforms.game_id', count(*)::bigint from games_library.game_platforms gp left join games_library.games g using (game_id) where g.game_id is null\n  union all select 'game_platforms.platform_id', count(*)::bigint from games_library.game_platforms gp left join games_library.platforms p on p.id = gp.platform_id where p.id is null\n  union all select 'game_tags.game_id', count(*)::bigint from games_library.game_tags gt left join games_library.games g using (game_id) where g.game_id is null\n  union all select 'game_tags.tag_id', count(*)::bigint from games_library.game_tags gt left join games_library.tags t on t.id = gt.tag_id where t.id is null\n  union all select 'games.genre_id', count(*)::bigint from games_library.games g left join games_library.genres ge on ge.id = g.genre_id where g.genre_id is not null and ge.id is null\n  union all select 'games.series_id', count(*)::bigint from games_library.games g left join games_library.series s on s.id = g.series_id where g.series_id is not null and s.id is null\n) q order by check_name\n",
+    "restore_counts": "\nselect * from (\n  select 'games_library_restore.games' as table_name, count(*)::bigint as row_count from games_library_restore.games\n  union all select 'games_library_restore.platforms', count(*)::bigint from games_library_restore.platforms\n  union all select 'games_library_restore.game_platforms', count(*)::bigint from games_library_restore.game_platforms\n) q order by table_name\n",
+    "platform_top": "\nselect p.name as platform_name, count(*)::bigint as game_count\nfrom games_library.game_platforms gp\njoin games_library.platforms p on p.id = gp.platform_id\ngroup by p.name\norder by game_count desc, p.name\nlimit 12\n"
+  },
+  "results": {
+    "table_counts": [
+      {
+        "row_count": 44162,
+        "sort_order": 1,
+        "table_name": "games"
+      },
+      {
+        "row_count": 64566,
+        "sort_order": 2,
+        "table_name": "game_platforms"
+      },
+      {
+        "row_count": 93693,
+        "sort_order": 3,
+        "table_name": "game_tags"
+      },
+      {
+        "row_count": 4,
+        "sort_order": 4,
+        "table_name": "game_aliases"
+      },
+      {
+        "row_count": 36,
+        "sort_order": 5,
+        "table_name": "platforms"
+      },
+      {
+        "row_count": 74,
+        "sort_order": 6,
+        "table_name": "genres"
+      },
+      {
+        "row_count": 373,
+        "sort_order": 7,
+        "table_name": "series"
+      },
+      {
+        "row_count": 162,
+        "sort_order": 8,
+        "table_name": "tags"
+      },
+      {
+        "row_count": 4,
+        "sort_order": 9,
+        "table_name": "profiles"
+      },
+      {
+        "row_count": 0,
+        "sort_order": 10,
+        "table_name": "user_game_states"
+      },
+      {
+        "row_count": 121,
+        "sort_order": 11,
+        "table_name": "rate_limits"
+      },
+      {
+        "row_count": 0,
+        "sort_order": 12,
+        "table_name": "audit_log"
+      },
+      {
+        "row_count": 1,
+        "sort_order": 13,
+        "table_name": "api_cache"
+      }
+    ],
+    "source_distribution": [
+      {
+        "row_count": 43772,
+        "source_type": "finder"
+      },
+      {
+        "row_count": 386,
+        "source_type": "catalog"
+      },
+      {
+        "row_count": 4,
+        "source_type": "universe"
+      }
+    ],
+    "release_state": [
+      {
+        "row_count": 43465,
+        "release_state": "released"
+      },
+      {
+        "row_count": 697,
+        "release_state": "unreleased"
+      }
+    ],
+    "quality_gaps": [
+      {
+        "metric": "Missing series",
+        "pct_games": 95.5,
+        "row_count": 42163,
+        "sort_order": 1,
+        "interpretation": "Often valid for standalone games; review generic contamination separately."
+      },
+      {
+        "metric": "Missing genre",
+        "pct_games": 60.6,
+        "row_count": 26766,
+        "sort_order": 2,
+        "interpretation": "Important recommendation/search quality gap."
+      },
+      {
+        "metric": "Missing cover",
+        "pct_games": 51.0,
+        "row_count": 22514,
+        "sort_order": 3,
+        "interpretation": "Visible product quality gap, not identity."
+      },
+      {
+        "metric": "No tags array",
+        "pct_games": 5.6,
+        "row_count": 2477,
+        "sort_order": 4,
+        "interpretation": "Can weaken recommendations; validate game_tags too."
+      },
+      {
+        "metric": "Unknown release year",
+        "pct_games": 3.5,
+        "row_count": 1567,
+        "sort_order": 5,
+        "interpretation": "Sentinel year 0; avoid date-based merges until enriched."
+      }
+    ],
+    "duplicate_stats": [
+      {
+        "affected_rows": 1372,
+        "max_group_size": 3,
+        "duplicate_groups": 678,
+        "multi_source_groups": 35,
+        "different_known_year_groups": 191,
+        "same_or_unknown_year_groups": 487
+      }
+    ],
+    "duplicate_examples": [
+      {
+        "rows": [
+          {
+            "title": "DARK SOULS\u2122 III",
+            "game_id": "dark_souls_iii",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "Dark Souls III",
+            "game_id": "rawg_dark_souls_iii",
+            "source_type": "finder",
+            "release_year": 2016
+          },
+          {
+            "title": "DARK SOULS\u2122 III",
+            "game_id": "steam_374320_dark_soulstm_iii",
+            "source_type": "finder",
+            "release_year": 2016
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 1,
+        "normalized_title_key": "darksoulsiii"
+      },
+      {
+        "rows": [
+          {
+            "title": "DARK SOULS\u2122: REMASTERED",
+            "game_id": "dark_souls_remastered",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "Dark Souls: Remastered",
+            "game_id": "rawg_dark_souls_remastered",
+            "source_type": "finder",
+            "release_year": 2018
+          },
+          {
+            "title": "DARK SOULS\u2122: REMASTERED",
+            "game_id": "steam_570940_dark_soulstm_remastered",
+            "source_type": "finder",
+            "release_year": 2018
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 1,
+        "normalized_title_key": "darksoulsremastered"
+      },
+      {
+        "rows": [
+          {
+            "title": "Dead Cells",
+            "game_id": "dead_cells",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "Dead Cells",
+            "game_id": "rawg_dead_cells",
+            "source_type": "finder",
+            "release_year": 2018
+          },
+          {
+            "title": "Dead Cells",
+            "game_id": "steam_588650_dead_cells",
+            "source_type": "finder",
+            "release_year": 2018
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 1,
+        "normalized_title_key": "deadcells"
+      },
+      {
+        "rows": [
+          {
+            "title": "DOOM",
+            "game_id": "rawg_doom",
+            "source_type": "finder",
+            "release_year": 1993
+          },
+          {
+            "title": "Doom",
+            "game_id": "catalog_doom_1",
+            "source_type": "catalog",
+            "release_year": 2016
+          },
+          {
+            "title": "DOOM",
+            "game_id": "steam_379720_doom",
+            "source_type": "finder",
+            "release_year": 2016
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 2,
+        "normalized_title_key": "doom"
+      },
+      {
+        "rows": [
+          {
+            "title": "DRAGON QUEST III HD-2D Remake",
+            "game_id": "dragon_quest_iii_hd_2d_remake",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "Dragon Quest III HD-2D Remake",
+            "game_id": "wiki_dragon_quest_iii_hd_2d_remake",
+            "source_type": "finder",
+            "release_year": 2024
+          },
+          {
+            "title": "Dragon Quest I & II HD-2D Remake",
+            "game_id": "wiki_dragon_quest_i_ii_hd_2d_remake",
+            "source_type": "finder",
+            "release_year": 2025
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 2,
+        "normalized_title_key": "dragonquestiiihd2dremake"
+      },
+      {
+        "rows": [
+          {
+            "title": "FINAL FANTASY X/X-2 HD Remaster",
+            "game_id": "final_fantasy_x_x_2_hd_remaster",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "FINAL FANTASY X/X-2 HD Remaster",
+            "game_id": "rawg_final_fantasy_x_x_2_hd_remaster",
+            "source_type": "finder",
+            "release_year": 2013
+          },
+          {
+            "title": "FINAL FANTASY X/X-2 HD Remaster",
+            "game_id": "steam_359870_final_fantasy_x_x_2_hd_remaster",
+            "source_type": "finder",
+            "release_year": 2016
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 2,
+        "normalized_title_key": "finalfantasyxx2hdremaster"
+      },
+      {
+        "rows": [
+          {
+            "title": "Grand Theft Auto V",
+            "game_id": "grand_theft_auto_v",
+            "source_type": "finder",
+            "release_year": 0
+          },
+          {
+            "title": "Grand Theft Auto V",
+            "game_id": "rawg_grand_theft_auto_v",
+            "source_type": "finder",
+            "release_year": 2013
+          },
+          {
+            "title": "Grand Theft Auto V",
+            "game_id": "steam_271590_grand_theft_auto_v",
+            "source_type": "finder",
+            "release_year": 2015
+          }
+        ],
+        "row_count": 3,
+        "known_year_count": 2,
+        "normalized_title_key": "grandtheftautov"
+      }
+    ],
+    "profile_divergence": [
+      {
+        "metric": "profiles",
+        "row_count": 4,
+        "sort_order": 1
+      },
+      {
+        "metric": "profiles_with_json_states",
+        "row_count": 1,
+        "sort_order": 2
+      },
+      {
+        "metric": "json_state_entries",
+        "row_count": 11,
+        "sort_order": 3
+      },
+      {
+        "metric": "user_game_states",
+        "row_count": 0,
+        "sort_order": 4
+      }
+    ],
+    "series_contamination": [
+      {
+        "examples": [
+          "action",
+          "adventure",
+          "arcade",
+          "board-games",
+          "card",
+          "casual",
+          "educational",
+          "fighting",
+          "platformer",
+          "puzzle",
+          "racing",
+          "role-playing-games-rpg",
+          "shooter",
+          "simulation",
+          "sports",
+          "strategy"
+        ],
+        "row_count": 16,
+        "check_name": "series_equal_genres"
+      },
+      {
+        "examples": [
+          "adventure",
+          "arcade",
+          "card",
+          "Cyberpunk",
+          "fighting",
+          "platformer",
+          "puzzle",
+          "racing",
+          "shooter",
+          "simulation",
+          "sports",
+          "strategy"
+        ],
+        "row_count": 12,
+        "check_name": "series_equal_tags"
+      }
+    ],
+    "orphan_checks": [
+      {
+        "check_name": "game_aliases.game_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "game_platforms.game_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "game_platforms.platform_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "game_tags.game_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "game_tags.tag_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "games.genre_id",
+        "orphan_count": 0
+      },
+      {
+        "check_name": "games.series_id",
+        "orphan_count": 0
+      }
+    ],
+    "restore_counts": [
+      {
+        "row_count": 0,
+        "table_name": "games_library_restore.game_platforms"
+      },
+      {
+        "row_count": 0,
+        "table_name": "games_library_restore.games"
+      },
+      {
+        "row_count": 0,
+        "table_name": "games_library_restore.platforms"
+      }
+    ],
+    "platform_top": [
+      {
+        "game_count": 5371,
+        "platform_name": "PlayStation 2"
+      },
+      {
+        "game_count": 5354,
+        "platform_name": "PlayStation"
+      },
+      {
+        "game_count": 4514,
+        "platform_name": "Nintendo Switch"
+      },
+      {
+        "game_count": 4388,
+        "platform_name": "Nintendo DS"
+      },
+      {
+        "game_count": 3988,
+        "platform_name": "PC"
+      },
+      {
+        "game_count": 3392,
+        "platform_name": "Xbox One"
+      },
+      {
+        "game_count": 3179,
+        "platform_name": "PlayStation 3"
+      },
+      {
+        "game_count": 3172,
+        "platform_name": "Xbox 360"
+      },
+      {
+        "game_count": 2599,
+        "platform_name": "PSP"
+      },
+      {
+        "game_count": 2304,
+        "platform_name": "PlayStation 4"
+      },
+      {
+        "game_count": 2224,
+        "platform_name": "Wii"
+      },
+      {
+        "game_count": 2020,
+        "platform_name": "SNES"
+      }
+    ]
+  },
+  "chart_map": [
+    {
+      "file": "reports/assets/playfit_duplicate_review_2026-06-13.png",
+      "section": "Duplicados",
+      "chart_family": "ranked horizontal bar",
+      "claim": "Duplicate cleanup is a review workflow, not a source filter."
+    },
+    {
+      "file": "reports/assets/playfit_quality_gaps_2026-06-13.png",
+      "section": "Calidad de catalogo",
+      "chart_family": "ranked horizontal bar",
+      "claim": "Metadata gaps are larger than duplicate count and should be cleaned after identity is protected."
+    },
+    {
+      "file": "reports/assets/playfit_source_distribution_2026-06-13.png",
+      "section": "Procedencia",
+      "chart_family": "ranked horizontal bar",
+      "claim": "source_type is provenance and should not be used as game identity."
+    }
+  ],
+  "validation_notes": {
+    "orphan_checks_total": 0,
+    "restore_tables_all_empty": true,
+    "user_ids_omitted": true
+  }
+}
