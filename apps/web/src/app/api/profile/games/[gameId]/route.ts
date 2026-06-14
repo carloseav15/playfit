@@ -1,11 +1,11 @@
 import { isValidDeviceId } from "@/lib/device-id";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/server";
 
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
-async function createClient() {
-  return createSupabaseServerClient();
+function createClient() {
+  return createAnonClient();
 }
 
 async function checkRateLimit(request: Request): Promise<boolean> {
@@ -15,24 +15,20 @@ async function checkRateLimit(request: Request): Promise<boolean> {
     "unknown";
 
   const client = await createClient();
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
-
-  const { count } = await client
-    .schema("games_library")
-    .from("rate_limits")
-    .select("*", { count: "exact", head: true })
-    .eq("ip_address", ip)
-    .eq("endpoint", "/api/profile/games")
-    .gte("requested_at", windowStart);
-
-  if (count && count >= RATE_LIMIT_MAX) return false;
-
-  await client.schema("games_library").from("rate_limits").insert({
-    ip_address: ip,
-    endpoint: "/api/profile/games",
+  const { data, error } = await client.rpc("check_rate_limit", {
+    p_ip_address: ip,
+    p_endpoint: "/api/profile/games",
+    p_max_requests: RATE_LIMIT_MAX,
+    p_window_seconds: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+    p_user_id: null,
   });
 
-  return true;
+  if (error) {
+    console.error("checkRateLimit error:", error);
+    return false;
+  }
+
+  return data === true;
 }
 
 async function getUserId(request: Request): Promise<string | null> {
@@ -97,7 +93,8 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
     }
 
     return Response.json({ ok: true }, { status: 200 });
-  } catch {
+  } catch (e) {
+    console.error("PATCH /api/profile/games error:", e);
     return Response.json({ error: "Failed to update game state" }, { status: 500 });
   }
 }
@@ -132,7 +129,8 @@ export async function DELETE(request: Request, props: { params: Promise<{ gameId
     }
 
     return Response.json({ ok: true }, { status: 200 });
-  } catch {
+  } catch (e) {
+    console.error("DELETE /api/profile/games error:", e);
     return Response.json({ error: "Failed to delete game state" }, { status: 500 });
   }
 }

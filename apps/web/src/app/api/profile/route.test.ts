@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   rpc: vi.fn(),
-  rateLimitGte: vi.fn().mockResolvedValue({ count: 0, data: null, error: null }),
 }));
 
 vi.mock("@/lib/device-id", () => ({
@@ -11,12 +10,7 @@ vi.mock("@/lib/device-id", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(() => {
-    const rateLimitEq2 = vi.fn(() => ({ gte: mocks.rateLimitGte }));
-    const rateLimitEq1 = vi.fn(() => ({ eq: rateLimitEq2 }));
-    const rateLimitSelect = vi.fn(() => ({ eq: rateLimitEq1 }));
-    const rateLimitInsert = vi.fn().mockResolvedValue({ error: null });
-
+  createAnonClient: vi.fn(() => {
     return {
       auth: {
         getUser: mocks.getUser,
@@ -33,8 +27,8 @@ vi.mock("@/lib/supabase/server", () => ({
             };
           }
           return {
-            select: rateLimitSelect,
-            insert: rateLimitInsert,
+            select: vi.fn(),
+            insert: vi.fn(),
           };
         }),
       })),
@@ -90,11 +84,23 @@ async function loadRoute() {
   return import("./route");
 }
 
+function mockRpcWithProfileResponses(responses: { data: unknown; error: null }[]) {
+  const profileResponses = [...responses];
+  mocks.rpc.mockImplementation((functionName: string) => {
+    if (functionName === "check_rate_limit") {
+      return Promise.resolve({ data: true, error: null });
+    }
+    if (functionName === "get_profile") {
+      return Promise.resolve(profileResponses.shift() ?? { data: null, error: null });
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
+}
+
 describe("profile API route", () => {
   beforeEach(() => {
     mocks.getUser.mockResolvedValue({ data: { user: null } });
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-    mocks.rateLimitGte.mockResolvedValue({ count: 0, data: null, error: null });
+    mockRpcWithProfileResponses([]);
   });
 
   afterEach(() => {
@@ -125,7 +131,6 @@ describe("profile API route", () => {
 
   it("prefers the verified auth user over a client device id", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
     const { POST } = await loadRoute();
     const response = await POST(
       new Request("http://playfit.test/api/profile", {
@@ -157,7 +162,7 @@ describe("profile API route", () => {
 
     await expect(response.json()).resolves.toEqual({ error: "Invalid JSON payload" });
     expect(response.status).toBe(400);
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
   });
 
   it("rejects payloads outside the profile schema", async () => {
@@ -173,15 +178,17 @@ describe("profile API route", () => {
 
     expect(response.status).toBe(400);
     expect(json.error).toBe("Invalid profile payload");
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
   });
 
   it("rejects empty save when authenticated user has existing data", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-    mocks.rpc.mockResolvedValue({
-      data: { game_states: { chrono_trigger: {} }, profile: { summary: "test" } },
-      error: null,
-    });
+    mockRpcWithProfileResponses([
+      {
+        data: { game_states: { chrono_trigger: {} }, profile: { summary: "test" } },
+        error: null,
+      },
+    ]);
 
     const { POST } = await loadRoute();
     const response = await POST(
@@ -204,13 +211,16 @@ describe("profile API route", () => {
   it("migrates device profile data to authenticated user", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
 
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({
-      data: {
-        game_states: { chrono_trigger: { gameId: "chrono_trigger", title: "Chrono Trigger" } },
-        profile: { summary: "test" },
+    mockRpcWithProfileResponses([
+      { data: null, error: null },
+      {
+        data: {
+          game_states: { chrono_trigger: { gameId: "chrono_trigger", title: "Chrono Trigger" } },
+          profile: { summary: "test" },
+        },
+        error: null,
       },
-      error: null,
-    });
+    ]);
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
 
@@ -233,9 +243,10 @@ describe("profile API route", () => {
 
   it("allows empty save when auth user has no existing profile", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-    mocks.rpc
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
+    mockRpcWithProfileResponses([
+      { data: null, error: null },
+      { data: null, error: null },
+    ]);
 
     const { POST } = await loadRoute();
     const response = await POST(

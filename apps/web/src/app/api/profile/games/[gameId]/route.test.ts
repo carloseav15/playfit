@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   rpc: vi.fn(),
-  profileGamesRateLimitGte: vi.fn().mockResolvedValue({ count: 0, data: null, error: null }),
   isValidDeviceId: vi.fn(() => true),
 }));
 
@@ -12,19 +11,14 @@ vi.mock("@/lib/device-id", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(() => {
-    const rateLimitEq2 = vi.fn(() => ({ gte: mocks.profileGamesRateLimitGte }));
-    const rateLimitEq1 = vi.fn(() => ({ eq: rateLimitEq2 }));
-    const rateLimitSelect = vi.fn(() => ({ eq: rateLimitEq1 }));
-    const rateLimitInsert = vi.fn().mockResolvedValue({ error: null });
-
+  createAnonClient: vi.fn(() => {
     return {
       auth: { getUser: mocks.getUser },
       rpc: mocks.rpc,
       schema: vi.fn(() => ({
         from: vi.fn(() => ({
-          select: rateLimitSelect,
-          insert: rateLimitInsert,
+          select: vi.fn(),
+          insert: vi.fn(),
         })),
       })),
     };
@@ -39,8 +33,12 @@ async function loadRoute() {
 describe("profile game states API route", () => {
   beforeEach(() => {
     mocks.getUser.mockResolvedValue({ data: { user: null } });
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
-    mocks.profileGamesRateLimitGte.mockResolvedValue({ count: 0, data: null, error: null });
+    mocks.rpc.mockImplementation((functionName: string) => {
+      if (functionName === "check_rate_limit") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
   });
 
   afterEach(() => {
@@ -121,7 +119,7 @@ describe("profile game states API route", () => {
     expect(response.status).toBe(400);
     const json = await response.json();
     expect(json.error).toBe("Invalid device identifier");
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_game_state", expect.anything());
   });
 
   it("rejects request without user identifier", async () => {
