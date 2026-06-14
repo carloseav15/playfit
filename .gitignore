@@ -29,3 +29,8 @@ scripts/grove.html
 # Build cache
 .next/
 *.tsbuildinfo
+
+# Generated artifacts (catalog cleanup reports, screenshots)
+output/
+reports/assets/
+reports/*.html
