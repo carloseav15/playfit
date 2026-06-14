@@ -299,6 +299,8 @@ export function PlayfitProvider({
   const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onboardingSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const searchRequestCounterRef = useRef(0);
+  const onboardingSearchRequestCounterRef = useRef(0);
   const routerRef = useRef(useRouter());
   const enqueueSave = useQueuedProfileSave({
     setAuthUser,
@@ -444,12 +446,14 @@ export function PlayfitProvider({
       setSearchResults([]);
       return;
     }
+    const requestId = ++searchRequestCounterRef.current;
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/games?q=${encodeURIComponent(ui.finderQuery.trim())}`);
         if (!res.ok) return;
         const data = (await res.json()) as { games: SeedGame[] };
+        if (requestId !== searchRequestCounterRef.current) return;
         addGamesToCache(data.games);
         setSearchResults(data.games);
       } catch {
@@ -467,12 +471,14 @@ export function PlayfitProvider({
       setOnboardingSearchResults([]);
       return;
     }
+    const requestId = ++onboardingSearchRequestCounterRef.current;
     if (onboardingSearchTimerRef.current) clearTimeout(onboardingSearchTimerRef.current);
     onboardingSearchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/games?q=${encodeURIComponent(ui.onboardingQuery.trim())}`);
         if (!res.ok) return;
         const data = (await res.json()) as { games: SeedGame[] };
+        if (requestId !== onboardingSearchRequestCounterRef.current) return;
         addGamesToCache(data.games);
         setOnboardingSearchResults(data.games);
       } catch {
