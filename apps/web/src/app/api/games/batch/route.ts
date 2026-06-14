@@ -1,5 +1,6 @@
 import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveGameRedirects } from "@/lib/game-redirects";
+import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
   game_id: string;
@@ -44,13 +45,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "Too many game IDs (max 500)" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createAnonClient();
+  const redirects = await resolveGameRedirects(supabase, gameIds);
+
+  if (redirects.error) {
+    return Response.json({ error: redirects.error }, { status: 500 });
+  }
 
   const { data: rawGames, error } = await supabase
     .schema("games_library")
     .from("games")
     .select(GAME_SELECT)
-    .in("game_id", gameIds);
+    .in("game_id", redirects.ids);
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });

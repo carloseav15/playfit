@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  select: vi.fn(),
-  in: vi.fn(),
+  redirectsIn: vi.fn(),
+  gamesIn: vi.fn(),
+  platformsIn: vi.fn(),
+  aliasesIn: vi.fn(),
 }));
 
 vi.mock("@/lib/game-mapper", () => ({
@@ -32,11 +34,20 @@ vi.mock("@/lib/game-mapper", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(() => ({
+  createAnonClient: vi.fn(() => ({
     schema: vi.fn(() => ({
-      from: vi.fn(() => ({
-        select: mocks.select,
-      })),
+      from: vi.fn((table: string) => {
+        if (table === "game_redirects") {
+          return { select: vi.fn(() => ({ in: mocks.redirectsIn })) };
+        }
+        if (table === "game_platforms") {
+          return { select: vi.fn(() => ({ in: mocks.platformsIn })) };
+        }
+        if (table === "game_aliases") {
+          return { select: vi.fn(() => ({ in: mocks.aliasesIn })) };
+        }
+        return { select: vi.fn(() => ({ in: mocks.gamesIn })) };
+      }),
     })),
   })),
 }));
@@ -69,9 +80,10 @@ async function loadRoute() {
 
 describe("games batch API route", () => {
   beforeEach(() => {
-    mocks.select.mockReturnValue({
-      in: mocks.in,
-    });
+    mocks.redirectsIn.mockResolvedValue({ data: [], error: null });
+    mocks.gamesIn.mockResolvedValue({ data: [], error: null });
+    mocks.platformsIn.mockResolvedValue({ data: [], error: null });
+    mocks.aliasesIn.mockResolvedValue({ data: [], error: null });
   });
 
   afterEach(() => {
@@ -81,30 +93,15 @@ describe("games batch API route", () => {
   it("returns games for given IDs", async () => {
     const mockGames = [gameRow("zelda_tears"), gameRow("metroid_prime")];
 
-    const platformPromise = Promise.resolve({
+    mocks.gamesIn.mockResolvedValue({ data: mockGames, error: null });
+    mocks.platformsIn.mockResolvedValue({
       data: [{ game_id: "zelda_tears", platform_id: "switch_2", platforms: { name: "Switch 2" } }],
       error: null,
     });
-
-    const aliasPromise = Promise.resolve({
+    mocks.aliasesIn.mockResolvedValue({
       data: [{ game_id: "zelda_tears", alias: "Zelda: Tears of the Kingdom" }],
       error: null,
     });
-
-    const inFn = vi.fn();
-    inFn.mockImplementation((_col: string, _ids: string[]) => {
-      if (mockGames.length > 0) {
-        const data = mockGames.splice(0);
-        mockGames.length = 0;
-        return Promise.resolve({ data, error: null });
-      }
-      return platformPromise;
-    });
-    inFn.mockReturnValueOnce(Promise.resolve({ data: mockGames, error: null }));
-    inFn.mockReturnValueOnce(platformPromise);
-    inFn.mockReturnValueOnce(aliasPromise);
-
-    mocks.in.mockImplementation(inFn);
 
     const { POST } = await loadRoute();
     const response = await POST(
@@ -120,6 +117,34 @@ describe("games batch API route", () => {
     expect(json.games).toHaveLength(2);
     expect(json.games[0].gameId).toBe("zelda_tears");
     expect(json.games[1].gameId).toBe("metroid_prime");
+    expect(mocks.redirectsIn).toHaveBeenCalledWith("from_game_id", [
+      "zelda_tears",
+      "metroid_prime",
+    ]);
+    expect(mocks.gamesIn).toHaveBeenCalledWith("game_id", ["zelda_tears", "metroid_prime"]);
+  });
+
+  it("returns canonical games for redirected IDs", async () => {
+    mocks.redirectsIn.mockResolvedValue({
+      data: [{ from_game_id: "old_zelda_tears", to_game_id: "zelda_tears" }],
+      error: null,
+    });
+    mocks.gamesIn.mockResolvedValue({ data: [gameRow("zelda_tears")], error: null });
+
+    const { POST } = await loadRoute();
+    const response = await POST(
+      new Request("http://playfit.test/api/games/batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gameIds: ["old_zelda_tears"] }),
+      }),
+    );
+
+    const json = await response.json();
+    expect(response.status).toBe(200);
+    expect(json.games).toHaveLength(1);
+    expect(json.games[0].gameId).toBe("zelda_tears");
+    expect(mocks.gamesIn).toHaveBeenCalledWith("game_id", ["zelda_tears"]);
   });
 
   it("returns empty array for empty input", async () => {
@@ -153,10 +178,6 @@ describe("games batch API route", () => {
   });
 
   it("handles missing games gracefully", async () => {
-    mocks.select.mockReturnValue({
-      in: vi.fn().mockResolvedValue({ data: [], error: null }),
-    });
-
     const { POST } = await loadRoute();
     const response = await POST(
       new Request("http://playfit.test/api/games/batch", {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  redirectsIn: vi.fn(),
   eq: vi.fn(),
   single: vi.fn(),
   platformsEq: vi.fn(),
@@ -8,9 +9,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(() => ({
+  createAnonClient: vi.fn(() => ({
     schema: vi.fn(() => ({
       from: vi.fn((table: string) => {
+        if (table === "game_redirects") {
+          return { select: vi.fn(() => ({ in: mocks.redirectsIn })) };
+        }
         if (table === "game_platforms") {
           return { select: vi.fn(() => ({ eq: mocks.platformsEq })) };
         }
@@ -30,6 +34,7 @@ async function loadRoute() {
 
 describe("game detail API route", () => {
   beforeEach(() => {
+    mocks.redirectsIn.mockResolvedValue({ data: [], error: null });
     mocks.eq.mockReturnValue({ single: mocks.single });
   });
 
@@ -84,6 +89,49 @@ describe("game detail API route", () => {
     expect(json.availablePlatformIds).toEqual(["switch_2"]);
     expect(json.aliases).toContain("Zelda TOTK");
     expect(json.aliases).toContain("Zelda TOTK alt");
+  });
+
+  it("resolves redirected game IDs before loading details", async () => {
+    mocks.redirectsIn.mockResolvedValue({
+      data: [{ from_game_id: "old_zelda_tears", to_game_id: "zelda_tears" }],
+      error: null,
+    });
+    mocks.single.mockResolvedValue({
+      data: {
+        game_id: "zelda_tears",
+        title: "The Legend of Zelda: Tears of the Kingdom",
+        aliases: [],
+        series_id: "the_legend_of_zelda",
+        genre_id: "action_adventure",
+        release_year: 2023,
+        release_state: "released",
+        source_type: "catalog",
+        source_ref: "",
+        cover_url: "/covers/zelda_tears.jpg",
+        tags: [],
+        notes: "",
+        sort_date: "2023-05-12",
+        release_label: "2023",
+        series: [{ name: "The Legend of Zelda" }],
+        genre: [{ name: "Action-Adventure" }],
+      },
+      error: null,
+    });
+    mocks.platformsEq.mockResolvedValue({ data: [], error: null });
+    mocks.aliasesEq.mockResolvedValue({ data: [], error: null });
+
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/games/old_zelda_tears"), {
+      params: Promise.resolve({ gameId: "old_zelda_tears" }),
+    });
+
+    const json = await response.json();
+    expect(response.status).toBe(200);
+    expect(json.gameId).toBe("zelda_tears");
+    expect(mocks.redirectsIn).toHaveBeenCalledWith("from_game_id", ["old_zelda_tears"]);
+    expect(mocks.eq).toHaveBeenCalledWith("game_id", "zelda_tears");
+    expect(mocks.platformsEq).toHaveBeenCalledWith("game_id", "zelda_tears");
+    expect(mocks.aliasesEq).toHaveBeenCalledWith("game_id", "zelda_tears");
   });
 
   it("returns 404 when game not found", async () => {

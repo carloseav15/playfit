@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveGameRedirect } from "@/lib/game-redirects";
+import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
   game_id: string;
@@ -42,7 +43,12 @@ function resolveJoinedName(value: unknown): string | null {
 export async function GET(_request: Request, props: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await props.params;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createAnonClient();
+  const redirect = await resolveGameRedirect(supabase, gameId);
+
+  if (redirect.error) {
+    return Response.json({ error: redirect.error }, { status: 500 });
+  }
 
   const { data: raw, error } = await supabase
     .schema("games_library")
@@ -50,7 +56,7 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
     .select(
       "game_id, title, aliases, series_id, genre_id, release_year, release_state, source_type, source_ref, cover_url, tags, notes, sort_date, release_label, series:series_id(name), genre:genre_id(name)",
     )
-    .eq("game_id", gameId)
+    .eq("game_id", redirect.gameId)
     .single();
 
   if (error) {
@@ -66,13 +72,13 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
     .schema("games_library")
     .from("game_platforms")
     .select("platform_id, platforms:platform_id(name)")
-    .eq("game_id", gameId);
+    .eq("game_id", redirect.gameId);
 
   const { data: rawAliases } = await supabase
     .schema("games_library")
     .from("game_aliases")
     .select("alias")
-    .eq("game_id", gameId);
+    .eq("game_id", redirect.gameId);
 
   const platformRows = (rawPlatforms ?? []) as PlatformJoinRow[];
   const platformIds = platformRows.map((p) => p.platform_id);
