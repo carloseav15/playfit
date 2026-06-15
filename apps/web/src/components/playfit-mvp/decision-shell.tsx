@@ -1,8 +1,15 @@
 "use client";
 
-import type { ProductTodayModel, RankedSeedGame } from "@playfit/core/types";
+import type {
+  ProductDecisionFeedback,
+  ProductTodayModel,
+  RankedSeedGame,
+} from "@playfit/core/types";
+import { SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +18,7 @@ import { OnboardingSection } from "../playfit/onboarding-section";
 import { usePlayfit } from "../playfit/playfit-context";
 import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
+import { DecisionIntro } from "./decision-intro";
 import { PlayNextCard } from "./play-next-card";
 
 function uniqueEntries(list: RankedSeedGame[]) {
@@ -88,10 +96,7 @@ export function DecisionShell() {
     .filter((entry) => entry.game.gameId !== primary?.game.gameId)
     .slice(0, 3);
 
-  function handleFeedback(
-    entry: RankedSeedGame,
-    feedback: "play" | "later" | "loved" | "liked" | "mixed" | "not_for_me",
-  ) {
+  function handleFeedback(entry: RankedSeedGame, feedback: ProductDecisionFeedback) {
     applyDecisionFeedback(entry.game.gameId, feedback);
     setSkippedIds((prev) => new Set([...prev, entry.game.gameId]));
   }
@@ -107,8 +112,11 @@ export function DecisionShell() {
   if (!profileReady) {
     return (
       <div className="min-h-screen bg-background text-foreground">
-        <Container as="main" size="sm" className="py-8">
-          <OnboardingSection />
+        <Container as="main" size="sm" className="grid gap-6 py-6 md:py-8">
+          <DecisionIntro />
+          <div id="tune-your-taste">
+            <OnboardingSection />
+          </div>
         </Container>
         <StatusToast />
       </div>
@@ -151,7 +159,12 @@ export function DecisionShell() {
           </CardHeader>
         </Card>
         {candidates.length > 0 ? (
-          <Alert variant="info">All current candidates were skipped in this session.</Alert>
+          <>
+            <Alert variant="info">All current candidates were skipped in this session.</Alert>
+            <Button type="button" variant="secondary" onClick={() => setSkippedIds(new Set())}>
+              Show skipped again
+            </Button>
+          </>
         ) : null}
         <StatusToast />
       </Container>
@@ -160,11 +173,21 @@ export function DecisionShell() {
 
   return (
     <Container as="main" size="sm" className="grid gap-6 py-8">
-      <section>
-        <CardTitle as="h2" className="text-center">
-          {recommendationGroupTitle(model?.nextUp ?? [])}
-        </CardTitle>
-        <CardDescription className="mt-1 text-center">Find what to play next.</CardDescription>
+      <section className="grid gap-3">
+        <div className="flex justify-end">
+          <Button type="button" variant="ghost" asChild>
+            <Link href="/play/taste">
+              <SlidersHorizontal className="size-4" />
+              Taste
+            </Link>
+          </Button>
+        </div>
+        <div>
+          <CardTitle as="h2" className="text-center">
+            {recommendationGroupTitle(model?.nextUp ?? [])}
+          </CardTitle>
+          <CardDescription className="mt-1 text-center">Find what to play next.</CardDescription>
+        </div>
       </section>
 
       <PlayNextCard
@@ -173,6 +196,7 @@ export function DecisionShell() {
         onPlay={() => handleFeedback(primary, "play")}
         onLater={() => handleFeedback(primary, "later")}
         onNotForMe={() => handleFeedback(primary, "not_for_me")}
+        onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
         onShowAnother={() => handleShowAnother(primary)}
         onReason={handleReason}
       />
@@ -189,6 +213,7 @@ export function DecisionShell() {
               onPlay={() => handleFeedback(entry, "play")}
               onLater={() => handleFeedback(entry, "later")}
               onNotForMe={() => handleFeedback(entry, "not_for_me")}
+              onAlreadyPlayed={(feedback) => handleFeedback(entry, feedback)}
               onShowAnother={() => handleShowAnother(entry)}
               onReason={handleReason}
             />

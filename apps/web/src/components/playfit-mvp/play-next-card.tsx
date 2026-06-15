@@ -1,7 +1,7 @@
 "use client";
 
 import type { RankedSeedGame } from "@playfit/core/types";
-import { Dices, Eye, ListPlus, Play, XCircle } from "lucide-react";
+import { CheckCircle2, Dices, Eye, ListPlus, Play, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   decisionTone,
   formatGameDescriptor,
 } from "../playfit/product-utils";
+import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
 
 const reasonOptions = ["Wrong mood", "Too long", "Too hard", "Not my genre"];
 
@@ -54,6 +55,7 @@ export function PlayNextCard({
   onPlay,
   onLater,
   onNotForMe,
+  onAlreadyPlayed,
   onShowAnother,
   onReason,
 }: {
@@ -62,16 +64,25 @@ export function PlayNextCard({
   onPlay: () => void;
   onLater: () => void;
   onNotForMe: () => void;
+  onAlreadyPlayed: (feedback: AlreadyPlayedFeedback) => void;
   onShowAnother?: () => void;
   onReason?: (reason: string) => void;
 }) {
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const tone = decisionTone(entry);
   const label = decisionLabel(entry);
 
   function markNotForMe() {
     onNotForMe();
     setShowReasonPicker(true);
+    setShowAlreadyPlayed(false);
+  }
+
+  function chooseAlreadyPlayed(feedback: AlreadyPlayedFeedback) {
+    onAlreadyPlayed(feedback);
+    setShowAlreadyPlayed(false);
+    setShowReasonPicker(false);
   }
 
   return (
@@ -145,6 +156,17 @@ export function PlayNextCard({
             <ListPlus className="size-4" />
             Maybe later
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setShowAlreadyPlayed((current) => !current);
+              setShowReasonPicker(false);
+            }}
+          >
+            <CheckCircle2 className="size-4" />
+            Already played
+          </Button>
           <Button type="button" variant="secondary" onClick={markNotForMe}>
             <XCircle className="size-4" />
             Not for me
@@ -162,6 +184,7 @@ export function PlayNextCard({
             </Link>
           </Button>
         </Stack>
+        {showAlreadyPlayed ? <AlreadyPlayedPanel onSelect={chooseAlreadyPlayed} /> : null}
         {showReasonPicker ? (
           <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
