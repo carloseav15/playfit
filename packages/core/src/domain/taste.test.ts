@@ -46,6 +46,7 @@ function createGameState(
     title: game.title,
     inBacklog: false,
     inWishlist: false,
+    inPlayfitPicks: false,
     excluded: false,
     source: "manual",
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -142,6 +143,19 @@ describe("buildTasteModel", () => {
     const model = buildTasteModel(
       createDraft(),
       { [game.gameId]: createGameState(game, { status: "shelved", inBacklog: true }) },
+      new Map([[game.gameId, game]]),
+      profile,
+    );
+
+    expect(model.evidenceCount).toBe(0);
+    expect(model.historyEntries).toHaveLength(0);
+  });
+
+  it("does not count Playfit Picks as a taste signal", () => {
+    const game = createGame("pick", "Pick");
+    const model = buildTasteModel(
+      createDraft(),
+      { [game.gameId]: createGameState(game, { inPlayfitPicks: true }) },
       new Map([[game.gameId, game]]),
       profile,
     );

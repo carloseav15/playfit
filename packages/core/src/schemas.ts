@@ -43,6 +43,7 @@ export const productGameStateSchema = z.object({
   rating: productRatingSchema.optional(),
   inBacklog: z.boolean(),
   inWishlist: z.boolean(),
+  inPlayfitPicks: z.boolean().default(false),
   excluded: z.boolean().optional(),
   source: z.enum(["onboarding", "finder", "manual"]),
   createdAt: z.string(),

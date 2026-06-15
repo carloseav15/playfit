@@ -171,6 +171,7 @@ export async function saveGameState(
     rating: gameState.rating ?? null,
     inBacklog: gameState.inBacklog ?? null,
     inWishlist: gameState.inWishlist ?? null,
+    inPlayfitPicks: gameState.inPlayfitPicks ?? null,
     excluded: gameState.excluded ?? null,
     source: gameState.source ?? "manual",
   };

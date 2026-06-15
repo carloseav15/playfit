@@ -146,6 +146,42 @@ describe("product indexeddb store", () => {
     expect(restored.user.onboarding.dislikedGameIds).toEqual([]);
   });
 
+  it("defaults missing Playfit Picks state when loading older game states", async () => {
+    const { loadProductState } = await import("./indexed-db");
+
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({
+        state: {
+          onboarding: {
+            step: "anchors",
+            platforms: [{ platformId: "ps5", status: "available" }],
+            likedGameIds: ["a", "b", "c"],
+            dislikedGameIds: [],
+            onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+          },
+          profile: null,
+          game_states: {
+            chrono_trigger: {
+              gameId: "chrono_trigger",
+              title: "Chrono Trigger",
+              inBacklog: false,
+              inWishlist: false,
+              source: "manual",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+          created_at: null,
+        },
+      }),
+    );
+
+    const restored = await loadProductState();
+
+    expect(restored.user.gameStates.chrono_trigger?.inPlayfitPicks).toBe(false);
+  });
+
   it("falls back to a clean default state when the API returns invalid profile data", async () => {
     const { loadProductState } = await import("./indexed-db");
 

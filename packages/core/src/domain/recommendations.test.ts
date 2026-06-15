@@ -70,7 +70,14 @@ function makeGameState(
   overrides: Partial<
     Pick<
       ProductGameState,
-      "status" | "rating" | "inBacklog" | "inWishlist" | "source" | "createdAt" | "updatedAt"
+      | "status"
+      | "rating"
+      | "inBacklog"
+      | "inWishlist"
+      | "inPlayfitPicks"
+      | "source"
+      | "createdAt"
+      | "updatedAt"
     >
   > = {},
 ): ProductGameState {
@@ -79,6 +86,7 @@ function makeGameState(
     title,
     inBacklog: false,
     inWishlist: false,
+    inPlayfitPicks: false,
     source: "manual" as const,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -101,7 +109,26 @@ describe("recommendations domain", () => {
     expect(ranked.platformAvailability).toBe("available");
     expect(ranked.inBacklog).toBe(false);
     expect(ranked.inWishlist).toBe(false);
+    expect(ranked.inPlayfitPicks).toBe(false);
     expect(ranked.fitReasons.length).toBeGreaterThan(0);
+  });
+
+  it("does not boost backlog state in Play Next scoring", () => {
+    const baselineState = createState();
+    const backlogState = createState();
+    const game = createGame("fit", "Strong Fit", {
+      tags: ["story_rich", "turn_based", "fantasy"],
+    });
+
+    backlogState.user.gameStates[game.gameId] = makeGameState(game.gameId, game.title, {
+      inBacklog: true,
+    });
+
+    const baseline = scoreSeedGame(game, baselineState, getProfile(baselineState));
+    const backlog = scoreSeedGame(game, backlogState, getProfile(backlogState));
+
+    expect(backlog.affinityScore).toBe(baseline.affinityScore);
+    expect(backlog.fitReasons).not.toContain("Already on your radar");
   });
 
   it("penalizes games with disliked tags", () => {
@@ -332,6 +359,34 @@ describe("recommendations domain", () => {
 
     expect(model.nextUp[0].game.gameId).toBe("higher");
     expect(model.nextUp[1].game.gameId).toBe("lower");
+  });
+
+  it("keeps Playfit Picks out of next up and returns them ordered by fit", () => {
+    const state = createState();
+    const strongerPick = createGame("stronger-pick", "Stronger Pick", {
+      tags: ["story_rich", "turn_based", "fantasy", "tactical", "branching_narrative"],
+    });
+    const weakerPick = createGame("weaker-pick", "Weaker Pick", {
+      tags: ["story_rich"],
+    });
+    const nextUp = createGame("next", "Next Up", {
+      tags: ["story_rich", "turn_based"],
+    });
+    const games = [weakerPick, nextUp, strongerPick];
+
+    state.user.gameStates[strongerPick.gameId] = makeGameState(
+      strongerPick.gameId,
+      strongerPick.title,
+      { inPlayfitPicks: true },
+    );
+    state.user.gameStates[weakerPick.gameId] = makeGameState(weakerPick.gameId, weakerPick.title, {
+      inPlayfitPicks: true,
+    });
+
+    const model = buildTodayModel(games, state, state.user.profile);
+
+    expect(model.nextUp.map((entry) => entry.game.gameId)).toEqual(["next"]);
+    expect(model.picks.map((entry) => entry.game.gameId)).toEqual(["stronger-pick", "weaker-pick"]);
   });
 
   it("caps nextUp at 10 and resume at 10", () => {
