@@ -54,7 +54,12 @@ cp .env.example .env
 npm run dev
 ```
 
-> The migration creates the schema but does **not** seed the full catalog. After a fresh DB reset, import catalog data separately (contact the team for a seed dump or run `scripts/scrape-rawg.mjs`).
+> The migration creates the schema but does **not** seed the full catalog.
+> After a fresh DB reset, seed catalog data:
+> ```bash
+> bash scripts/seed-catalog.sh
+> ```
+> See `docs/SCRIPTS.md` for details on seed options (local dump, staging pull, RAWG scrape).
 
 ## Architecture
 
@@ -161,3 +166,6 @@ Additional documentation is available in the `docs/` directory:
 - `ONBOARDING.md` — step-by-step guide for new developers
 - `nextjs-16-canary.md` — breaking changes and upgrade notes for Next.js 16 canary
 - `AGENTS.md` (root) — development guide, migration strategy, auth architecture, UI kit conventions
+- `PLAYFIT-CONTEXT.md` — PlayfitContext API reference (state shape, methods, boot sequence)
+- `API.md` — detailed request/response schemas for all API endpoints
+- `DEPENDENCIES.md` — frontend dependency usage guide
