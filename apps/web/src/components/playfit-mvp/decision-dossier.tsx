@@ -2,7 +2,15 @@
 
 import { scoreSeedGame } from "@playfit/core/domain";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
-import { ArrowLeft, CheckCircle2, ListPlus, Play, SlidersHorizontal, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ListChecks,
+  ListPlus,
+  Play,
+  SlidersHorizontal,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -57,12 +65,15 @@ function CurrentUserState({
   status,
   rating,
   excluded,
+  inPlayfitPicks,
 }: {
   status?: string;
   rating?: number;
   excluded?: boolean;
+  inPlayfitPicks?: boolean;
 }) {
   const labels = [
+    inPlayfitPicks ? "In Playfit Picks" : null,
     status ? `Status: ${status.replaceAll("_", " ")}` : null,
     rating ? `Rating: ${rating}` : null,
     excluded ? "Skipped for now" : null,
@@ -84,9 +95,11 @@ function CurrentUserState({
 }
 
 function DossierActions({ entry }: { entry: RankedSeedGame }) {
-  const { applyDecisionFeedback, setStatusMessage } = usePlayfit();
+  const { applyDecisionFeedback, setPlayfitPick, setStatusMessage, startPlayfitPick } =
+    usePlayfit();
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
+  const isPicked = entry.inPlayfitPicks;
 
   function markNotForMe() {
     applyDecisionFeedback(entry.game.gameId, "not_for_me");
@@ -103,18 +116,27 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
   return (
     <div className="grid gap-4">
       <Stack direction="row" wrap gap={2}>
-        <Button type="button" onClick={() => applyDecisionFeedback(entry.game.gameId, "play")}>
-          <Play className="size-4" />
-          I&apos;ll play this
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => applyDecisionFeedback(entry.game.gameId, "later")}
-        >
-          <ListPlus className="size-4" />
-          Maybe later
-        </Button>
+        {isPicked ? (
+          <>
+            <Button type="button" onClick={() => startPlayfitPick(entry.game.gameId)}>
+              <Play className="size-4" />
+              Started
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPlayfitPick(entry.game.gameId, false)}
+            >
+              <ListPlus className="size-4" />
+              Remove from Picks
+            </Button>
+          </>
+        ) : (
+          <Button type="button" onClick={() => setPlayfitPick(entry.game.gameId, true)}>
+            <ListPlus className="size-4" />
+            Add to Playfit Picks
+          </Button>
+        )}
         <Button
           type="button"
           variant="secondary"
@@ -270,6 +292,12 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
               Your Taste
             </Link>
           </Button>
+          <Button type="button" variant="ghost" className="w-fit" asChild>
+            <Link href="/play/picks">
+              <ListChecks className="size-4" />
+              Playfit Picks
+            </Link>
+          </Button>
         </div>
         <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(180px,280px)_minmax(0,1fr)]">
           <CoverArt game={game} className="aspect-[2/3] w-full max-w-72 justify-self-center" />
@@ -289,6 +317,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                 status={gameState?.status}
                 rating={gameState?.rating}
                 excluded={gameState?.excluded}
+                inPlayfitPicks={gameState?.inPlayfitPicks}
               />
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
