@@ -47,6 +47,7 @@ import { AuthPanel } from "./auth-panel";
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 type AuthUser = { id: string; email: string };
+const PLAYFIT_PICKS_LIMIT = 20;
 
 export interface ProductUiState {
   activeTab: ProductTab;
@@ -82,6 +83,8 @@ interface PlayfitContextValue {
   setPlayStatus: (gameId: string, status: ProductGameState["status"] | undefined) => void;
   setRating: (gameId: string, rating: ProductRating | undefined) => void;
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
+  setPlayfitPick: (gameId: string, picked: boolean) => void;
+  startPlayfitPick: (gameId: string) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
   excludeGame: (gameId: string) => void;
   setStatusMessage: (message: string | null) => void;
@@ -140,11 +143,39 @@ function buildGameState(game: SeedGame, source: ProductGameState["source"]): Pro
     title: game.title,
     inBacklog: false,
     inWishlist: false,
+    inPlayfitPicks: false,
     excluded: false,
     source,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+function isTerminalGameState(record: ProductGameState | undefined) {
+  return (
+    record?.status === "completed" ||
+    record?.status === "beaten" ||
+    record?.status === "abandoned" ||
+    record?.excluded === true
+  );
+}
+
+function activePlayfitPickCount(gameStates: Record<string, ProductGameState>) {
+  return Object.values(gameStates).filter(
+    (record) => record.inPlayfitPicks && !isTerminalGameState(record),
+  ).length;
+}
+
+function shouldDeleteManualState(record: ProductGameState) {
+  return (
+    record.source === "manual" &&
+    !record.status &&
+    record.rating == null &&
+    !record.inBacklog &&
+    !record.inWishlist &&
+    !record.inPlayfitPicks &&
+    !record.excluded
+  );
 }
 
 function rebuildAdaptiveProfileFromCache(draft: ProductState) {
@@ -753,6 +784,84 @@ export function PlayfitProvider({
           );
         }, 0);
       },
+      setPlayfitPick(gameId: string, picked: boolean) {
+        const existing = state.user.gameStates[gameId];
+        if (picked && isTerminalGameState(existing)) {
+          updateUi((current) =>
+            current
+              ? {
+                  ...current,
+                  statusMessage: "That game is already resolved in your taste history.",
+                }
+              : current,
+          );
+          return;
+        }
+        if (
+          picked &&
+          !existing?.inPlayfitPicks &&
+          activePlayfitPickCount(state.user.gameStates) >= PLAYFIT_PICKS_LIMIT
+        ) {
+          updateUi((current) =>
+            current
+              ? {
+                  ...current,
+                  statusMessage: "Playfit Picks is full. Remove one before adding more.",
+                }
+              : current,
+          );
+          return;
+        }
+
+        updateState((draft) => {
+          const game = getCachedGame(gameId);
+          if (!game) return;
+          const current = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
+          const next = {
+            ...current,
+            inPlayfitPicks: picked,
+            updatedAt: nowIso(),
+          };
+          if (shouldDeleteManualState(next)) {
+            delete draft.user.gameStates[gameId];
+          } else {
+            draft.user.gameStates[gameId] = next;
+          }
+        });
+
+        setTimeout(() => {
+          updateUi((current) =>
+            current
+              ? {
+                  ...current,
+                  statusMessage: picked ? "Added to Playfit Picks." : "Removed from Playfit Picks.",
+                }
+              : current,
+          );
+        }, 0);
+      },
+      startPlayfitPick(gameId: string) {
+        updateState((draft) => {
+          const game = getCachedGame(gameId);
+          if (!game) return;
+          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
+          draft.user.gameStates[gameId] = {
+            ...existing,
+            status: "playing",
+            inBacklog: false,
+            inPlayfitPicks: false,
+            excluded: false,
+            updatedAt: nowIso(),
+          };
+        });
+        setTimeout(() => {
+          updateUi((current) =>
+            current
+              ? { ...current, statusMessage: "Started. Playfit Picks will move on." }
+              : current,
+          );
+        }, 0);
+      },
       removeTasteSignal(gameId: string, source: ProductTasteSignalSource) {
         updateState((draft) => {
           if (source === "onboarding_liked") {
@@ -779,7 +888,7 @@ export function PlayfitProvider({
               delete next.status;
             }
             next.excluded = false;
-            if (!next.status && !next.inBacklog && !next.inWishlist && next.source === "manual") {
+            if (shouldDeleteManualState(next)) {
               delete draft.user.gameStates[gameId];
             } else {
               draft.user.gameStates[gameId] = next;
@@ -795,6 +904,7 @@ export function PlayfitProvider({
               !next.status &&
               !next.inBacklog &&
               !next.inWishlist &&
+              !next.inPlayfitPicks &&
               !next.excluded
             ) {
               delete draft.user.gameStates[gameId];
@@ -819,7 +929,12 @@ export function PlayfitProvider({
           const game = getCachedGame(gameId);
           if (!game) return;
           const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          draft.user.gameStates[gameId] = { ...existing, excluded: true, updatedAt: nowIso() };
+          draft.user.gameStates[gameId] = {
+            ...existing,
+            excluded: true,
+            inPlayfitPicks: false,
+            updatedAt: nowIso(),
+          };
         });
         setTimeout(() => {
           updateUi((current) =>
