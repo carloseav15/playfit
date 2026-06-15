@@ -47,6 +47,7 @@ function validPayload() {
         rating: 5,
         inBacklog: false,
         inWishlist: false,
+        inPlayfitPicks: false,
         excluded: false,
         source: "manual",
         createdAt: now,
