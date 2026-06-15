@@ -107,6 +107,7 @@ export interface ProductGameState {
   rating?: ProductRating;
   inBacklog: boolean;
   inWishlist: boolean;
+  inPlayfitPicks: boolean;
   excluded?: boolean;
   source: "onboarding" | "finder" | "manual";
   createdAt: string;
@@ -144,6 +145,7 @@ export interface RankedSeedGame {
   accessStatus: GameAccessStatus;
   inBacklog: boolean;
   inWishlist: boolean;
+  inPlayfitPicks: boolean;
   similarGames: Array<{ gameId: string; title: string; similarity: number }>;
 }
 
@@ -151,6 +153,7 @@ export interface ProductTodayModel {
   currentRun: RankedSeedGame[];
   nextUp: RankedSeedGame[];
   resume: RankedSeedGame[];
+  picks: RankedSeedGame[];
 }
 
 export interface ProductTasteHistoryEntry {

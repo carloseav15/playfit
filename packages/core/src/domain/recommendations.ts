@@ -3,6 +3,7 @@ import { cosineSimilarity } from "../data/tags";
 import type {
   GameAccessStatus,
   PlatformAvailability,
+  ProductConfidence,
   ProductProfile,
   ProductState,
   ProductTodayModel,
@@ -18,18 +19,23 @@ export const PROMISING_FIT_THRESHOLD = 62;
 const BASE_AFFINITY = 15;
 const BASE_RISK = 10;
 const MAX_AFFINITY_SCORE = 100;
+const MAX_RISK_SCORE = 100;
 const GENRE_MATCH_BONUS = 8;
 const GENRE_MISMATCH_PENALTY = 6;
-const BACKLOG_BONUS = 6;
 const SOULS_LIKE_RISK = 15;
 const HORROR_RISK = 12;
 const DISLIKED_TAG_PENALTY_MULTIPLIER = 2;
 const CONFIDENCE_HIGH_THRESHOLD = 6;
 const CONFIDENCE_MEDIUM_THRESHOLD = 3;
-const AFFINITY_MULTIPLIER: Record<string, number> = {
+const AFFINITY_MULTIPLIER: Record<ProductConfidence, number> = {
   low: 0.75,
   medium: 0.9,
   high: 1.0,
+};
+const CONFIDENCE_RANK: Record<ProductConfidence, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
 };
 
 const SEARCH_KEYS = [
@@ -258,6 +264,7 @@ export function scoreSeedGame(
   const gameState = state.user.gameStates[game.gameId];
   const inBacklog = gameState?.inBacklog ?? false;
   const inWishlist = gameState?.inWishlist ?? false;
+  const inPlayfitPicks = gameState?.inPlayfitPicks ?? false;
   const ratedCount = profile.ratedCount ?? 0;
   const confidence = confidenceFromRatings(ratedCount);
 
@@ -273,6 +280,7 @@ export function scoreSeedGame(
       accessStatus,
       inBacklog,
       inWishlist,
+      inPlayfitPicks,
       similarGames: [],
     };
   }
@@ -280,11 +288,12 @@ export function scoreSeedGame(
   const likedTags = buildLikedTagsFromProfile(profile);
   const dislikedTags = buildDislikedTagsFromProfile(profile);
   const gameTags = game.tags;
+  const gameTagsByWeight = [...gameTags].sort((a, b) => getTagWeight(b) - getTagWeight(a));
 
   let affinity = BASE_AFFINITY;
   let risk = BASE_RISK;
 
-  for (const tag of gameTags) {
+  for (const tag of gameTagsByWeight) {
     const weight = getTagWeight(tag);
     const likedScore = likedTags[tag] ?? 0;
     if (likedScore > 0) {
@@ -294,7 +303,7 @@ export function scoreSeedGame(
     }
   }
 
-  for (const tag of gameTags) {
+  for (const tag of gameTagsByWeight) {
     const dislikedScore = dislikedTags[tag] ?? 0;
     if (dislikedScore > 0) {
       const penalty = dislikedScore * getTagWeight(tag) * DISLIKED_TAG_PENALTY_MULTIPLIER;
@@ -310,13 +319,8 @@ export function scoreSeedGame(
   }
 
   if (profile.avoidedGenres.includes(genreKey)) {
-    affinity -= GENRE_MISMATCH_PENALTY;
+    risk += GENRE_MISMATCH_PENALTY;
     cautionReasons.push(`Genre caveat: ${formatTrait(genreKey)}`);
-  }
-
-  if (inBacklog) {
-    affinity += BACKLOG_BONUS;
-    fitReasons.push("Already on your radar");
   }
 
   if (gameTags.includes("souls_like") && gameTags.includes("demanding")) {
@@ -329,11 +333,15 @@ export function scoreSeedGame(
 
   if (dislikedTags.horror > 0 && (gameTags.includes("horror") || gameTags.includes("dark"))) {
     risk += HORROR_RISK;
+    cautionReasons.push(caveatCopy("horror", confidence));
   }
 
   affinity =
     BASE_AFFINITY + Math.round((affinity - BASE_AFFINITY) * AFFINITY_MULTIPLIER[confidence]);
   affinity = Math.min(affinity, MAX_AFFINITY_SCORE);
+
+  risk = BASE_RISK + Math.round((risk - BASE_RISK) * AFFINITY_MULTIPLIER[confidence]);
+  risk = Math.min(risk, MAX_RISK_SCORE);
 
   return {
     game,
@@ -346,6 +354,7 @@ export function scoreSeedGame(
     accessStatus,
     inBacklog,
     inWishlist,
+    inPlayfitPicks,
     similarGames: [],
   };
 }
@@ -377,7 +386,7 @@ export function buildTodayModel(
 ): ProductTodayModel {
   const debug = process.env.NODE_ENV === "development";
   if (!profile) {
-    return { currentRun: [], nextUp: [], resume: [] };
+    return { currentRun: [], nextUp: [], resume: [], picks: [] };
   }
 
   const onboardingGameIds = new Set([
@@ -441,6 +450,16 @@ export function buildTodayModel(
     .sort((left, right) => right.affinityScore - left.affinityScore)
     .slice(0, 10);
 
+  const picks = rankedFiltered
+    .filter((entry) => entry.inPlayfitPicks && isPlayableNow(entry))
+    .sort(
+      (left, right) =>
+        right.affinityScore - left.affinityScore ||
+        left.riskScore - right.riskScore ||
+        CONFIDENCE_RANK[right.confidence] - CONFIDENCE_RANK[left.confidence],
+    )
+    .slice(0, 20);
+
   const playableCandidates = rankedFiltered.filter((entry) => {
     const stateEntry = state.user.gameStates[entry.game.gameId];
     return (
@@ -450,7 +469,8 @@ export function buildTodayModel(
       stateEntry?.status !== "on_hold" &&
       stateEntry?.status !== "shelved" &&
       stateEntry?.status !== "abandoned" &&
-      !entry.inWishlist
+      !entry.inWishlist &&
+      !entry.inPlayfitPicks
     );
   });
 
@@ -473,6 +493,8 @@ export function buildTodayModel(
         reasons[`status:${stateEntry.status}`] = (reasons[`status:${stateEntry.status}`] ?? 0) + 1;
       } else if (entry.inWishlist) {
         reasons.in_wishlist = (reasons.in_wishlist ?? 0) + 1;
+      } else if (entry.inPlayfitPicks) {
+        reasons.in_playfit_picks = (reasons.in_playfit_picks ?? 0) + 1;
       }
     }
     console.log(
@@ -483,24 +505,19 @@ export function buildTodayModel(
         notPlayableBreakdown: reasons,
         currentRun: currentRun.length,
         resume: resume.length,
+        picks: picks.length,
         nextUp: playableCandidates.slice(0, 10).length,
       }),
     );
   }
 
   const sortedPlayable = playableCandidates.sort((left, right) => {
-    const leftInterested = left.inBacklog ? 1 : 0;
-    const rightInterested = right.inBacklog ? 1 : 0;
-    return (
-      rightInterested - leftInterested ||
-      right.affinityScore - left.affinityScore ||
-      left.riskScore - right.riskScore
-    );
+    return right.affinityScore - left.affinityScore || left.riskScore - right.riskScore;
   });
 
   const nextUp = sortedPlayable.slice(0, 10);
 
-  return { currentRun, nextUp, resume };
+  return { currentRun, nextUp, resume, picks };
 }
 
 export function buildFinderIndex(games: SeedGame[]) {

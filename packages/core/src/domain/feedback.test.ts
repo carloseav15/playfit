@@ -106,6 +106,34 @@ describe("decision feedback", () => {
     expect(next.rating).toBe(rating);
     expect(next.excluded).toBe(excluded);
     expect(next.inBacklog).toBe(false);
+    expect(next.inPlayfitPicks).toBe(false);
+  });
+
+  it("removes a pick when feedback says it is not for the user", () => {
+    const game = createGame("target", "Target");
+    const state = createState();
+    state.user.gameStates.target = {
+      gameId: "target",
+      title: "Target",
+      inBacklog: false,
+      inWishlist: false,
+      inPlayfitPicks: true,
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const next = applyProductDecisionFeedback({
+      state,
+      game,
+      gamesById: new Map([["target", game]]),
+      feedback: "not_for_me",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(next.rating).toBe(2);
+    expect(next.excluded).toBe(true);
+    expect(next.inPlayfitPicks).toBe(false);
   });
 
   it("excludes not for me games from future play next candidates", () => {

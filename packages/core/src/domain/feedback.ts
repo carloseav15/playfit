@@ -50,6 +50,7 @@ export function applyProductDecisionFeedback({
     title: game.title,
     inBacklog: false,
     inWishlist: false,
+    inPlayfitPicks: false,
     excluded: false,
     source: "manual" as const,
     createdAt: timestamp,
@@ -60,6 +61,7 @@ export function applyProductDecisionFeedback({
   if (feedback === "play") {
     next.status = "playing";
     next.inBacklog = false;
+    next.inPlayfitPicks = false;
     next.excluded = false;
   }
 
@@ -72,12 +74,14 @@ export function applyProductDecisionFeedback({
   if (feedback === "played_loved" || feedback === "played_liked" || feedback === "played_mixed") {
     next.status = "completed";
     next.inBacklog = false;
+    next.inPlayfitPicks = false;
     next.excluded = false;
   }
 
   if (feedback === "played_dropped") {
     next.status = "abandoned";
     next.inBacklog = false;
+    next.inPlayfitPicks = false;
     next.excluded = true;
   }
 
@@ -85,6 +89,9 @@ export function applyProductDecisionFeedback({
   if (rating) {
     next.rating = rating;
     next.excluded = feedback === "not_for_me" || feedback === "played_dropped";
+    if (next.excluded || feedback.startsWith("played_")) {
+      next.inPlayfitPicks = false;
+    }
   }
 
   state.user.gameStates[game.gameId] = next;
