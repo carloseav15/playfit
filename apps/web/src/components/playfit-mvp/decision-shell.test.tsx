@@ -68,7 +68,33 @@ describe("DecisionShell", () => {
 
     const html = renderToStaticMarkup(<DecisionShell />);
 
+    expect(html).toContain("Find what to play next");
     expect(html).toContain("Tune your taste");
     expect(html).not.toContain("Not ready yet");
+  });
+
+  it("does not render the launcher for a ready local profile", async () => {
+    const state = createInitialState();
+    state.user.onboardingCompletedAt = "2026-01-01T00:00:00.000Z";
+    state.user.profile = {
+      summary: "Ready profile",
+      likedGenres: ["jrpg"],
+      avoidedGenres: [],
+      likedTags: {},
+      dislikedTags: {},
+      ratedCount: 3,
+      signals: [],
+    };
+    mocks.usePlayfit.mockReturnValue({
+      state,
+      applyDecisionFeedback: vi.fn(),
+      setStatusMessage: vi.fn(),
+    });
+    const { DecisionShell } = await loadDecisionShell();
+
+    const html = renderToStaticMarkup(<DecisionShell />);
+
+    expect(html).not.toContain("Find what to play next");
+    expect(html).not.toContain("Tune your taste");
   });
 });

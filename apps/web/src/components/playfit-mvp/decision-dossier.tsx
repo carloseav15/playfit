@@ -1,15 +1,16 @@
 "use client";
 
 import { scoreSeedGame } from "@playfit/core/domain";
-import type { RankedSeedGame } from "@playfit/core/types";
-import { ArrowLeft, ListPlus, Play, XCircle } from "lucide-react";
+import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
+import { ArrowLeft, CheckCircle2, ListPlus, Play, SlidersHorizontal, XCircle } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Stack } from "@/components/ui/stack";
+import { fetchGame } from "@/lib/game-cache";
 import { CoverArt } from "../playfit/cover-art";
 import { Metric } from "../playfit/metric";
 import { usePlayfit } from "../playfit/playfit-context";
@@ -20,7 +21,7 @@ import {
   formatGameDescriptor,
 } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
-import { FeedbackBar } from "./feedback-bar";
+import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
 
 const reasonOptions = ["Wrong mood", "Too long", "Too hard", "Not my genre"];
 
@@ -85,10 +86,18 @@ function CurrentUserState({
 function DossierActions({ entry }: { entry: RankedSeedGame }) {
   const { applyDecisionFeedback, setStatusMessage } = usePlayfit();
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
 
   function markNotForMe() {
     applyDecisionFeedback(entry.game.gameId, "not_for_me");
     setShowReasonPicker(true);
+    setShowAlreadyPlayed(false);
+  }
+
+  function markAlreadyPlayed(feedback: AlreadyPlayedFeedback) {
+    applyDecisionFeedback(entry.game.gameId, feedback);
+    setShowAlreadyPlayed(false);
+    setShowReasonPicker(false);
   }
 
   return (
@@ -106,11 +115,23 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
           <ListPlus className="size-4" />
           Maybe later
         </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            setShowAlreadyPlayed((current) => !current);
+            setShowReasonPicker(false);
+          }}
+        >
+          <CheckCircle2 className="size-4" />
+          Already played
+        </Button>
         <Button type="button" variant="secondary" onClick={markNotForMe}>
           <XCircle className="size-4" />
           Not for me
         </Button>
       </Stack>
+      {showAlreadyPlayed ? <AlreadyPlayedPanel onSelect={markAlreadyPlayed} /> : null}
       {showReasonPicker ? (
         <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -134,19 +155,44 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
           </Stack>
         </div>
       ) : null}
-      <FeedbackBar
-        onLoved={() => applyDecisionFeedback(entry.game.gameId, "loved")}
-        onLiked={() => applyDecisionFeedback(entry.game.gameId, "liked")}
-        onMixed={() => applyDecisionFeedback(entry.game.gameId, "mixed")}
-        onNotForMe={markNotForMe}
-      />
     </div>
   );
 }
 
 export function DecisionDossier({ gameId }: { gameId: string }) {
   const { getSeedGame, state } = usePlayfit();
-  const game = getSeedGame(gameId);
+  const cachedGame = getSeedGame(gameId);
+  const [fetchedGame, setFetchedGame] = useState<SeedGame | null>(null);
+  const [loadingGame, setLoadingGame] = useState(!cachedGame);
+  const game = cachedGame ?? fetchedGame;
+
+  useEffect(() => {
+    if (cachedGame) {
+      setFetchedGame(null);
+      setLoadingGame(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingGame(true);
+    setFetchedGame(null);
+
+    void fetchGame(gameId)
+      .then((nextGame) => {
+        if (!cancelled) setFetchedGame(nextGame);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedGame(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingGame(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, cachedGame]);
+
   const entry = useMemo(
     () => (game && state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null),
     [game, state],
@@ -154,6 +200,21 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   const gameState = game ? state.user.gameStates[game.gameId] : null;
 
   if (!game) {
+    if (loadingGame) {
+      return (
+        <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
+          <Card>
+            <CardHeader>
+              <h1 className="font-display text-2xl font-semibold leading-tight">
+                Loading game details
+              </h1>
+              <CardDescription>Preparing this Playfit read.</CardDescription>
+            </CardHeader>
+          </Card>
+        </Container>
+      );
+    }
+
     return (
       <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
         <Card>
@@ -196,12 +257,20 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
-        <Button type="button" variant="ghost" className="w-fit" asChild>
-          <Link href="/play">
-            <ArrowLeft className="size-4" />
-            Back to Play Next
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="button" variant="ghost" className="w-fit" asChild>
+            <Link href="/play">
+              <ArrowLeft className="size-4" />
+              Back to Play Next
+            </Link>
+          </Button>
+          <Button type="button" variant="ghost" className="w-fit" asChild>
+            <Link href="/play/taste">
+              <SlidersHorizontal className="size-4" />
+              Your Taste
+            </Link>
+          </Button>
+        </div>
         <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(180px,280px)_minmax(0,1fr)]">
           <CoverArt game={game} className="aspect-[2/3] w-full max-w-72 justify-self-center" />
           <div className="grid min-w-0 content-start gap-5">
