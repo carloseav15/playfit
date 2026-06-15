@@ -162,6 +162,7 @@ erDiagram
 | `rating` | `numeric(2,1)` | Rating 0.0-5.0 |
 | `in_backlog` | `boolean DEFAULT false` | In backlog |
 | `in_wishlist` | `boolean DEFAULT false` | In wishlist |
+| `in_playfit_picks` | `boolean DEFAULT false` | Saved to Playfit Picks |
 | `excluded` | `boolean DEFAULT false` | Excluded from recommendations |
 | `source` | `text NOT NULL` | Check: `onboarding`, `finder`, `manual` |
 | `created_at` | `timestamptz` | Row creation timestamp |

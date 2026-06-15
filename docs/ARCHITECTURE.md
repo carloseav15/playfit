@@ -186,6 +186,8 @@ packages/core/               # Shared domain logic
   /play (public)        → PlayLayout
     /play               → PlayPageClient
     /play/game/:gameId  → PlayDossierClient
+    /play/picks         → PicksPageClient
+    /play/taste         → TastePageClient
 ```
 
 ### Component Directory Layout
@@ -222,6 +224,8 @@ components/
     play-page-client.tsx   # Play page entry
     play-next-card.tsx     # Next play recommendation card
     play-dossier-client.tsx # Play dossier entry
+    picks-shell.tsx        # Playfit Picks list
+    taste-shell.tsx        # Your Taste explanation + correction view
     feedback-bar.tsx       # Feedback collection bar
 ```
 
@@ -249,7 +253,6 @@ risk = BASE_RISK (10) + tag_mismatch_penalties
 | `HIGH_FRICTION_THRESHOLD` | 58 | Caution threshold |
 | `GENRE_MATCH_BONUS` | 8 | Bonus per matching genre |
 | `GENRE_MISMATCH_PENALTY` | 6 | Penalty per mismatched genre |
-| `BACKLOG_BONUS` | 6 | Bonus if game is in backlog |
 | `SOULS_LIKE_RISK` | 15 | Fixed risk for souls-like games |
 | `HORROR_RISK` | 12 | Fixed risk for horror games |
 
@@ -273,6 +276,12 @@ risk = BASE_RISK (10) + tag_mismatch_penalties
 | `liked` | Sets rating=4, rebuilds profile |
 | `mixed` | Sets rating=3, rebuilds profile |
 | `not_for_me` | Sets rating=2, excluded=true, rebuilds profile |
+
+### Playfit Picks
+
+`inPlayfitPicks` is an intent/curation flag on `ProductGameState`, persisted as
+`user_game_states.in_playfit_picks`. It is not a taste signal. `/play` excludes
+picked games from `nextUp`, and `/play/picks` shows them ordered by current fit.
 
 ### Search Scoring
 

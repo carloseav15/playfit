@@ -355,7 +355,8 @@ Get today's recommendation model. Uses cached catalog (5 min TTL in `api_cache` 
 {
   "currentRun": [ /* RankedSeedGame[] — games with status=playing */ ],
   "nextUp": [ /* RankedSeedGame[] — best matches sorted by score */ ],
-  "resume": [ /* RankedSeedGame[] — backlog games sorted by score */ ]
+  "resume": [ /* RankedSeedGame[] — shelved/on-hold games sorted by score */ ],
+  "picks": [ /* RankedSeedGame[] — Playfit Picks sorted by current fit */ ]
 }
 ```
 
@@ -372,6 +373,7 @@ Each `RankedSeedGame`:
   "accessStatus": "playable",
   "inBacklog": false,
   "inWishlist": false,
+  "inPlayfitPicks": false,
   "similarGames": [{"gameId": "...", "title": "...", "similarity": 0.85}]
 }
 ```

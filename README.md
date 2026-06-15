@@ -161,6 +161,7 @@ title groups for manual review.
 Additional documentation is available in the `docs/` directory:
 
 - `ARCHITECTURE.md` — system architecture, data flow, component relationships
+- `PLAY-MVP.md` — product brief and UX contract for the `/play` MVP experience
 - `SCHEMA.md` — consolidated database schema (tables, columns, relationships)
 - `SCRIPTS.md` — reference for all scripts in `scripts/`
 - `ONBOARDING.md` — step-by-step guide for new developers

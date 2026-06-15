@@ -93,6 +93,7 @@ Open http://127.0.0.1:3000
 ```
 docs/                     # Documentation
   ARCHITECTURE.md         # System architecture + diagrams
+  PLAY-MVP.md             # Product brief for /play
   SCHEMA.md               # Database schema
   SCRIPTS.md              # Script reference
   ONBOARDING.md           # This guide
