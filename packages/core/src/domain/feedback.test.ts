@@ -85,6 +85,29 @@ describe("decision feedback", () => {
     expect(next.inBacklog).toBe(true);
   });
 
+  it.each([
+    ["played_loved", "completed", 5, false],
+    ["played_liked", "completed", 4, false],
+    ["played_mixed", "completed", 3, false],
+    ["played_dropped", "abandoned", 2, true],
+  ] as const)("maps %s to played state", (feedback, status, rating, excluded) => {
+    const game = createGame("target", "Target");
+    const state = createState();
+
+    const next = applyProductDecisionFeedback({
+      state,
+      game,
+      gamesById: new Map([["target", game]]),
+      feedback,
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(next.status).toBe(status);
+    expect(next.rating).toBe(rating);
+    expect(next.excluded).toBe(excluded);
+    expect(next.inBacklog).toBe(false);
+  });
+
   it("excludes not for me games from future play next candidates", () => {
     const target = createGame("target", "Target");
     const alternate = createGame("alternate", "Alternate");
@@ -112,6 +135,33 @@ describe("decision feedback", () => {
     expect(model.nextUp.map((entry) => entry.game.gameId)).not.toContain("target");
   });
 
+  it("removes already played games from future play next candidates", () => {
+    const target = createGame("target", "Target");
+    const alternate = createGame("alternate", "Alternate");
+    const state = createState();
+    const gamesById = new Map([
+      ["target", target],
+      ["alternate", alternate],
+      ["anchor-a", createGame("anchor-a", "Anchor A")],
+      ["anchor-b", createGame("anchor-b", "Anchor B")],
+      ["anchor-c", createGame("anchor-c", "Anchor C")],
+    ]);
+
+    applyProductDecisionFeedback({
+      state,
+      game: target,
+      gamesById,
+      feedback: "played_loved",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    const model = buildTodayModel([target, alternate], state, state.user.profile);
+
+    expect(state.user.gameStates.target.status).toBe("completed");
+    expect(state.user.gameStates.target.rating).toBe(5);
+    expect(model.nextUp.map((entry) => entry.game.gameId)).not.toContain("target");
+  });
+
   it("rebuilds the profile with the game that just received feedback", () => {
     const target = createGame("target", "Target", {
       genreId: "survival_horror",
@@ -131,6 +181,32 @@ describe("decision feedback", () => {
       game: target,
       gamesById,
       feedback: "not_for_me",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(state.user.profile?.avoidedGenres).toContain("survival_horror");
+    expect(state.user.profile?.dislikedTags.survival_horror).toBeGreaterThan(0);
+  });
+
+  it("rebuilds the profile from already played feedback", () => {
+    const target = createGame("target", "Target", {
+      genreId: "survival_horror",
+      primaryGenre: "survival_horror",
+      tags: ["survival_horror", "resource_pressure"],
+    });
+    const state = createState();
+    const gamesById = new Map([
+      ["target", target],
+      ["anchor-a", createGame("anchor-a", "Anchor A")],
+      ["anchor-b", createGame("anchor-b", "Anchor B")],
+      ["anchor-c", createGame("anchor-c", "Anchor C")],
+    ]);
+
+    applyProductDecisionFeedback({
+      state,
+      game: target,
+      gamesById,
+      feedback: "played_dropped",
       timestamp: "2026-01-01T00:00:00.000Z",
     });
 

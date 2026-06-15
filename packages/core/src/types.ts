@@ -11,7 +11,29 @@ export type ProductPlayStatus =
   | "completed"
   | "abandoned"
   | "want_to_play";
-export type ProductDecisionFeedback = "play" | "later" | "loved" | "liked" | "mixed" | "not_for_me";
+export type ProductDecisionFeedback =
+  | "play"
+  | "later"
+  | "loved"
+  | "liked"
+  | "mixed"
+  | "not_for_me"
+  | "played_loved"
+  | "played_liked"
+  | "played_mixed"
+  | "played_dropped";
+export type ProductTasteDecision =
+  | "setup_favorite"
+  | "setup_miss"
+  | "loved"
+  | "liked"
+  | "mixed"
+  | "dropped"
+  | "not_for_me";
+export type ProductTasteSignalSource = "rating" | "onboarding_liked" | "onboarding_disliked";
+export type ProductTasteTone = "positive" | "negative" | "mixed";
+export type ProductTasteConfidence = "Early" | "Emerging" | "Strong";
+export type ProductTasteSummaryConfidence = "Still learning" | "Emerging" | "Strong";
 export type PlatformAvailability = "available" | "unavailable" | "unknown";
 export type GameAccessStatus = "playable" | "not_on_platforms" | "unknown_platform" | "unreleased";
 export type ProfileSignalTone = "positive" | "negative";
@@ -129,4 +151,37 @@ export interface ProductTodayModel {
   currentRun: RankedSeedGame[];
   nextUp: RankedSeedGame[];
   resume: RankedSeedGame[];
+}
+
+export interface ProductTasteHistoryEntry {
+  gameId: string;
+  title: string;
+  decision: ProductTasteDecision;
+  source: ProductTasteSignalSource;
+  tone: ProductTasteTone;
+  rating?: ProductRating;
+  status?: ProductPlayStatus;
+  updatedAt?: string;
+  traits: string[];
+}
+
+export interface ProductTasteMapTrait {
+  id: string;
+  label: string;
+  kind: "tag" | "genre";
+  positiveCount: number;
+  negativeCount: number;
+  netScore: number;
+  strength: number;
+  confidence: ProductTasteConfidence;
+  direction: "positive" | "negative" | "neutral";
+}
+
+export interface ProductTasteModel {
+  evidenceCount: number;
+  historyEntries: ProductTasteHistoryEntry[];
+  mapTraits: ProductTasteMapTrait[];
+  positiveCount: number;
+  negativeCount: number;
+  confidenceLabel: ProductTasteSummaryConfidence;
 }
