@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+test.setTimeout(45_000);
+
 const gameRows = [
   {
     game_id: "chrono_trigger",
@@ -247,12 +249,29 @@ async function mockSupabase(page: Page) {
     });
   });
   await page.route("**/api/recommendations/today", async (route) => {
+    const body = route.request().postDataJSON() as {
+      gameStates?: Record<string, { excluded?: boolean; status?: string }>;
+    };
+    const blocked = new Set(
+      Object.entries(body.gameStates ?? {})
+        .filter(([, state]) => {
+          return (
+            state.excluded === true ||
+            state.status === "completed" ||
+            state.status === "beaten" ||
+            state.status === "abandoned"
+          );
+        })
+        .map(([gameId]) => gameId),
+    );
+    const nextUp = [gameRows[5], gameRows[3]].filter((row) => !blocked.has(row.game_id));
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         currentRun: [],
-        nextUp: [rankedGame(gameRows[5]), rankedGame(gameRows[3], 74)],
+        nextUp: nextUp.map((row, index) => rankedGame(row, index === 0 ? 82 : 74)),
         resume: [],
       }),
     });
@@ -330,8 +349,9 @@ test("anonymous local profile can complete setup and save by device id", async (
 
   await page.goto("/play");
 
+  await expect(page.getByRole("heading", { name: "Find what to play next" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Where can Playfit look?" })).toBeVisible();
-  await page.locator('label[for="select-all-platforms"]').click();
+  await page.getByText("Select all platforms", { exact: true }).click();
   await page.getByRole("button", { name: /Continue/ }).click();
 
   await expect(page.getByRole("heading", { name: "Pick three games you loved" })).toBeVisible();
@@ -379,11 +399,64 @@ test("play route loads locally without mandatory sign in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Continue locally" })).toHaveCount(0);
 });
 
+test("play dossier direct link fetches a valid game before asking for taste", async ({ page }) => {
+  await mockSupabase(page);
+
+  await page.goto("/play/game/metroid_prime");
+
+  await expect(page.getByRole("heading", { name: "Tune your taste first" })).toBeVisible();
+  await expect(page.getByText("Game not found")).toHaveCount(0);
+});
+
+test("taste route explains onboarding signals and lets users remove one", async ({ page }) => {
+  await mockSupabase(page);
+
+  await page.goto("/play");
+  await page.getByText("Select all platforms", { exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search by title or series").fill("Chrono");
+  await page.getByRole("button", { name: /Chrono Trigger/ }).click();
+  await page.getByLabel("Search by title or series").fill("Metroid");
+  await page.getByRole("button", { name: /Metroid Prime/ }).click();
+  await page.getByLabel("Search by title or series").fill("Tears");
+  await page.getByRole("button", { name: /Tears of the Kingdom/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search for a game that missed for you").fill("Resident Evil");
+  await page.getByRole("button", { name: /Resident Evil 4/ }).click();
+  await page.getByRole("button", { name: "Find Play Next" }).click();
+
+  await Promise.all([
+    page.waitForURL(/\/play\/taste$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: "Taste" }).click(),
+  ]);
+
+  await expect(page).toHaveURL(/\/play\/taste$/);
+  await expect(page.getByRole("heading", { name: "Your Taste" })).toBeVisible();
+  await expect(page.getByText("Taste Map")).toBeVisible();
+  await expect(page.getByText("Taste History")).toBeVisible();
+  await expect(page.getByText("Setup favorite", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Setup miss", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Lean toward", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Steer away from", { exact: true }).first()).toBeVisible();
+
+  await Promise.all([
+    page.waitForURL(/\/play\/game\//, { timeout: 15_000 }),
+    page.getByRole("link", { name: /Open dossier/ }).first().click(),
+  ]);
+  await Promise.all([
+    page.waitForURL(/\/play\/taste$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: "Your Taste" }).click(),
+  ]);
+
+  await page.getByRole("button", { name: "Remove signal" }).first().click();
+  await expect(page.getByText("Taste is below calibration strength")).toBeVisible();
+});
+
 test("play next feedback excludes a bad fit", async ({ page }) => {
   const savedProfiles = await mockSupabase(page);
 
   await page.goto("/play");
-  await page.locator('label[for="select-all-platforms"]').click();
+  await page.getByText("Select all platforms", { exact: true }).click();
   await page.getByRole("button", { name: /Continue/ }).click();
   await page.getByLabel("Search by title or series").fill("Chrono");
   await page.getByRole("button", { name: /Chrono Trigger/ }).click();
@@ -398,10 +471,14 @@ test("play next feedback excludes a bad fit", async ({ page }) => {
   await page.getByRole("button", { name: "Find Play Next" }).click();
 
   await expect(page.getByText("Play this next")).toBeVisible();
-  await page.getByRole("link", { name: "See why" }).first().click();
-  await expect(page).toHaveURL(/\/play\/game\//);
-  await page.getByRole("link", { name: "Back to Play Next" }).click();
-  await expect(page).toHaveURL(/\/play$/);
+  await Promise.all([
+    page.waitForURL(/\/play\/game\//, { timeout: 15_000 }),
+    page.getByRole("link", { name: "See why" }).first().click(),
+  ]);
+  await Promise.all([
+    page.waitForURL(/\/play$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: "Back to Play Next" }).click(),
+  ]);
   await page.getByRole("button", { name: "Not for me" }).first().click();
 
   await expect
@@ -414,4 +491,98 @@ test("play next feedback excludes a bad fit", async ({ page }) => {
       ),
     )
     .toBe(true);
+});
+
+test("already played loved marks completed and rotates the recommendation", async ({ page }) => {
+  const savedProfiles = await mockSupabase(page);
+
+  await page.goto("/play");
+  await page.getByText("Select all platforms", { exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search by title or series").fill("Chrono");
+  await page.getByRole("button", { name: /Chrono Trigger/ }).click();
+  await page.getByLabel("Search by title or series").fill("Metroid");
+  await page.getByRole("button", { name: /Metroid Prime/ }).click();
+  await page.getByLabel("Search by title or series").fill("Tears");
+  await page.getByRole("button", { name: /Tears of the Kingdom/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search for a game that missed for you").fill("Resident Evil");
+  await page.getByRole("button", { name: /Resident Evil 4/ }).click();
+  await page.getByRole("button", { name: "Find Play Next" }).click();
+
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
+  await page.getByRole("button", { name: "Already played" }).first().click();
+  await page.getByRole("button", { name: "Loved it" }).click();
+
+  await expect(page.getByRole("heading", { name: "Hollow Knight: Silksong" })).toBeVisible();
+  await expect
+    .poll(() =>
+      savedProfiles.some((profile) => {
+        const gameState = (
+          profile as {
+            gameStates?: Record<string, { rating?: number; status?: string; excluded?: boolean }>;
+          }
+        ).gameStates?.final_fantasy_vi;
+        return gameState?.status === "completed" && gameState.rating === 5 && !gameState.excluded;
+      }),
+    )
+    .toBe(true);
+
+  await Promise.all([
+    page.waitForURL(/\/play\/taste$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: "Taste" }).click(),
+  ]);
+  await expect(page.getByRole("heading", { name: "Your Taste" })).toBeVisible();
+  await expect(page.getByText("Final Fantasy VI")).toBeVisible();
+  await expect(page.getByText("Loved", { exact: true }).first()).toBeVisible();
+});
+
+test("already played dropped marks abandoned and stays out after reload", async ({ page }) => {
+  const savedProfiles = await mockSupabase(page);
+
+  await page.goto("/play");
+  await page.getByText("Select all platforms", { exact: true }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search by title or series").fill("Chrono");
+  await page.getByRole("button", { name: /Chrono Trigger/ }).click();
+  await page.getByLabel("Search by title or series").fill("Metroid");
+  await page.getByRole("button", { name: /Metroid Prime/ }).click();
+  await page.getByLabel("Search by title or series").fill("Tears");
+  await page.getByRole("button", { name: /Tears of the Kingdom/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search for a game that missed for you").fill("Resident Evil");
+  await page.getByRole("button", { name: /Resident Evil 4/ }).click();
+  await page.getByRole("button", { name: "Find Play Next" }).click();
+
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
+  await page.getByRole("button", { name: "Already played" }).first().click();
+  await page.getByRole("button", { name: "Dropped it" }).click();
+
+  await expect
+    .poll(() =>
+      savedProfiles.some((profile) => {
+        const gameState = (
+          profile as {
+            gameStates?: Record<string, { rating?: number; status?: string; excluded?: boolean }>;
+          }
+        ).gameStates?.final_fantasy_vi;
+        return (
+          gameState?.status === "abandoned" && gameState.rating === 2 && gameState.excluded === true
+        );
+      }),
+    )
+    .toBe(true);
+
+  await page.reload();
+
+  await expect(page.getByRole("heading", { name: "Hollow Knight: Silksong" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toHaveCount(0);
+
+  await Promise.all([
+    page.waitForURL(/\/play\/taste$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: "Taste" }).click(),
+  ]);
+  await expect(page.getByRole("heading", { name: "Your Taste" })).toBeVisible();
+  await expect(page.getByText("Dropped", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Steer away from", { exact: true }).first()).toBeVisible();
 });
