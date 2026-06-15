@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { TastePageClient } from "@/components/playfit-mvp/taste-page-client";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Container } from "@/components/ui/container";
-import { fetchPlatforms } from "@/lib/supabase/platforms";
+import { TasteShell } from "@/components/playfit-mvp/taste-shell";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
   title: "Your Taste",
@@ -10,25 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default async function TastePage() {
-  const platformsResult = await fetchPlatforms()
-    .then((platforms) => ({ platforms, error: null }))
-    .catch((error: unknown) => ({
-      platforms: null,
-      error: error instanceof Error ? error.message : "The catalog connection failed.",
-    }));
-
-  if (platformsResult.error) {
-    return (
-      <Container as="main" size="sm" className="grid gap-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Taste could not load</CardTitle>
-            <CardDescription>{platformsResult.error}</CardDescription>
-          </CardHeader>
-        </Card>
-      </Container>
-    );
-  }
-
-  return <TastePageClient platforms={platformsResult.platforms ?? []} />;
+  return (
+    <ErrorBoundary>
+      <TasteShell />
+    </ErrorBoundary>
+  );
 }

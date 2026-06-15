@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { PicksPageClient } from "@/components/playfit-mvp/picks-page-client";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Container } from "@/components/ui/container";
-import { fetchPlatforms } from "@/lib/supabase/platforms";
+import { PicksShell } from "@/components/playfit-mvp/picks-shell";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
   title: "Playfit Picks",
@@ -10,25 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default async function PicksPage() {
-  const platformsResult = await fetchPlatforms()
-    .then((platforms) => ({ platforms, error: null }))
-    .catch((error: unknown) => ({
-      platforms: null,
-      error: error instanceof Error ? error.message : "The catalog connection failed.",
-    }));
-
-  if (platformsResult.error) {
-    return (
-      <Container as="main" size="sm" className="grid gap-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Playfit Picks could not load</CardTitle>
-            <CardDescription>{platformsResult.error}</CardDescription>
-          </CardHeader>
-        </Card>
-      </Container>
-    );
-  }
-
-  return <PicksPageClient platforms={platformsResult.platforms ?? []} />;
+  return (
+    <ErrorBoundary>
+      <PicksShell />
+    </ErrorBoundary>
+  );
 }
