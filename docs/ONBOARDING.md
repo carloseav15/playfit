@@ -48,9 +48,18 @@ Variables in `.env`:
 
 The migration creates empty tables. You need catalog data to use the app:
 
-- **Option A**: Contact the team for a seed dump
-- **Option B**: Run `supabase db dump --local -f seed.sql --schema games_library` if you have access to a populated DB
-- **Option C**: Run `node scripts/scrape-rawg.mjs` (needs `RAWG_API_KEY`)
+```bash
+bash scripts/seed-catalog.sh
+```
+
+This script tries (in order):
+1. **Local seed dump** at `data/seed/games_library_seed.sql`
+2. **Staging pull** if `STAGING_SUPABASE_URL` + `STAGING_SUPABASE_SERVICE_KEY` are set
+3. **Instructions** to create a dump from a populated DB or scrape from RAWG
+
+> If you have access to a populated DB: `mkdir -p data/seed && supabase db dump --local -f data/seed/games_library_seed.sql --schema games_library --data-only`
+
+> If you need to scrape from RAWG: set `RAWG_API_KEY` in `.env` and run `node scripts/scrape-rawg.mjs`
 
 ## Step 6: Start Dev Server
 

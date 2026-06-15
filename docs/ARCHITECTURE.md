@@ -163,3 +163,147 @@ packages/core/               # Shared domain logic
 - **Rate limiting**: `check_rate_limit()` RPC enforces 30 req/min per IP for `/api/profile`, 60 req/min for `/api/profile/games`.
 - **Device ID validation**: UUID v4 regex check on query params for anonymous access.
 - **Edge Function**: Sanitizes error messages (no key leaks), uses try/catch at top level.
+
+## Frontend Page Hierarchy
+
+```
+/ (public)              → HomePage (landing)
+  /how-it-works         → HowItWorksPage
+  /legal/privacy        → PrivacyPage
+  /legal/terms          → TermsPage
+  /ui-kit               → UiKitPage (living style guide)
+
+  /app (protected)      → AppLayout → PlayfitRouteProvider
+    /app                → ProductApp
+      ├── TodaySection
+      ├── LibrarySection
+      ├── FinderSection
+      ├── UpcomingSection
+      ├── ProfileSection
+      └── OnboardingSection
+    /app/game/:gameId   → GameDetailPage (dossier)
+
+  /play (public)        → PlayLayout
+    /play               → PlayPageClient
+    /play/game/:gameId  → PlayDossierClient
+```
+
+### Component Directory Layout
+
+```
+components/
+  ui/              # 30 reusable, generic UI components (button, card, dialog, etc.)
+                   # Exported in index.ts, living docs at /ui-kit
+
+  playfit/         # Production business components
+    product-app.tsx       # Shell with sidebar nav + tab routing
+    playfit-context.tsx   # Central state (see docs/PLAYFIT-CONTEXT.md)
+    playfit-route-provider.tsx  # Provider wrapper with ErrorBoundary
+    today-section.tsx     # Today recommendation view
+    library-section.tsx   # My Games view
+    finder-section.tsx    # Discover / search view
+    upcoming-section.tsx  # Upcoming releases view
+    profile-section.tsx   # User profile view
+    onboarding-section.tsx # Cold-start onboarding wizard
+    carousel.tsx          # Game card carousel
+    carousel-card.tsx     # Individual game card
+    cover-art.tsx         # Game cover image component
+    section-head.tsx      # Section header with optional action
+    metric.tsx            # Stat metric display
+    star-rating.tsx       # Star rating input/display
+    status-toast.tsx      # Save status toast notification
+    auth-panel.tsx        # Sign in / continue locally panel
+    game-detail-page.tsx  # Game dossier page
+    product-utils.ts      # Utility functions
+
+  playfit-mvp/      # MVP variant components (simpler, single-use)
+    decision-shell.tsx     # Decision UI shell (play next)
+    decision-dossier.tsx   # Decision dossier
+    play-page-client.tsx   # Play page entry
+    play-next-card.tsx     # Next play recommendation card
+    play-dossier-client.tsx # Play dossier entry
+    feedback-bar.tsx       # Feedback collection bar
+```
+
+### Navigation Flow
+
+Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. The middleware protects `/app/*` — unauthenticated users get redirected to `/`.
+
+## Domain Business Rules
+
+### Recommendation Scoring (`packages/core/src/domain/recommendations.ts`)
+
+Each game gets an **affinity** and **risk** score, then ranked by `affinity - risk`:
+
+```
+affinity = BASE_AFFINITY (15) + tag_match_bonuses
+risk = BASE_RISK (10) + tag_mismatch_penalties
+```
+
+**Key constants:**
+
+| Constant | Value | Effect |
+|---|---|---|
+| `STRONG_FIT_THRESHOLD` | 78 | Confidence label threshold |
+| `PROMISING_FIT_THRESHOLD` | 62 | Promising match threshold |
+| `HIGH_FRICTION_THRESHOLD` | 58 | Caution threshold |
+| `GENRE_MATCH_BONUS` | 8 | Bonus per matching genre |
+| `GENRE_MISMATCH_PENALTY` | 6 | Penalty per mismatched genre |
+| `BACKLOG_BONUS` | 6 | Bonus if game is in backlog |
+| `SOULS_LIKE_RISK` | 15 | Fixed risk for souls-like games |
+| `HORROR_RISK` | 12 | Fixed risk for horror games |
+
+**Confidence levels:**
+
+| Rated Games | Confidence |
+|---|---|
+| 0–2 | low |
+| 3–5 | medium |
+| 6+ | high |
+
+**Profile signals** are built from liked/disliked tags aggregated across all rated games. Tags with `count > 3` generate "Strong history" messages, `2-3` generate "Emerging pattern", `1` generates "Early signal".
+
+### Decision Feedback (`packages/core/src/domain/feedback.ts`)
+
+| Feedback | Effect |
+|---|---|
+| `play` | Sets status=playing, clears backlog, clears excluded |
+| `later` | Sets status=shelved, inBacklog=true |
+| `loved` | Sets rating=5, rebuilds profile |
+| `liked` | Sets rating=4, rebuilds profile |
+| `mixed` | Sets rating=3, rebuilds profile |
+| `not_for_me` | Sets rating=2, excluded=true, rebuilds profile |
+
+### Search Scoring
+
+| Match Type | Score |
+|---|---|
+| Exact title match | 160 |
+| Exact alias match | 150 |
+| Title starts with query | 126 |
+| Title includes query | 96 |
+| Any token match | 72+ |
+
+**Quality penalties** (subtracted from score):
+- Low-quality terms in title (demo, soundtrack, etc.): -22 each
+- No tags: -20
+- Unknown genre: -16
+- No cover: -6
+
+### Duplicate / Redirect Resolution
+
+Game IDs can be redirected via `game_redirects` table. `resolveGameRedirect(supabase, gameId)` follows chains up to 5 hops with cycle detection. All API game lookups pass through redirect resolution before querying.
+
+### Tag Weights
+
+Tags have configurable weights (1-4) affecting scoring impact:
+
+| Weight | Tags |
+|---|---|
+| 4 | souls_like |
+| 3.5 | unforgiving, immersive_sim |
+| 3 | story_rich, branching_narrative, tactical, deck_building, metroidvania |
+| 2.5 | lore_heavy, stealth, puzzle, rhythm, survival, roguelike, chill, horror, cozy |
+| 2 | text_based, open_world, sandbox, pick_up_and_play, accessible |
+| 1.5 | linear, hub_based, long_sessions, dark, lighthearted |
+| 1 | minimalist_story, short_sessions |
