@@ -20,10 +20,51 @@ import { usePlayfit } from "./playfit-context";
 import { formatGameDescriptor } from "./product-utils";
 import { SectionHead } from "./section-head";
 
+const preferredPlatformFamilies = ["nintendo", "playstation", "xbox", "sega", "pc", "other"];
+const platformFamilyLabels: Record<string, string> = {
+  nintendo: "Nintendo",
+  playstation: "PlayStation",
+  xbox: "Xbox",
+  sega: "SEGA",
+  pc: "PC",
+  other: "Other",
+};
+
+function formatPlatformFamily(family: string) {
+  return (
+    platformFamilyLabels[family] ??
+    family
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  );
+}
+
 export function OnboardingSection() {
-  const { seedData, state, ui, setUi, updateState, searchGames, getSeedGame } = usePlayfit();
+  const {
+    seedData,
+    state,
+    ui,
+    setUi,
+    updateState,
+    searchGames,
+    getSeedGame,
+    onboardingSearchError,
+  } = usePlayfit();
   const draft = state.user.onboarding;
   const [platformError, setPlatformError] = useState<string | null>(null);
+  const platformFamilies = useMemo(() => {
+    const availableFamilies = [
+      ...new Set(seedData.platforms.map((platform) => platform.family || "other")),
+    ];
+    const preferred = preferredPlatformFamilies.filter((family) =>
+      availableFamilies.includes(family),
+    );
+    const remaining = availableFamilies
+      .filter((family) => !preferredPlatformFamilies.includes(family))
+      .sort((a, b) => formatPlatformFamily(a).localeCompare(formatPlatformFamily(b)));
+    return [...preferred, ...remaining];
+  }, [seedData.platforms]);
   const deferredQuery = useDeferredValue(ui.onboardingQuery);
   const anchorResults = useMemo(() => {
     const games = searchGames(deferredQuery);
@@ -68,9 +109,15 @@ export function OnboardingSection() {
 
   function addAnchor(game: SeedGame) {
     updateState((next) => {
+      if (
+        next.user.onboarding.likedGameIds.length >= 3 &&
+        !next.user.onboarding.likedGameIds.includes(game.gameId)
+      ) {
+        return;
+      }
       next.user.onboarding.likedGameIds = [
         ...new Set([...next.user.onboarding.likedGameIds, game.gameId]),
-      ];
+      ].slice(0, 3);
       next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
         (id) => id !== game.gameId,
       );
@@ -88,9 +135,7 @@ export function OnboardingSection() {
 
   function addDislikedAnchor(game: SeedGame) {
     updateState((next) => {
-      next.user.onboarding.dislikedGameIds = [
-        ...new Set([...next.user.onboarding.dislikedGameIds, game.gameId]),
-      ];
+      next.user.onboarding.dislikedGameIds = [game.gameId];
       next.user.onboarding.likedGameIds = next.user.onboarding.likedGameIds.filter(
         (id) => id !== game.gameId,
       );
@@ -162,8 +207,8 @@ export function OnboardingSection() {
     draft.step === "platforms"
       ? `${draft.platforms.length} platforms`
       : draft.step === "anchors"
-        ? `${draft.likedGameIds.length} / 3 loved`
-        : `${draft.dislikedGameIds.length} / 1 not for me`;
+        ? `${Math.min(draft.likedGameIds.length, 3)} / 3 loved`
+        : `${Math.min(draft.dislikedGameIds.length, 1)} / 1 not for me`;
 
   return (
     <section>
@@ -220,91 +265,76 @@ export function OnboardingSection() {
                   label={allSelected ? "Deselect all platforms" : "Select all platforms"}
                   disabled={platformsUnavailable}
                 />
-                {(["nintendo", "playstation", "xbox", "sega", "pc", "other"] as const).map(
-                  (family) => {
-                    const group = seedData.platforms
-                      .filter((p) => p.family === family)
-                      .sort((a, b) => a.sortOrder - b.sortOrder);
-                    if (group.length === 0) return null;
-                    const label = {
-                      nintendo: "Nintendo",
-                      playstation: "PlayStation",
-                      xbox: "Xbox",
-                      sega: "SEGA",
-                      pc: "PC",
-                      other: "Other",
-                    }[family];
-                    const consoles = group.filter((p) => p.kind !== "handheld");
-                    const handhelds = group.filter((p) => p.kind === "handheld");
-                    return (
-                      <div key={family} className="grid gap-2">
-                        {label !== "Other" && (
-                          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                            {label}
-                          </p>
-                        )}
-                        {consoles.length > 0 && (
-                          <div>
-                            {handhelds.length > 0 && (
-                              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                Console / Hybrid
-                              </p>
-                            )}
-                            <div className="grid gap-2 md:grid-cols-2">
-                              {consoles.map((platform) => {
-                                const checked = draft.platforms.some(
-                                  (entry) => entry.platformId === platform.platformId,
-                                );
-                                return (
-                                  <Checkbox
-                                    key={platform.platformId}
-                                    id={`platform-${platform.platformId}`}
-                                    checked={checked}
-                                    onChange={(event) =>
-                                      togglePlatform(
-                                        platform.platformId,
-                                        event.currentTarget.checked,
-                                      )
-                                    }
-                                    label={platform.displayName}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        {handhelds.length > 0 && (
-                          <div>
+                {platformFamilies.map((family) => {
+                  const group = seedData.platforms
+                    .filter((p) => p.family === family)
+                    .sort((a, b) => a.sortOrder - b.sortOrder);
+                  if (group.length === 0) return null;
+                  const label = formatPlatformFamily(family);
+                  const consoles = group.filter((p) => p.kind !== "handheld");
+                  const handhelds = group.filter((p) => p.kind === "handheld");
+                  return (
+                    <div key={family} className="grid gap-2">
+                      {label && (
+                        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                          {label}
+                        </p>
+                      )}
+                      {consoles.length > 0 && (
+                        <div>
+                          {handhelds.length > 0 && (
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Handheld
+                              Console / Hybrid
                             </p>
-                            <div className="grid gap-2 md:grid-cols-2">
-                              {handhelds.map((platform) => {
-                                const checked = draft.platforms.some(
-                                  (entry) => entry.platformId === platform.platformId,
-                                );
-                                return (
-                                  <Checkbox
-                                    key={platform.platformId}
-                                    id={`platform-${platform.platformId}`}
-                                    checked={checked}
-                                    onChange={(event) =>
-                                      togglePlatform(
-                                        platform.platformId,
-                                        event.currentTarget.checked,
-                                      )
-                                    }
-                                    label={platform.displayName}
-                                  />
-                                );
-                              })}
-                            </div>
+                          )}
+                          <div className="grid gap-2 md:grid-cols-2">
+                            {consoles.map((platform) => {
+                              const checked = draft.platforms.some(
+                                (entry) => entry.platformId === platform.platformId,
+                              );
+                              return (
+                                <Checkbox
+                                  key={platform.platformId}
+                                  id={`platform-${platform.platformId}`}
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    togglePlatform(platform.platformId, event.currentTarget.checked)
+                                  }
+                                  label={platform.displayName}
+                                />
+                              );
+                            })}
                           </div>
-                        )}
-                      </div>
-                    );
-                  },
-                )}
+                        </div>
+                      )}
+                      {handhelds.length > 0 && (
+                        <div>
+                          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Handheld
+                          </p>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            {handhelds.map((platform) => {
+                              const checked = draft.platforms.some(
+                                (entry) => entry.platformId === platform.platformId,
+                              );
+                              return (
+                                <Checkbox
+                                  key={platform.platformId}
+                                  id={`platform-${platform.platformId}`}
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    togglePlatform(platform.platformId, event.currentTarget.checked)
+                                  }
+                                  label={platform.displayName}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {platformError ? <Alert variant="error">{platformError}</Alert> : null}
                 <Button type="submit" className="w-fit" disabled={draft.platforms.length === 0}>
                   Continue <ChevronRight className="size-4" />
@@ -347,6 +377,7 @@ export function OnboardingSection() {
                 <div className="grid gap-3 md:grid-cols-2">
                   {anchorResults.map((game) => {
                     const selected = draft.likedGameIds.includes(game.gameId);
+                    const disabled = selected || draft.likedGameIds.length >= 3;
                     return (
                       <button
                         key={game.gameId}
@@ -357,7 +388,7 @@ export function OnboardingSection() {
                           selected && "border-[color-mix(in_srgb,var(--accent),transparent_40%)]",
                         )}
                         onClick={() => addAnchor(game)}
-                        disabled={selected}
+                        disabled={disabled}
                       >
                         <span>
                           <strong>{game.title}</strong>
@@ -374,11 +405,15 @@ export function OnboardingSection() {
                     );
                   })}
                 </div>
-                {anchorResults.length === 0 && deferredQuery.trim().length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No games found. Try a different title.
-                  </p>
-                )}
+                {anchorResults.length === 0 &&
+                  deferredQuery.trim().length > 0 &&
+                  (onboardingSearchError ? (
+                    <Alert variant="error">{onboardingSearchError}</Alert>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No games found. Try a different title.
+                    </p>
+                  ))}
                 <Stack direction="row" wrap gap={3}>
                   <Button
                     type="button"
@@ -476,11 +511,15 @@ export function OnboardingSection() {
                     );
                   })}
                 </div>
-                {anchorResults.length === 0 && deferredQuery.trim().length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No games found. Try a different title.
-                  </p>
-                )}
+                {anchorResults.length === 0 &&
+                  deferredQuery.trim().length > 0 &&
+                  (onboardingSearchError ? (
+                    <Alert variant="error">{onboardingSearchError}</Alert>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No games found. Try a different title.
+                    </p>
+                  ))}
                 <Stack direction="row" wrap gap={3}>
                   <Button
                     type="button"

@@ -19,6 +19,7 @@ import type {
   ProductRating,
   ProductSeedData,
   ProductState,
+  ProductTasteSignalSource,
   SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
@@ -81,8 +82,11 @@ interface PlayfitContextValue {
   setPlayStatus: (gameId: string, status: ProductGameState["status"] | undefined) => void;
   setRating: (gameId: string, rating: ProductRating | undefined) => void;
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
+  removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
   excludeGame: (gameId: string) => void;
   setStatusMessage: (message: string | null) => void;
+  finderSearchError: string | null;
+  onboardingSearchError: string | null;
   retrySave: () => Promise<void>;
   resetLocalState: () => void;
   signOut: () => Promise<void>;
@@ -141,6 +145,21 @@ function buildGameState(game: SeedGame, source: ProductGameState["source"]): Pro
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+function rebuildAdaptiveProfileFromCache(draft: ProductState) {
+  if (!draft.user.profile && !draft.user.onboardingCompletedAt) return;
+  const ids = new Set([
+    ...draft.user.onboarding.likedGameIds,
+    ...(draft.user.onboarding.dislikedGameIds ?? []),
+    ...Object.keys(draft.user.gameStates),
+  ]);
+  const map = new Map<string, SeedGame>();
+  for (const id of ids) {
+    const game = getCachedGame(id);
+    if (game) map.set(id, game);
+  }
+  draft.user.profile = buildAdaptiveProfile(draft.user.onboarding, map, draft.user.gameStates);
 }
 
 function usePlayfitAuth(localFirst = false) {
@@ -297,6 +316,8 @@ export function PlayfitProvider({
   const [isSaving, setIsSaving] = useState(false);
   const [searchResults, setSearchResults] = useState<SeedGame[]>([]);
   const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
+  const [finderSearchError, setFinderSearchError] = useState<string | null>(null);
+  const [onboardingSearchError, setOnboardingSearchError] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onboardingSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchRequestCounterRef = useRef(0);
@@ -444,6 +465,7 @@ export function PlayfitProvider({
   useEffect(() => {
     if (!ui?.finderQuery?.trim()) {
       setSearchResults([]);
+      setFinderSearchError(null);
       return;
     }
     const requestId = ++searchRequestCounterRef.current;
@@ -451,13 +473,21 @@ export function PlayfitProvider({
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/games?q=${encodeURIComponent(ui.finderQuery.trim())}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (requestId !== searchRequestCounterRef.current) return;
+          setFinderSearchError("Search could not load. Try again.");
+          setSearchResults([]);
+          return;
+        }
         const data = (await res.json()) as { games: SeedGame[] };
         if (requestId !== searchRequestCounterRef.current) return;
+        setFinderSearchError(null);
         addGamesToCache(data.games);
         setSearchResults(data.games);
       } catch {
-        // Silently fail
+        if (requestId !== searchRequestCounterRef.current) return;
+        setFinderSearchError("Search could not load. Try again.");
+        setSearchResults([]);
       }
     }, 250);
     return () => {
@@ -469,6 +499,7 @@ export function PlayfitProvider({
   useEffect(() => {
     if (!ui?.onboardingQuery?.trim()) {
       setOnboardingSearchResults([]);
+      setOnboardingSearchError(null);
       return;
     }
     const requestId = ++onboardingSearchRequestCounterRef.current;
@@ -476,13 +507,21 @@ export function PlayfitProvider({
     onboardingSearchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/games?q=${encodeURIComponent(ui.onboardingQuery.trim())}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (requestId !== onboardingSearchRequestCounterRef.current) return;
+          setOnboardingSearchError("Search could not load. Try again.");
+          setOnboardingSearchResults([]);
+          return;
+        }
         const data = (await res.json()) as { games: SeedGame[] };
         if (requestId !== onboardingSearchRequestCounterRef.current) return;
+        setOnboardingSearchError(null);
         addGamesToCache(data.games);
         setOnboardingSearchResults(data.games);
       } catch {
-        // Silently fail
+        if (requestId !== onboardingSearchRequestCounterRef.current) return;
+        setOnboardingSearchError("Search could not load. Try again.");
+        setOnboardingSearchResults([]);
       }
     }, 250);
     return () => {
@@ -545,6 +584,8 @@ export function PlayfitProvider({
       ui,
       isPending: false,
       isSaving,
+      finderSearchError,
+      onboardingSearchError,
       setUi: updateUi,
       updateState,
       getSeedGame(gameId: string) {
@@ -712,6 +753,67 @@ export function PlayfitProvider({
           );
         }, 0);
       },
+      removeTasteSignal(gameId: string, source: ProductTasteSignalSource) {
+        updateState((draft) => {
+          if (source === "onboarding_liked") {
+            draft.user.onboarding.likedGameIds = draft.user.onboarding.likedGameIds.filter(
+              (id) => id !== gameId,
+            );
+          }
+
+          if (source === "onboarding_disliked") {
+            draft.user.onboarding.dislikedGameIds = (
+              draft.user.onboarding.dislikedGameIds ?? []
+            ).filter((id) => id !== gameId);
+          }
+
+          const existing = draft.user.gameStates[gameId];
+          if (source === "rating" && existing) {
+            const next = { ...existing, updatedAt: nowIso() };
+            delete next.rating;
+            if (
+              next.status === "completed" ||
+              next.status === "beaten" ||
+              next.status === "abandoned"
+            ) {
+              delete next.status;
+            }
+            next.excluded = false;
+            if (!next.status && !next.inBacklog && !next.inWishlist && next.source === "manual") {
+              delete draft.user.gameStates[gameId];
+            } else {
+              draft.user.gameStates[gameId] = next;
+            }
+          }
+
+          if (source !== "rating") {
+            const next = draft.user.gameStates[gameId];
+            if (
+              next &&
+              next.source === "onboarding" &&
+              next.rating == null &&
+              !next.status &&
+              !next.inBacklog &&
+              !next.inWishlist &&
+              !next.excluded
+            ) {
+              delete draft.user.gameStates[gameId];
+            }
+          }
+
+          rebuildAdaptiveProfileFromCache(draft);
+        });
+        setTimeout(() => {
+          updateUi((current) =>
+            current
+              ? {
+                  ...current,
+                  statusMessage: "Taste signal removed. Playfit recalculated your profile.",
+                }
+              : current,
+          );
+        }, 0);
+      },
       excludeGame(gameId: string) {
         updateState((draft) => {
           const game = getCachedGame(gameId);
@@ -768,6 +870,8 @@ export function PlayfitProvider({
     platforms,
     searchResults,
     onboardingSearchResults,
+    finderSearchError,
+    onboardingSearchError,
     gamesByIdForProfile,
     updateState,
     updateUi,
