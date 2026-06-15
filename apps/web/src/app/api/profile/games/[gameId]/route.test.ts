@@ -55,7 +55,7 @@ describe("profile game states API route", () => {
       new Request("http://playfit.test/api/profile/games/zelda_tears", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "playing", rating: 4.5 }),
+        body: JSON.stringify({ status: "playing", rating: 4.5, inPlayfitPicks: true }),
       }),
       { params: Promise.resolve({ gameId: "zelda_tears" }) },
     );
@@ -70,6 +70,7 @@ describe("profile game states API route", () => {
       p_rating: 4.5,
       p_in_backlog: null,
       p_in_wishlist: null,
+      p_in_playfit_picks: true,
       p_excluded: null,
       p_source: "manual",
     });
@@ -99,6 +100,7 @@ describe("profile game states API route", () => {
       p_rating: null,
       p_in_backlog: null,
       p_in_wishlist: null,
+      p_in_playfit_picks: null,
       p_excluded: null,
       p_source: "manual",
     });

@@ -84,6 +84,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
       p_rating: body.rating ?? null,
       p_in_backlog: body.inBacklog ?? null,
       p_in_wishlist: body.inWishlist ?? null,
+      p_in_playfit_picks: body.inPlayfitPicks ?? null,
       p_excluded: body.excluded ?? null,
       p_source: body.source ?? "manual",
     });
