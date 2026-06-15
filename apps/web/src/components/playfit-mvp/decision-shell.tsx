@@ -5,7 +5,7 @@ import type {
   ProductTodayModel,
   RankedSeedGame,
 } from "@playfit/core/types";
-import { SlidersHorizontal } from "lucide-react";
+import { ListChecks, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -31,7 +31,7 @@ function uniqueEntries(list: RankedSeedGame[]) {
 }
 
 export function DecisionShell() {
-  const { setStatusMessage, state, applyDecisionFeedback } = usePlayfit();
+  const { setStatusMessage, state, applyDecisionFeedback, setPlayfitPick } = usePlayfit();
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +101,11 @@ export function DecisionShell() {
     setSkippedIds((prev) => new Set([...prev, entry.game.gameId]));
   }
 
+  function handleAddPick(entry: RankedSeedGame) {
+    setPlayfitPick(entry.game.gameId, true);
+    setSkippedIds((prev) => new Set([...prev, entry.game.gameId]));
+  }
+
   function handleShowAnother(entry: RankedSeedGame) {
     setSkippedIds((prev) => new Set([...prev, entry.game.gameId]));
   }
@@ -108,6 +113,15 @@ export function DecisionShell() {
   function handleReason(reason: string) {
     setStatusMessage(`Noted: ${reason.toLowerCase()}.`);
   }
+
+  const picksCount = Object.values(state.user.gameStates).filter(
+    (record) =>
+      record.inPlayfitPicks &&
+      record.status !== "completed" &&
+      record.status !== "beaten" &&
+      record.status !== "abandoned" &&
+      !record.excluded,
+  ).length;
 
   if (!profileReady) {
     return (
@@ -174,7 +188,13 @@ export function DecisionShell() {
   return (
     <Container as="main" size="sm" className="grid gap-6 py-8">
       <section className="grid gap-3">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" asChild>
+            <Link href="/play/picks">
+              <ListChecks className="size-4" />
+              Picks {picksCount ? `(${picksCount})` : ""}
+            </Link>
+          </Button>
           <Button type="button" variant="ghost" asChild>
             <Link href="/play/taste">
               <SlidersHorizontal className="size-4" />
@@ -193,8 +213,8 @@ export function DecisionShell() {
       <PlayNextCard
         entry={primary}
         primary
-        onPlay={() => handleFeedback(primary, "play")}
-        onLater={() => handleFeedback(primary, "later")}
+        inPlayfitPicks={primary.inPlayfitPicks}
+        onAddPick={() => handleAddPick(primary)}
         onNotForMe={() => handleFeedback(primary, "not_for_me")}
         onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
         onShowAnother={() => handleShowAnother(primary)}
@@ -210,8 +230,8 @@ export function DecisionShell() {
             <PlayNextCard
               key={entry.game.gameId}
               entry={entry}
-              onPlay={() => handleFeedback(entry, "play")}
-              onLater={() => handleFeedback(entry, "later")}
+              inPlayfitPicks={entry.inPlayfitPicks}
+              onAddPick={() => handleAddPick(entry)}
               onNotForMe={() => handleFeedback(entry, "not_for_me")}
               onAlreadyPlayed={(feedback) => handleFeedback(entry, feedback)}
               onShowAnother={() => handleShowAnother(entry)}

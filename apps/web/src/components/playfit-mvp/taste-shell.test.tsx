@@ -107,6 +107,7 @@ describe("TasteShell", () => {
       status: "completed",
       inBacklog: false,
       inWishlist: false,
+      inPlayfitPicks: false,
       excluded: false,
       source: "manual",
       createdAt: "2026-01-02T00:00:00.000Z",

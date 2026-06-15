@@ -1,7 +1,7 @@
 "use client";
 
 import type { RankedSeedGame } from "@playfit/core/types";
-import { CheckCircle2, Dices, Eye, ListPlus, Play, XCircle } from "lucide-react";
+import { CheckCircle2, Dices, Eye, ListPlus, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -52,8 +52,8 @@ function ReasonList({
 export function PlayNextCard({
   entry,
   primary = false,
-  onPlay,
-  onLater,
+  inPlayfitPicks = false,
+  onAddPick,
   onNotForMe,
   onAlreadyPlayed,
   onShowAnother,
@@ -61,8 +61,8 @@ export function PlayNextCard({
 }: {
   entry: RankedSeedGame;
   primary?: boolean;
-  onPlay: () => void;
-  onLater: () => void;
+  inPlayfitPicks?: boolean;
+  onAddPick: () => void;
   onNotForMe: () => void;
   onAlreadyPlayed: (feedback: AlreadyPlayedFeedback) => void;
   onShowAnother?: () => void;
@@ -148,13 +148,9 @@ export function PlayNextCard({
           </div>
         </div>
         <Stack direction="row" wrap gap={2}>
-          <Button type="button" onClick={onPlay}>
-            <Play className="size-4" />
-            I&apos;ll play this
-          </Button>
-          <Button type="button" variant="secondary" onClick={onLater}>
+          <Button type="button" onClick={onAddPick} disabled={inPlayfitPicks}>
             <ListPlus className="size-4" />
-            Maybe later
+            {inPlayfitPicks ? "In Playfit Picks" : "Add to Playfit Picks"}
           </Button>
           <Button
             type="button"
