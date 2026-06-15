@@ -166,6 +166,7 @@ function rankedGame(row: (typeof gameRows)[number], affinityScore = 82) {
     accessStatus: "playable",
     inBacklog: false,
     inWishlist: false,
+    inPlayfitPicks: false,
     similarGames: [],
   };
 }
@@ -250,9 +251,10 @@ async function mockSupabase(page: Page) {
   });
   await page.route("**/api/recommendations/today", async (route) => {
     const body = route.request().postDataJSON() as {
-      gameStates?: Record<string, { excluded?: boolean; status?: string }>;
+      gameStates?: Record<string, { excluded?: boolean; inPlayfitPicks?: boolean; status?: string }>;
     };
-    const blocked = new Set(
+    const states = body.gameStates ?? {};
+    const terminal = new Set(
       Object.entries(body.gameStates ?? {})
         .filter(([, state]) => {
           return (
@@ -264,7 +266,20 @@ async function mockSupabase(page: Page) {
         })
         .map(([gameId]) => gameId),
     );
-    const nextUp = [gameRows[5], gameRows[3]].filter((row) => !blocked.has(row.game_id));
+    const picked = new Set(
+      Object.entries(states)
+        .filter(([gameId, state]) => state.inPlayfitPicks === true && !terminal.has(gameId))
+        .map(([gameId]) => gameId),
+    );
+    const nextUp = [gameRows[5], gameRows[3]].filter(
+      (row) => !terminal.has(row.game_id) && !picked.has(row.game_id),
+    );
+    const picks = [gameRows[5], gameRows[3]]
+      .filter((row) => picked.has(row.game_id) && !terminal.has(row.game_id))
+      .map((row, index) => ({
+        ...rankedGame(row, index === 0 ? 82 : 74),
+        inPlayfitPicks: true,
+      }));
 
     await route.fulfill({
       status: 200,
@@ -273,6 +288,7 @@ async function mockSupabase(page: Page) {
         currentRun: [],
         nextUp: nextUp.map((row, index) => rankedGame(row, index === 0 ? 82 : 74)),
         resume: [],
+        picks,
       }),
     });
   });
@@ -332,6 +348,22 @@ async function mockSupabase(page: Page) {
   return savedProfiles;
 }
 
+async function advanceFromPlatformStep(page: Page) {
+  await expect(page.getByRole("heading", { name: "Where can Playfit look?" })).toBeVisible();
+  const selectAll = page.getByText("Select all platforms", { exact: true });
+  const continueButton = page.getByRole("button", { name: /Continue/ });
+
+  await expect(selectAll).toBeVisible();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await selectAll.click();
+    if (await continueButton.isEnabled()) break;
+    await page.waitForTimeout(250);
+  }
+
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
+}
+
 test("public home and health endpoint load", async ({ page, request }) => {
   await page.goto("/");
 
@@ -351,8 +383,7 @@ test("anonymous local profile can complete setup and save by device id", async (
 
   await expect(page.getByRole("heading", { name: "Find what to play next" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Where can Playfit look?" })).toBeVisible();
-  await page.getByText("Select all platforms", { exact: true }).click();
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await advanceFromPlatformStep(page);
 
   await expect(page.getByRole("heading", { name: "Pick three games you loved" })).toBeVisible();
   await page.getByLabel("Search by title or series").fill("Chrono");
@@ -408,12 +439,20 @@ test("play dossier direct link fetches a valid game before asking for taste", as
   await expect(page.getByText("Game not found")).toHaveCount(0);
 });
 
+test("picks route asks new users to tune taste first", async ({ page }) => {
+  await mockSupabase(page);
+
+  await page.goto("/play/picks");
+
+  await expect(page.getByRole("heading", { name: "Tune your taste first" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start Play Next" })).toBeVisible();
+});
+
 test("taste route explains onboarding signals and lets users remove one", async ({ page }) => {
   await mockSupabase(page);
 
   await page.goto("/play");
-  await page.getByText("Select all platforms", { exact: true }).click();
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await advanceFromPlatformStep(page);
   await page.getByLabel("Search by title or series").fill("Chrono");
   await page.getByRole("button", { name: /Chrono Trigger/ }).click();
   await page.getByLabel("Search by title or series").fill("Metroid");
@@ -452,12 +491,70 @@ test("taste route explains onboarding signals and lets users remove one", async 
   await expect(page.getByText("Taste is below calibration strength")).toBeVisible();
 });
 
+test("playfit picks saves a recommendation and moves it to started", async ({ page }) => {
+  const savedProfiles = await mockSupabase(page);
+
+  await page.goto("/play");
+  await advanceFromPlatformStep(page);
+  await page.getByLabel("Search by title or series").fill("Chrono");
+  await page.getByRole("button", { name: /Chrono Trigger/ }).click();
+  await page.getByLabel("Search by title or series").fill("Metroid");
+  await page.getByRole("button", { name: /Metroid Prime/ }).click();
+  await page.getByLabel("Search by title or series").fill("Tears");
+  await page.getByRole("button", { name: /Tears of the Kingdom/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByLabel("Search for a game that missed for you").fill("Resident Evil");
+  await page.getByRole("button", { name: /Resident Evil 4/ }).click();
+  await page.getByRole("button", { name: "Find Play Next" }).click();
+
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add to Playfit Picks" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Maybe later" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Add to Playfit Picks" }).first().click();
+
+  await expect(page.getByRole("heading", { name: "Hollow Knight: Silksong" })).toBeVisible();
+  await expect
+    .poll(() =>
+      savedProfiles.some((profile) => {
+        const gameState = (
+          profile as {
+            gameStates?: Record<string, { inPlayfitPicks?: boolean; status?: string }>;
+          }
+        ).gameStates?.final_fantasy_vi;
+        return gameState?.inPlayfitPicks === true && !gameState.status;
+      }),
+    )
+    .toBe(true);
+
+  await Promise.all([
+    page.waitForURL(/\/play\/picks$/, { timeout: 15_000 }),
+    page.getByRole("link", { name: /Picks/ }).click(),
+  ]);
+
+  await expect(page.getByRole("heading", { name: "Playfit Picks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
+  await page.getByRole("button", { name: "Started" }).click();
+
+  await expect
+    .poll(() =>
+      savedProfiles.some((profile) => {
+        const gameState = (
+          profile as {
+            gameStates?: Record<string, { inPlayfitPicks?: boolean; status?: string }>;
+          }
+        ).gameStates?.final_fantasy_vi;
+        return gameState?.status === "playing" && gameState.inPlayfitPicks === false;
+      }),
+    )
+    .toBe(true);
+  await expect(page.getByText("No Playfit Picks yet")).toBeVisible();
+});
+
 test("play next feedback excludes a bad fit", async ({ page }) => {
   const savedProfiles = await mockSupabase(page);
 
   await page.goto("/play");
-  await page.getByText("Select all platforms", { exact: true }).click();
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await advanceFromPlatformStep(page);
   await page.getByLabel("Search by title or series").fill("Chrono");
   await page.getByRole("button", { name: /Chrono Trigger/ }).click();
   await page.getByLabel("Search by title or series").fill("Metroid");
@@ -497,8 +594,7 @@ test("already played loved marks completed and rotates the recommendation", asyn
   const savedProfiles = await mockSupabase(page);
 
   await page.goto("/play");
-  await page.getByText("Select all platforms", { exact: true }).click();
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await advanceFromPlatformStep(page);
   await page.getByLabel("Search by title or series").fill("Chrono");
   await page.getByRole("button", { name: /Chrono Trigger/ }).click();
   await page.getByLabel("Search by title or series").fill("Metroid");
@@ -541,8 +637,7 @@ test("already played dropped marks abandoned and stays out after reload", async 
   const savedProfiles = await mockSupabase(page);
 
   await page.goto("/play");
-  await page.getByText("Select all platforms", { exact: true }).click();
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await advanceFromPlatformStep(page);
   await page.getByLabel("Search by title or series").fill("Chrono");
   await page.getByRole("button", { name: /Chrono Trigger/ }).click();
   await page.getByLabel("Search by title or series").fill("Metroid");
