@@ -23,12 +23,14 @@ const options: {
 ];
 
 export function AlreadyPlayedPanel({
+  id,
   onSelect,
 }: {
+  id?: string;
   onSelect: (feedback: AlreadyPlayedFeedback) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
+    <div id={id} className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
       <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
         How did it land?
       </p>

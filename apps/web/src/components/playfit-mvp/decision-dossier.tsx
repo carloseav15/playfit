@@ -11,7 +11,9 @@ import {
   SlidersHorizontal,
   XCircle,
 } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +47,7 @@ function ReasonPanel({
   const visibleReasons = reasons.length ? reasons : [fallback];
 
   return (
-    <div className="rounded-md border border-border bg-secondary p-4">
+    <div className="rounded-2xl border border-border bg-secondary p-4">
       <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
         {title}
       </p>
@@ -100,6 +102,7 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const isPicked = entry.inPlayfitPicks;
+  const alreadyPlayedPanelId = `dossier-already-played-${entry.game.gameId}`;
 
   function markNotForMe() {
     applyDecisionFeedback(entry.game.gameId, "not_for_me");
@@ -118,7 +121,11 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
       <Stack direction="row" wrap gap={2}>
         {isPicked ? (
           <>
-            <Button type="button" onClick={() => startPlayfitPick(entry.game.gameId)}>
+            <Button
+              type="button"
+              onClick={() => startPlayfitPick(entry.game.gameId)}
+              className="shadow-sm"
+            >
               <Play className="size-4" />
               Started
             </Button>
@@ -140,6 +147,8 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
         <Button
           type="button"
           variant="secondary"
+          aria-expanded={showAlreadyPlayed}
+          aria-controls={alreadyPlayedPanelId}
           onClick={() => {
             setShowAlreadyPlayed((current) => !current);
             setShowReasonPicker(false);
@@ -148,14 +157,21 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
           <CheckCircle2 className="size-4" />
           Already played
         </Button>
-        <Button type="button" variant="secondary" onClick={markNotForMe}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={markNotForMe}
+          className="hover:bg-destructive/10 hover:text-destructive"
+        >
           <XCircle className="size-4" />
           Not for me
         </Button>
       </Stack>
-      {showAlreadyPlayed ? <AlreadyPlayedPanel onSelect={markAlreadyPlayed} /> : null}
+      {showAlreadyPlayed ? (
+        <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={markAlreadyPlayed} />
+      ) : null}
       {showReasonPicker ? (
-        <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
+        <div className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
             What got in the way?
           </p>
@@ -183,6 +199,7 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
 
 export function DecisionDossier({ gameId }: { gameId: string }) {
   const { getSeedGame, state } = usePlayfit();
+  const pathname = usePathname();
   const cachedGame = getSeedGame(gameId);
   const [fetchedGame, setFetchedGame] = useState<SeedGame | null>(null);
   const [loadingGame, setLoadingGame] = useState(!cachedGame);
@@ -277,71 +294,89 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
-      <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button type="button" variant="ghost" className="w-fit" asChild>
-            <Link href="/play">
-              <ArrowLeft className="size-4" />
-              Back to Play Next
-            </Link>
-          </Button>
-          <Button type="button" variant="ghost" className="w-fit" asChild>
-            <Link href="/play/taste">
-              <SlidersHorizontal className="size-4" />
-              Your Taste
-            </Link>
-          </Button>
-          <Button type="button" variant="ghost" className="w-fit" asChild>
-            <Link href="/play/picks">
-              <ListChecks className="size-4" />
-              Playfit Picks
-            </Link>
-          </Button>
-        </div>
-        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(180px,280px)_minmax(0,1fr)]">
-          <CoverArt game={game} className="aspect-[2/3] w-full max-w-72 justify-self-center" />
-          <div className="grid min-w-0 content-start gap-5">
-            <div className="grid gap-3">
-              <Stack direction="row" wrap gap={2}>
-                <Badge variant={decisionTone(entry)}>{decisionLabel(entry)}</Badge>
-                <Badge variant="outline">Recommended action</Badge>
-              </Stack>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  {formatGameDescriptor(game)}
-                </p>
-                <h1 className="font-display text-4xl font-extrabold leading-tight">{game.title}</h1>
-              </div>
-              <CurrentUserState
-                status={gameState?.status}
-                rating={gameState?.rating}
-                excluded={gameState?.excluded}
-                inPlayfitPicks={gameState?.inPlayfitPicks}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-2 text-center text-xs sm:grid-cols-3">
-              <Metric label="Match" value={entry.affinityScore} />
-              <Metric label="Watch-outs" value={entry.riskScore} />
-              <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <ReasonPanel
-                title="Why this could work"
-                reasons={entry.fitReasons}
-                fallback="Playfit needs more feedback before making a strong claim."
-              />
-              <ReasonPanel
-                title="Watch-outs"
-                reasons={entry.cautionReasons}
-                fallback="No major watch-out yet."
-              />
-            </div>
-            <DossierActions entry={entry} />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
+        <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button type="button" variant="ghost" className="w-fit" asChild>
+              <Link href="/play">
+                <ArrowLeft className="size-4" />
+                Back to Play Next
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+              className="w-fit"
+              asChild
+            >
+              <Link href="/play/taste">
+                <SlidersHorizontal className="size-4" />
+                Your Taste
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant={pathname === "/play/picks" ? "secondary" : "ghost"}
+              className="w-fit"
+              asChild
+            >
+              <Link href="/play/picks">
+                <ListChecks className="size-4" />
+                Playfit Picks
+              </Link>
+            </Button>
           </div>
-        </div>
-      </Container>
-      <StatusToast />
-    </div>
+          <div className="grid min-w-0 gap-6 rounded-3xl border border-border bg-card/70 p-4 shadow-sm lg:grid-cols-[minmax(180px,280px)_minmax(0,1fr)] lg:p-6">
+            <CoverArt game={game} className="aspect-[2/3] w-full max-w-72 justify-self-center" />
+            <div className="grid min-w-0 content-start gap-5">
+              <div className="grid gap-3">
+                <Stack direction="row" wrap gap={2}>
+                  <Badge variant={decisionTone(entry)}>{decisionLabel(entry)}</Badge>
+                  <Badge variant="outline">Recommended action</Badge>
+                </Stack>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    {formatGameDescriptor(game)}
+                  </p>
+                  <h1 className="font-display text-4xl font-extrabold leading-tight">
+                    {game.title}
+                  </h1>
+                </div>
+                <CurrentUserState
+                  status={gameState?.status}
+                  rating={gameState?.rating}
+                  excluded={gameState?.excluded}
+                  inPlayfitPicks={gameState?.inPlayfitPicks}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-center text-xs sm:grid-cols-3">
+                <Metric label="Match" value={entry.affinityScore} />
+                <Metric label="Watch-outs" value={entry.riskScore} />
+                <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <ReasonPanel
+                  title="Why this could work"
+                  reasons={entry.fitReasons}
+                  fallback="Playfit needs more feedback before making a strong claim."
+                />
+                <ReasonPanel
+                  title="Watch-outs"
+                  reasons={entry.cautionReasons}
+                  fallback="No major watch-out yet."
+                />
+              </div>
+              <DossierActions entry={entry} />
+            </div>
+          </div>
+        </Container>
+        <StatusToast />
+      </div>
+    </motion.div>
   );
 }

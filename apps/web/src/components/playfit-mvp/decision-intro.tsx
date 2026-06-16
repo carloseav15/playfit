@@ -7,12 +7,19 @@ export function DecisionIntro() {
     <section className="overflow-hidden rounded-3xl border border-border bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_30%)] p-6 text-card-foreground shadow-sm md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] md:gap-6 md:p-8">
       <div className="grid gap-5">
         <div className="grid gap-3">
+          <Badge variant="outline" className="w-fit">
+            Public portfolio demo
+          </Badge>
           <h1 className="max-w-xl font-display text-5xl font-black leading-[0.95] tracking-tight md:text-6xl">
             Find what to play next
           </h1>
           <p className="max-w-prose text-base leading-7 text-muted-foreground md:text-lg">
             Pick your platforms, 3 games you loved, and 1 that missed. Get one clear next pick,
             understand why, and correct it fast.
+          </p>
+          <p className="max-w-prose text-sm leading-6 text-muted-foreground">
+            The interface is intentionally narrow: it shows one decision, the reasons behind it, and
+            a direct correction path.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

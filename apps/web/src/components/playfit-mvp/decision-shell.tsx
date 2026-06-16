@@ -6,7 +6,9 @@ import type {
   RankedSeedGame,
 } from "@playfit/core/types";
 import { ListChecks, SlidersHorizontal } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -32,9 +34,11 @@ function uniqueEntries(list: RankedSeedGame[]) {
 
 export function DecisionShell() {
   const { setStatusMessage, state, applyDecisionFeedback, setPlayfitPick } = usePlayfit();
+  const pathname = usePathname();
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
+  const [slowLoading, setSlowLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
 
@@ -86,6 +90,16 @@ export function DecisionShell() {
     };
   }, [profileReady, state.user.profile, state.user.gameStates, state.user.onboarding]);
 
+  useEffect(() => {
+    if (!loading) {
+      setSlowLoading(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setSlowLoading(true), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [loading]);
+
   const candidates = useMemo(() => {
     if (!model) return [];
     return uniqueEntries([...model.nextUp, ...model.resume, ...model.currentRun]);
@@ -122,6 +136,9 @@ export function DecisionShell() {
       record.status !== "abandoned" &&
       !record.excluded,
   ).length;
+  const positiveSignalCount = state.user.onboarding.likedGameIds.length;
+  const negativeSignalCount = state.user.onboarding.dislikedGameIds.length;
+  const tasteSignalCount = positiveSignalCount + negativeSignalCount;
 
   if (!profileReady) {
     return (
@@ -139,10 +156,22 @@ export function DecisionShell() {
 
   if (loading) {
     return (
-      <Container as="main" size="sm" className="grid gap-3">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-6 w-96" />
-        <Skeleton className="h-64 w-full" />
+      <Container as="main" size="sm" className="grid gap-4 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Building your Play Next</CardTitle>
+            <CardDescription>
+              Checking your platforms, taste signals, and already-resolved games.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        {slowLoading ? (
+          <Alert variant="info" aria-live="polite">
+            Still working through the catalog. Your current signals are safe.
+          </Alert>
+        ) : null}
+        <Skeleton className="h-56 w-full" />
+        <Skeleton className="h-24 w-full" />
       </Container>
     );
   }
@@ -166,9 +195,10 @@ export function DecisionShell() {
       <Container as="main" size="sm" className="grid gap-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle>No more candidates</CardTitle>
+            <CardTitle>No Play Next candidate yet</CardTitle>
             <CardDescription>
-              Add more games to your library to find your next play.
+              Playfit needs a broader platform set or a few more taste signals before it can make a
+              useful recommendation.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -186,63 +216,97 @@ export function DecisionShell() {
   }
 
   return (
-    <Container as="main" size="sm" className="grid gap-6 py-8">
-      <section className="grid gap-3">
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/play/picks">
-              <ListChecks className="size-4" />
-              Picks {picksCount ? `(${picksCount})` : ""}
-            </Link>
-          </Button>
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/play/taste">
-              <SlidersHorizontal className="size-4" />
-              Taste
-            </Link>
-          </Button>
-        </div>
-        <div className="grid justify-items-center gap-1">
-          <CardTitle as="h2" className="text-center text-balance">
-            {recommendationGroupTitle(model?.nextUp ?? [])}
-          </CardTitle>
-          <CardDescription className="max-w-2xl text-center">
-            Find what to play next, save promising picks, and keep the reasons visible.
-          </CardDescription>
-        </div>
-      </section>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
+        <Container as="main" size="sm" className="grid gap-6 py-8">
+          <section className="grid gap-3">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant={pathname === "/play/picks" ? "secondary" : "ghost"}
+                asChild
+              >
+                <Link href="/play/picks">
+                  <ListChecks className="size-4" />
+                  Picks {picksCount ? `(${picksCount})` : ""}
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+                asChild
+              >
+                <Link href="/play/taste">
+                  <SlidersHorizontal className="size-4" />
+                  Taste
+                </Link>
+              </Button>
+            </div>
+            <div className="grid justify-items-center gap-1">
+              <CardTitle as="h2" className="text-center text-balance">
+                {recommendationGroupTitle(model?.nextUp ?? [])}
+              </CardTitle>
+              <CardDescription className="max-w-2xl text-center">
+                Find what to play next, save promising picks, and keep the reasons visible.
+              </CardDescription>
+            </div>
+            <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <span>{tasteSignalCount} taste signals</span>
+              <span aria-hidden="true">/</span>
+              <span>{positiveSignalCount} lean toward</span>
+              <span aria-hidden="true">/</span>
+              <span>{negativeSignalCount} steer away</span>
+            </div>
+          </section>
 
-      <PlayNextCard
-        entry={primary}
-        primary
-        inPlayfitPicks={primary.inPlayfitPicks}
-        onAddPick={() => handleAddPick(primary)}
-        onNotForMe={() => handleFeedback(primary, "not_for_me")}
-        onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
-        onShowAnother={() => handleShowAnother(primary)}
-        onReason={handleReason}
-      />
-
-      {alternatives.length > 0 && (
-        <section className="grid gap-3">
-          <CardTitle as="h2" className="text-sm">
-            Also worth considering
-          </CardTitle>
-          {alternatives.map((entry) => (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
+          >
             <PlayNextCard
-              key={entry.game.gameId}
-              entry={entry}
-              inPlayfitPicks={entry.inPlayfitPicks}
-              onAddPick={() => handleAddPick(entry)}
-              onNotForMe={() => handleFeedback(entry, "not_for_me")}
-              onAlreadyPlayed={(feedback) => handleFeedback(entry, feedback)}
-              onShowAnother={() => handleShowAnother(entry)}
+              entry={primary}
+              primary
+              inPlayfitPicks={primary.inPlayfitPicks}
+              onAddPick={() => handleAddPick(primary)}
+              onNotForMe={() => handleFeedback(primary, "not_for_me")}
+              onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
+              onShowAnother={() => handleShowAnother(primary)}
               onReason={handleReason}
             />
-          ))}
-        </section>
-      )}
-      <StatusToast />
-    </Container>
+          </motion.div>
+
+          {alternatives.length > 0 && (
+            <section className="grid gap-3">
+              <div>
+                <CardTitle as="h2" className="text-base">
+                  Also worth considering
+                </CardTitle>
+                <CardDescription>
+                  Shortlist only. Open a dossier when one needs more explanation.
+                </CardDescription>
+              </div>
+              {alternatives.map((entry) => (
+                <PlayNextCard
+                  key={entry.game.gameId}
+                  entry={entry}
+                  inPlayfitPicks={entry.inPlayfitPicks}
+                  onAddPick={() => handleAddPick(entry)}
+                  onNotForMe={() => handleFeedback(entry, "not_for_me")}
+                  onAlreadyPlayed={(feedback) => handleFeedback(entry, feedback)}
+                  onShowAnother={() => handleShowAnother(entry)}
+                  onReason={handleReason}
+                />
+              ))}
+            </section>
+          )}
+          <StatusToast />
+        </Container>
+      </div>
+    </motion.div>
   );
 }

@@ -11,7 +11,9 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -63,9 +65,10 @@ function PickCard({
   onStarted: (gameId: string) => void;
 }) {
   const gameId = entry.game.gameId;
+  const alreadyPlayedPanelId = `pick-already-played-${gameId}`;
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]">
+    <Card className="overflow-hidden rounded-3xl border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)] shadow-sm">
       <CardContent className="grid gap-4 p-4 md:grid-cols-[96px_minmax(0,1fr)] md:p-5">
         <CoverArt game={entry.game} className="aspect-[2/3] w-28 justify-self-center md:w-full" />
         <div className="grid min-w-0 gap-4">
@@ -86,16 +89,27 @@ function PickCard({
             <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
           </div>
           <ReasonList reasons={entry.fitReasons} />
-          <Stack direction="row" wrap gap={2}>
-            <Button type="button" onClick={() => onStarted(gameId)}>
+          <Stack direction="row" wrap gap={2} className="items-center">
+            <Button type="button" onClick={() => onStarted(gameId)} className="shadow-sm">
               <Play className="size-4" />
               Started
             </Button>
-            <Button type="button" variant="secondary" onClick={() => onToggleAlreadyPlayed(gameId)}>
+            <Button
+              type="button"
+              variant="secondary"
+              aria-expanded={expandedId === gameId}
+              aria-controls={alreadyPlayedPanelId}
+              onClick={() => onToggleAlreadyPlayed(gameId)}
+            >
               <CheckCircle2 className="size-4" />
               Already played
             </Button>
-            <Button type="button" variant="secondary" onClick={() => onNotForMe(gameId)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onNotForMe(gameId)}
+              className="hover:bg-destructive/10 hover:text-destructive"
+            >
               <XCircle className="size-4" />
               Not for me
             </Button>
@@ -103,7 +117,7 @@ function PickCard({
               <Trash2 className="size-4" />
               Remove
             </Button>
-            <Button type="button" variant="ghost" asChild>
+            <Button type="button" variant="ghost" size="sm" asChild>
               <Link href={`/play/game/${gameId}`}>
                 <Eye className="size-4" />
                 See why
@@ -111,7 +125,10 @@ function PickCard({
             </Button>
           </Stack>
           {expandedId === gameId ? (
-            <AlreadyPlayedPanel onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)} />
+            <AlreadyPlayedPanel
+              id={alreadyPlayedPanelId}
+              onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+            />
           ) : null}
         </div>
       </CardContent>
@@ -121,6 +138,7 @@ function PickCard({
 
 export function PicksShell() {
   const { applyDecisionFeedback, setPlayfitPick, startPlayfitPick, state } = usePlayfit();
+  const pathname = usePathname();
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -212,72 +230,84 @@ export function PicksShell() {
   const picks = model?.picks ?? [];
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground">
-      <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/play">
-              <ArrowLeft className="size-4" />
-              Back to Play Next
-            </Link>
-          </Button>
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/play/taste">
-              <SlidersHorizontal className="size-4" />
-              Your Taste
-            </Link>
-          </Button>
-        </div>
-        <section className="grid gap-3 rounded-3xl border border-border bg-card/80 p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-5 text-accent" />
-            <h1 className="font-display text-4xl font-extrabold leading-tight">Playfit Picks</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground">
+        <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/play">
+                <ArrowLeft className="size-4" />
+                Back to Play Next
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+              asChild
+            >
+              <Link href="/play/taste">
+                <SlidersHorizontal className="size-4" />
+                Your Taste
+              </Link>
+            </Button>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Games Playfit thinks are worth your time next.
-          </p>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Sorted by current fit, not by the order you saved them.
-          </p>
-        </section>
-        {loadError ? <Alert variant="warning">{loadError}</Alert> : null}
-        {picks.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>No Playfit Picks yet</CardTitle>
-              <CardDescription>
-                Add a recommendation from Play Next when it looks worth your time.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button type="button" asChild>
-                <Link href="/play">Find Play Next</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <section className="grid gap-4">
-            {picks.map((entry) => (
-              <PickCard
-                key={entry.game.gameId}
-                entry={entry}
-                expandedId={expandedId}
-                onToggleAlreadyPlayed={(gameId) =>
-                  setExpandedId((current) => (current === gameId ? null : gameId))
-                }
-                onAlreadyPlayed={(gameId, feedback) => {
-                  applyDecisionFeedback(gameId, feedback);
-                  setExpandedId(null);
-                }}
-                onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
-                onRemove={(gameId) => setPlayfitPick(gameId, false)}
-                onStarted={(gameId) => startPlayfitPick(gameId)}
-              />
-            ))}
+          <section className="grid gap-4 rounded-3xl border border-border bg-card/80 p-6 shadow-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-end">
+            <div className="grid gap-2">
+              <Sparkles className="size-5 text-accent" />
+              <h1 className="font-display text-4xl font-extrabold leading-tight">Playfit Picks</h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                Games Playfit thinks are worth your time next.
+              </p>
+            </div>
+            <div className="flex justify-start md:justify-end">
+              <p className="max-w-xs text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Sorted by current fit, not by the order you saved them.
+              </p>
+            </div>
           </section>
-        )}
-      </Container>
-      <StatusToast />
-    </div>
+          {loadError ? <Alert variant="warning">{loadError}</Alert> : null}
+          {picks.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>No Playfit Picks yet</CardTitle>
+                <CardDescription>
+                  Add a recommendation from Play Next when it looks worth your time.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button type="button" asChild>
+                  <Link href="/play">Find Play Next</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <section className="grid gap-4">
+              {picks.map((entry) => (
+                <PickCard
+                  key={entry.game.gameId}
+                  entry={entry}
+                  expandedId={expandedId}
+                  onToggleAlreadyPlayed={(gameId) =>
+                    setExpandedId((current) => (current === gameId ? null : gameId))
+                  }
+                  onAlreadyPlayed={(gameId, feedback) => {
+                    applyDecisionFeedback(gameId, feedback);
+                    setExpandedId(null);
+                  }}
+                  onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
+                  onRemove={(gameId) => setPlayfitPick(gameId, false)}
+                  onStarted={(gameId) => startPlayfitPick(gameId)}
+                />
+              ))}
+            </section>
+          )}
+        </Container>
+        <StatusToast />
+      </div>
+    </motion.div>
   );
 }
