@@ -140,14 +140,12 @@ export async function POST(request: Request) {
   const supabase = createAnonClient();
   const allGames = await fetchAllGames(supabase);
 
-  const catalogGames = allGames.filter((g) => g.source === "catalog");
-
   console.log(
     JSON.stringify({
       stage: "recommendations/today",
       allGames: allGames.length,
-      catalogGames: catalogGames.length,
-      catalogWithTags: catalogGames.filter((g) => g.tags.length > 0).length,
+      gamesWithTags: allGames.filter((g) => g.tags.length > 0).length,
+      gamesWithoutTags: allGames.filter((g) => g.tags.length === 0).length,
       hasProfile: !!profile,
       onboardingPlatforms: onboarding?.platforms?.length ?? 0,
       likedGames: onboarding?.likedGameIds?.length ?? 0,
@@ -167,7 +165,7 @@ export async function POST(request: Request) {
     },
   };
 
-  const model = buildTodayModel(catalogGames, state, profile);
+  const model = buildTodayModel(allGames, state, profile);
 
   return Response.json(model);
 }
