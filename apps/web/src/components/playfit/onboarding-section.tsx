@@ -3,19 +3,21 @@
 import { buildAdaptiveProfile, canAdvanceOnboarding } from "@playfit/core/domain";
 import type { ProductPlatformOption, SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Gamepad2, Laptop, Tv } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog } from "@/components/ui/dialog";
 import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { ProgressBar } from "@/components/ui/progress-bar";
+import { Spinner } from "@/components/ui/spinner";
 import { Stack } from "@/components/ui/stack";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
+import { CoverArt } from "./cover-art";
 import { usePlayfit } from "./playfit-context";
 import { formatGameDescriptor } from "./product-utils";
 import { SectionHead } from "./section-head";
@@ -38,6 +40,7 @@ const currentPlatformIds = new Set([
   "pc",
   "macos",
   "linux",
+  "cups",
 ]);
 
 const retroPlatformIds = new Set([
@@ -71,36 +74,42 @@ const platformPresets: Array<{
   label: string;
   description: string;
   matches: (platform: ProductPlatformOption) => boolean;
+  Icon: typeof Gamepad2;
 }> = [
   {
     id: "current",
     label: "Current systems",
     description: "Modern consoles and computers.",
     matches: (platform) => currentPlatformIds.has(platform.platformId),
+    Icon: Gamepad2,
   },
   {
     id: "nintendo",
     label: "Nintendo",
     description: "Switch, handhelds, and classic Nintendo.",
     matches: (platform) => platform.family === "nintendo",
+    Icon: Gamepad2,
   },
   {
     id: "playstation",
     label: "PlayStation",
     description: "Sony home and handheld systems.",
     matches: (platform) => platform.family === "playstation",
+    Icon: Gamepad2,
   },
   {
     id: "xbox",
     label: "Xbox",
     description: "Xbox generations and current consoles.",
     matches: (platform) => platform.family === "xbox",
+    Icon: Gamepad2,
   },
   {
     id: "pc",
     label: "PC",
     description: "Desktop and computer platforms.",
     matches: (platform) => platform.family === "pc" || platform.kind === "computer",
+    Icon: Laptop,
   },
   {
     id: "retro",
@@ -109,8 +118,11 @@ const platformPresets: Array<{
     matches: (platform) =>
       retroPlatformIds.has(platform.platformId) ||
       ["sega", "atari", "snk"].includes(platform.family),
+    Icon: Tv,
   },
 ];
+
+const quickSuggestions = ["Elden Ring", "Hades", "Hollow Knight", "Portal 2", "The Witcher 3"];
 
 function formatPlatformFamily(family: string) {
   return (
@@ -307,7 +319,7 @@ export function OnboardingSection() {
   }
 
   const step = draft.step === "platforms" ? 1 : draft.step === "anchors" ? 2 : 3;
-  const progressValue = step === 1 ? 33 : step === 2 ? 67 : 100;
+  const _progressValue = step === 1 ? 33 : step === 2 ? 67 : 100;
   const stepTitle =
     draft.step === "platforms"
       ? "Where can Playfit look?"
@@ -320,7 +332,7 @@ export function OnboardingSection() {
       : draft.step === "anchors"
         ? "Start with games that clicked. Playfit will look for nearby signals."
         : "A single miss helps Playfit avoid the wrong fit instead of only chasing favorites.";
-  const stepCountCopy =
+  const _stepCountCopy =
     draft.step === "platforms"
       ? `${draft.platforms.length} platforms`
       : draft.step === "anchors"
@@ -328,23 +340,68 @@ export function OnboardingSection() {
         : `${Math.min(draft.dislikedGameIds.length, 1)} / 1 not for me`;
 
   return (
-    <section>
-      <SectionHead eyebrow="Tune your taste" title={stepTitle} copy={stepCopy} />
-      <Card>
-        <CardHeader>
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Step {step} of 3
-              </span>
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {stepCountCopy}
-              </span>
+    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-card/70 to-background/50 p-1 backdrop-blur-md shadow-2xl">
+      <div className="p-4 sm:p-6 pb-2">
+        <SectionHead eyebrow="Tune your taste" title={stepTitle} copy={stepCopy} />
+      </div>
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="pt-0">
+          <div className="grid gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { id: 1, label: "Platforms", count: `${draft.platforms.length} selected` },
+                {
+                  id: 2,
+                  label: "Loved Games",
+                  count: `${Math.min(draft.likedGameIds.length, 3)}/3`,
+                },
+                {
+                  id: 3,
+                  label: "Missed Game",
+                  count: `${Math.min(draft.dislikedGameIds.length, 1)}/1`,
+                },
+              ].map((s) => {
+                const isCompleted = step > s.id;
+                const isActive = step === s.id;
+                return (
+                  <div key={s.id} className="grid gap-1.5">
+                    <div className="h-1 rounded-full overflow-hidden bg-white/5 relative">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          isCompleted
+                            ? "bg-positive"
+                            : isActive
+                              ? "bg-gradient-to-r from-accent to-pink-500 animate-pulse"
+                              : "bg-transparent",
+                        )}
+                        style={{ width: isCompleted || isActive ? "100%" : "0%" }}
+                      />
+                    </div>
+                    <div className="flex flex-col text-center sm:text-left sm:flex-row sm:justify-between gap-0.5 px-0.5">
+                      <span
+                        className={cn(
+                          "text-[9px] font-black uppercase tracking-wider transition-colors",
+                          isActive
+                            ? "text-accent"
+                            : isCompleted
+                              ? "text-positive"
+                              : "text-muted-foreground/40",
+                        )}
+                      >
+                        {s.label}
+                      </span>
+                      <span className="text-[8px] font-mono text-muted-foreground/60 hidden sm:inline">
+                        {s.count}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <ProgressBar value={progressValue} label={`Step ${step} of 3`} />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0">
           <AnimatePresence mode="wait">
             {draft.step === "platforms" ? (
               <motion.form
@@ -353,7 +410,7 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-4"
+                className="grid gap-6"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (draft.platforms.length === 0) {
@@ -366,20 +423,20 @@ export function OnboardingSection() {
                   });
                 }}
               >
-                <p className="text-sm text-muted-foreground">
-                  Start broad. You can tune individual systems only if the preset does not match
-                  what you own.
+                <p className="text-sm text-muted-foreground/80">
+                  Start broad by selecting quick groups. You can customize individual systems in the
+                  panel below if needed.
                 </p>
                 {platformsUnavailable ? (
                   <Alert variant="error">
                     Platforms could not be loaded. Check the catalog connection and try again.
                   </Alert>
                 ) : null}
-                <div className="grid gap-2">
+                <div className="grid gap-3">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    Quick groups
+                    Quick Groups
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {platformPresets.map((preset) => {
                       const presetPlatforms = seedData.platforms.filter(preset.matches);
                       const presetIds = presetPlatforms.map((platform) => platform.platformId);
@@ -394,19 +451,40 @@ export function OnboardingSection() {
                           aria-pressed={selected}
                           disabled={platformsUnavailable || presetIds.length === 0}
                           className={cn(
-                            "grid min-h-24 content-between gap-3 rounded-xl border border-border bg-secondary p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 hover:bg-secondary/70",
+                            "group grid min-h-28 content-between gap-3 rounded-2xl border border-white/5 bg-secondary/25 p-4 text-left transition-all duration-300 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
                             selected &&
-                              "border-[color-mix(in_srgb,var(--accent),transparent_35%)] bg-[color-mix(in_srgb,var(--accent),transparent_86%)]",
+                              "border-accent/40 bg-accent/10 shadow-[0_0_20px_rgba(255,106,61,0.1)]",
                           )}
                           onClick={() => togglePlatformPreset(preset)}
                         >
-                          <span>
-                            <strong className="block text-sm">{preset.label}</strong>
-                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                              {preset.description}
+                          <div className="flex items-start justify-between gap-2.5 w-full">
+                            <span className="min-w-0">
+                              <strong className="block text-sm font-extrabold text-foreground group-hover:text-accent transition-colors">
+                                {preset.label}
+                              </strong>
+                              <span className="mt-1.5 block text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                                {preset.description}
+                              </span>
                             </span>
-                          </span>
-                          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                            {preset.Icon && (
+                              <div
+                                className={cn(
+                                  "size-8 shrink-0 rounded-xl grid place-items-center border border-white/5 bg-white/[0.02] text-muted-foreground group-hover:text-foreground transition-all duration-300",
+                                  selected &&
+                                    "border-accent/30 bg-accent/10 text-accent group-hover:text-accent",
+                                )}
+                              >
+                                <preset.Icon className="size-4" />
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60 transition-colors",
+                              selected && "text-accent",
+                              partiallySelected && "text-foreground",
+                            )}
+                          >
                             {selected
                               ? "Selected"
                               : partiallySelected
@@ -418,111 +496,135 @@ export function OnboardingSection() {
                     })}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/70 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/5 bg-secondary/20 p-4">
                   <p className="text-sm text-muted-foreground">
                     <strong className="text-foreground">{draft.platforms.length}</strong> systems
                     selected for Play Next.
                   </p>
-                  <Stack direction="row" wrap gap={2}>
+                  <Stack direction="row" wrap gap={2} className="w-full sm:w-auto justify-end">
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setShowPlatformDetails((current) => !current)}
+                      onClick={() => setShowPlatformDetails(true)}
+                      className="text-xs hover:text-foreground"
                     >
-                      {showPlatformDetails ? "Hide details" : "Customize systems"}
+                      Customize Systems
                     </Button>
-                    <Button type="submit" disabled={draft.platforms.length === 0}>
+                    <Button
+                      type="submit"
+                      disabled={draft.platforms.length === 0}
+                      className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
+                    >
                       Continue <ChevronRight className="size-4" />
                     </Button>
                   </Stack>
                 </div>
-                {showPlatformDetails ? (
-                  <div className="grid gap-4 rounded-xl border border-border bg-card/60 p-4">
+
+                <Dialog
+                  open={showPlatformDetails}
+                  onClose={() => setShowPlatformDetails(false)}
+                  title="Customize Systems"
+                  eyebrow="Platforms"
+                  className="overflow-hidden"
+                >
+                  <div className="max-h-[50vh] overflow-y-auto pr-1 grid gap-4">
                     <Checkbox
                       id="select-all-platforms"
                       checked={allSelected}
                       onChange={toggleAllPlatforms}
                       label={allSelected ? "Deselect all platforms" : "Select all platforms"}
                       disabled={platformsUnavailable}
+                      className="font-bold sticky top-0 bg-background py-2 z-10"
                     />
-                    {platformFamilies.map((family) => {
-                      const group = seedData.platforms
-                        .filter((p) => p.family === family)
-                        .sort((a, b) => a.sortOrder - b.sortOrder);
-                      if (group.length === 0) return null;
-                      const label = formatPlatformFamily(family);
-                      const consoles = group.filter((p) => p.kind !== "handheld");
-                      const handhelds = group.filter((p) => p.kind === "handheld");
-                      return (
-                        <div key={family} className="grid gap-2">
-                          {label && (
-                            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                              {label}
-                            </p>
-                          )}
-                          {consoles.length > 0 && (
-                            <div>
-                              {handhelds.length > 0 && (
-                                <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  Console / Hybrid
-                                </p>
-                              )}
-                              <div className="grid gap-2 md:grid-cols-2">
-                                {consoles.map((platform) => {
-                                  const checked = draft.platforms.some(
-                                    (entry) => entry.platformId === platform.platformId,
-                                  );
-                                  return (
-                                    <Checkbox
-                                      key={platform.platformId}
-                                      id={`platform-${platform.platformId}`}
-                                      checked={checked}
-                                      onChange={(event) =>
-                                        togglePlatform(
-                                          platform.platformId,
-                                          event.currentTarget.checked,
-                                        )
-                                      }
-                                      label={platform.displayName}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          {handhelds.length > 0 && (
-                            <div>
-                              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                Handheld
+                    <div className="grid gap-4 divide-y divide-white/5 pt-2">
+                      {platformFamilies.map((family) => {
+                        const group = seedData.platforms
+                          .filter((p) => p.family === family)
+                          .sort((a, b) => a.sortOrder - b.sortOrder);
+                        if (group.length === 0) return null;
+                        const label = formatPlatformFamily(family);
+                        const consoles = group.filter((p) => p.kind !== "handheld");
+                        const handhelds = group.filter((p) => p.kind === "handheld");
+                        return (
+                          <div key={family} className="grid gap-3 pt-3 first:pt-0 first:divide-y-0">
+                            {label && (
+                              <p className="text-xs font-bold uppercase tracking-wide text-accent">
+                                {label}
                               </p>
-                              <div className="grid gap-2 md:grid-cols-2">
-                                {handhelds.map((platform) => {
-                                  const checked = draft.platforms.some(
-                                    (entry) => entry.platformId === platform.platformId,
-                                  );
-                                  return (
-                                    <Checkbox
-                                      key={platform.platformId}
-                                      id={`platform-${platform.platformId}`}
-                                      checked={checked}
-                                      onChange={(event) =>
-                                        togglePlatform(
-                                          platform.platformId,
-                                          event.currentTarget.checked,
-                                        )
-                                      }
-                                      label={platform.displayName}
-                                    />
-                                  );
-                                })}
+                            )}
+                            {consoles.length > 0 && (
+                              <div>
+                                {handhelds.length > 0 && (
+                                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    Console / Hybrid
+                                  </p>
+                                )}
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  {consoles.map((platform) => {
+                                    const checked = draft.platforms.some(
+                                      (entry) => entry.platformId === platform.platformId,
+                                    );
+                                    return (
+                                      <Checkbox
+                                        key={platform.platformId}
+                                        id={`platform-${platform.platformId}`}
+                                        checked={checked}
+                                        onChange={(event) =>
+                                          togglePlatform(
+                                            platform.platformId,
+                                            event.currentTarget.checked,
+                                          )
+                                        }
+                                        label={platform.displayName}
+                                      />
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            )}
+                            {handhelds.length > 0 && (
+                              <div className="pt-2">
+                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Handheld
+                                </p>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  {handhelds.map((platform) => {
+                                    const checked = draft.platforms.some(
+                                      (entry) => entry.platformId === platform.platformId,
+                                    );
+                                    return (
+                                      <Checkbox
+                                        key={platform.platformId}
+                                        id={`platform-${platform.platformId}`}
+                                        checked={checked}
+                                        onChange={(event) =>
+                                          togglePlatform(
+                                            platform.platformId,
+                                            event.currentTarget.checked,
+                                          )
+                                        }
+                                        label={platform.displayName}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : null}
+                  <div className="mt-6 flex justify-end border-t border-white/5 pt-4">
+                    <Button
+                      type="button"
+                      onClick={() => setShowPlatformDetails(false)}
+                      className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
+                    >
+                      Apply Customization
+                    </Button>
+                  </div>
+                </Dialog>
                 {platformError ? <Alert variant="error">{platformError}</Alert> : null}
               </motion.form>
             ) : draft.step === "anchors" ? (
@@ -532,32 +634,71 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-5"
+                className="grid gap-6"
               >
                 <FormField>
-                  <FormLabel htmlFor="favorite-search">Search by title or series</FormLabel>
-                  <Input
-                    id="favorite-search"
-                    type="search"
-                    value={ui.onboardingQuery}
-                    onChange={(event) =>
-                      setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
-                    }
-                    placeholder="Search a favorite game"
-                  />
+                  <FormLabel
+                    htmlFor="favorite-search"
+                    className="font-extrabold text-sm text-foreground"
+                  >
+                    Search by title or series
+                  </FormLabel>
+                  <div className="relative">
+                    <Input
+                      id="favorite-search"
+                      type="search"
+                      value={ui.onboardingQuery}
+                      onChange={(event) =>
+                        setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
+                      }
+                      placeholder="e.g. Zelda, Halo, Elden Ring..."
+                      className="pr-10 border-white/10 bg-secondary/30 focus:border-accent"
+                    />
+                    {onboardingSearchPending && (
+                      <div className="absolute right-3 top-3">
+                        <Spinner size="sm" />
+                      </div>
+                    )}
+                  </div>
                 </FormField>
+                <div className="flex flex-wrap gap-2 items-center -mt-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
+                    Quick Hits:
+                  </span>
+                  {quickSuggestions.map((gameName) => (
+                    <button
+                      key={gameName}
+                      type="button"
+                      onClick={() =>
+                        setUi((current) => ({ ...current, onboardingQuery: gameName }))
+                      }
+                      className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-accent/20 transition-all duration-200"
+                    >
+                      {gameName}
+                    </button>
+                  ))}
+                </div>
                 {draft.likedGameIds.length > 0 && (
-                  <Stack direction="row" wrap gap={2}>
-                    {draft.likedGameIds.map((gameId) => {
-                      const game = getSeedGame(gameId);
-                      if (!game) return null;
-                      return (
-                        <Tag key={gameId} onRemove={() => removeAnchor(gameId)}>
-                          {game.title}
-                        </Tag>
-                      );
-                    })}
-                  </Stack>
+                  <div className="grid gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+                      Selected Loved Games
+                    </p>
+                    <Stack direction="row" wrap gap={2}>
+                      {draft.likedGameIds.map((gameId) => {
+                        const game = getSeedGame(gameId);
+                        if (!game) return null;
+                        return (
+                          <Tag
+                            key={gameId}
+                            onRemove={() => removeAnchor(gameId)}
+                            className="border-accent/30 bg-accent/5 text-foreground font-bold"
+                          >
+                            {game.title}
+                          </Tag>
+                        );
+                      })}
+                    </Stack>
+                  </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
                   {anchorResults.map((game) => {
@@ -569,33 +710,38 @@ export function OnboardingSection() {
                         type="button"
                         aria-pressed={selected}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-md border border-border bg-secondary p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          selected && "border-[color-mix(in_srgb,var(--accent),transparent_40%)]",
+                          "group flex items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
+                          selected && "border-accent/40 bg-accent/10",
+                          disabled && !selected && "opacity-50 cursor-not-allowed",
                         )}
                         onClick={() => addAnchor(game)}
                         disabled={disabled}
                       >
-                        <span>
-                          <strong>{game.title}</strong>
-                          <span className="block text-sm text-muted-foreground">
+                        <CoverArt
+                          game={game}
+                          className="aspect-[2/3] w-12 shrink-0 rounded-xl shadow-md transition-transform group-hover:scale-[1.03]"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-accent transition-colors">
+                            {game.title}
+                          </strong>
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
                             {formatGameDescriptor(game)}
                           </span>
                         </span>
                         {selected ? (
-                          <Check className="size-4 text-positive" />
+                          <div className="size-6 shrink-0 grid place-items-center rounded-full bg-positive-bg text-positive border border-positive/30">
+                            <Check className="size-3.5 stroke-[3]" />
+                          </div>
                         ) : (
-                          <ChevronRight className="size-4" />
+                          <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
                         )}
                       </button>
                     );
                   })}
                 </div>
                 {anchorResults.length === 0 && hasOnboardingSearch ? (
-                  onboardingSearchPending ? (
-                    <Alert variant="info" aria-live="polite">
-                      Searching Playfit catalog...
-                    </Alert>
-                  ) : onboardingSearchError ? (
+                  onboardingSearchPending ? null : onboardingSearchError ? (
                     <Alert variant="error">{onboardingSearchError}</Alert>
                   ) : seedData.allGames.length === 0 ? (
                     <Alert variant="warning">
@@ -603,12 +749,12 @@ export function OnboardingSection() {
                       <code>bash scripts/seed-catalog.sh</code>) to import games.
                     </Alert>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No games found. Try a different title.
+                    <p className="text-sm text-muted-foreground py-2 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
+                      No games found matching your search.
                     </p>
                   )
                 ) : null}
-                <Stack direction="row" wrap gap={3}>
+                <Stack direction="row" wrap gap={3} className="pt-2">
                   <Button
                     type="button"
                     variant="secondary"
@@ -629,6 +775,7 @@ export function OnboardingSection() {
                       });
                       setUi((current) => ({ ...current, onboardingQuery: "" }));
                     }}
+                    className="ml-auto bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
                   >
                     Continue <ChevronRight className="size-4" />
                   </Button>
@@ -641,38 +788,72 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-5"
+                className="grid gap-6"
               >
                 <FormField>
-                  <FormLabel htmlFor="dislike-search">
+                  <FormLabel
+                    htmlFor="dislike-search"
+                    className="font-extrabold text-sm text-foreground"
+                  >
                     Search for a game that missed for you
                   </FormLabel>
-                  <Input
-                    id="dislike-search"
-                    type="search"
-                    value={ui.onboardingQuery}
-                    onChange={(event) =>
-                      setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
-                    }
-                    placeholder="Search a game that was not for you"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="dislike-search"
+                      type="search"
+                      value={ui.onboardingQuery}
+                      onChange={(event) =>
+                        setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
+                      }
+                      placeholder="e.g. Cyberpunk, FIFA, Dark Souls..."
+                      className="pr-10 border-white/10 bg-secondary/30 focus:border-accent"
+                    />
+                    {onboardingSearchPending && (
+                      <div className="absolute right-3 top-3">
+                        <Spinner size="sm" />
+                      </div>
+                    )}
+                  </div>
                 </FormField>
+                <div className="flex flex-wrap gap-2 items-center -mt-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
+                    Quick Hits:
+                  </span>
+                  {quickSuggestions.map((gameName) => (
+                    <button
+                      key={gameName}
+                      type="button"
+                      onClick={() =>
+                        setUi((current) => ({ ...current, onboardingQuery: gameName }))
+                      }
+                      className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-negative/20 transition-all duration-200"
+                    >
+                      {gameName}
+                    </button>
+                  ))}
+                </div>
                 {draft.dislikedGameIds.length > 0 && (
-                  <Stack direction="row" wrap gap={2}>
-                    {draft.dislikedGameIds.map((gameId) => {
-                      const game = getSeedGame(gameId);
-                      if (!game) return null;
-                      return (
-                        <Tag
-                          key={gameId}
-                          variant="default"
-                          onRemove={() => removeDislikedAnchor(gameId)}
-                        >
-                          {game.title}
-                        </Tag>
-                      );
-                    })}
-                  </Stack>
+                  <div className="grid gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-negative">
+                      Selected Missed Game
+                    </p>
+                    <Stack direction="row" wrap gap={2}>
+                      {draft.dislikedGameIds.map((gameId) => {
+                        const game = getSeedGame(gameId);
+                        if (!game) return null;
+                        return (
+                          <Tag
+                            key={gameId}
+                            variant="default"
+                            onRemove={() => removeDislikedAnchor(gameId)}
+                            className="border-negative/30 bg-negative/5 text-foreground font-bold"
+                          >
+                            {game.title}
+                          </Tag>
+                        );
+                      })}
+                    </Stack>
+                  </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
                   {anchorResults.map((game) => {
@@ -684,34 +865,38 @@ export function OnboardingSection() {
                         type="button"
                         aria-pressed={selected}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-md border border-border bg-secondary p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          selected && "border-[color-mix(in_srgb,var(--negative),transparent_40%)]",
-                          loved && "opacity-50 cursor-not-allowed bg-muted",
+                          "group flex items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
+                          selected && "border-negative/40 bg-negative/10",
+                          loved && "opacity-40 cursor-not-allowed bg-muted",
                         )}
                         onClick={() => addDislikedAnchor(game)}
                         disabled={selected || loved}
                       >
-                        <span>
-                          <strong>{game.title}</strong>
-                          <span className="block text-sm text-muted-foreground">
-                            {loved ? "Loved in Step 2" : formatGameDescriptor(game)}
+                        <CoverArt
+                          game={game}
+                          className="aspect-[2/3] w-12 shrink-0 rounded-xl shadow-md transition-transform group-hover:scale-[1.03]"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-negative transition-colors">
+                            {game.title}
+                          </strong>
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
+                            {loved ? "Selected as loved" : formatGameDescriptor(game)}
                           </span>
                         </span>
                         {selected ? (
-                          <Check className="size-4 text-negative" />
+                          <div className="size-6 shrink-0 grid place-items-center rounded-full bg-negative-bg text-negative border border-negative/30">
+                            <Check className="size-3.5 stroke-[3]" />
+                          </div>
                         ) : (
-                          <ChevronRight className="size-4" />
+                          <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
                         )}
                       </button>
                     );
                   })}
                 </div>
                 {anchorResults.length === 0 && hasOnboardingSearch ? (
-                  onboardingSearchPending ? (
-                    <Alert variant="info" aria-live="polite">
-                      Searching Playfit catalog...
-                    </Alert>
-                  ) : onboardingSearchError ? (
+                  onboardingSearchPending ? null : onboardingSearchError ? (
                     <Alert variant="error">{onboardingSearchError}</Alert>
                   ) : seedData.allGames.length === 0 ? (
                     <Alert variant="warning">
@@ -719,12 +904,12 @@ export function OnboardingSection() {
                       <code>bash scripts/seed-catalog.sh</code>) to import games.
                     </Alert>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No games found. Try a different title.
+                    <p className="text-sm text-muted-foreground py-2 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
+                      No games found matching your search.
                     </p>
                   )
                 ) : null}
-                <Stack direction="row" wrap gap={3}>
+                <Stack direction="row" wrap gap={3} className="pt-2">
                   <Button
                     type="button"
                     variant="secondary"
@@ -737,7 +922,12 @@ export function OnboardingSection() {
                   >
                     Back
                   </Button>
-                  <Button type="button" disabled={!canAdvance} onClick={finalize}>
+                  <Button
+                    type="button"
+                    disabled={!canAdvance}
+                    onClick={finalize}
+                    className="ml-auto bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_15px_rgba(255,106,61,0.25)] hover:shadow-[0_0_20px_rgba(255,106,61,0.35)]"
+                  >
                     Find Play Next
                   </Button>
                 </Stack>
