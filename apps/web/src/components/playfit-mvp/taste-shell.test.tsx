@@ -68,6 +68,7 @@ describe("TasteShell", () => {
   it("asks users without a profile to tune taste first", async () => {
     mocks.usePlayfit.mockReturnValue({
       state: createInitialState(),
+      seedData: { platforms: [{ platformId: "ps5", displayName: "PS5" }] },
       getSeedGame: vi.fn(),
       applyDecisionFeedback: vi.fn(),
       removeTasteSignal: vi.fn(),
@@ -115,6 +116,7 @@ describe("TasteShell", () => {
     };
     mocks.usePlayfit.mockReturnValue({
       state,
+      seedData: { platforms: [{ platformId: "ps5", displayName: "PS5" }] },
       getSeedGame: (gameId: string) => games.get(gameId) ?? null,
       applyDecisionFeedback: vi.fn(),
       removeTasteSignal: vi.fn(),
@@ -125,7 +127,7 @@ describe("TasteShell", () => {
 
     expect(html).toContain("Your Taste");
     expect(html).toContain("Taste Map");
-    expect(html).toContain("Taste History");
+    expect(html).toContain("Decisions &amp; Activity");
     expect(html).toContain("Lean toward");
     expect(html).toContain("Steer away from");
     expect(html).toContain("Setup favorite");
