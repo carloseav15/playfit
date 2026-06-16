@@ -1,16 +1,7 @@
 "use client";
 
 import type { ProductTodayModel, RankedSeedGame } from "@playfit/core/types";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Eye,
-  Play,
-  SlidersHorizontal,
-  Sparkles,
-  Trash2,
-  XCircle,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, Play, Sparkles, Trash2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -24,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Stack } from "@/components/ui/stack";
 import { addGamesToCache } from "@/lib/game-cache";
 import { CoverArt } from "../playfit/cover-art";
-import { Metric } from "../playfit/metric";
 import { usePlayfit } from "../playfit/playfit-context";
 import { confidenceLabel, formatGameDescriptor } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
@@ -36,10 +26,10 @@ function ReasonList({ reasons }: { reasons: string[] }) {
     : ["Playfit needs more feedback to explain this pick."];
 
   return (
-    <ul className="grid gap-1.5 text-sm text-muted-foreground">
+    <ul className="grid gap-2 text-xs text-muted-foreground/80">
       {visibleReasons.slice(0, 3).map((reason) => (
-        <li key={reason} className="flex gap-2">
-          <span className="mt-2 size-1.5 shrink-0 rounded-full bg-current" />
+        <li key={reason} className="flex gap-2 items-start">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent animate-pulse" />
           <span>{reason}</span>
         </li>
       ))}
@@ -68,67 +58,120 @@ function PickCard({
   const alreadyPlayedPanelId = `pick-already-played-${gameId}`;
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)] shadow-sm">
-      <CardContent className="grid gap-4 p-4 md:grid-cols-[96px_minmax(0,1fr)] md:p-5">
-        <CoverArt game={entry.game} className="aspect-[2/3] w-28 justify-self-center md:w-full" />
+    <Card className="group relative overflow-hidden rounded-3xl border border-white/5 bg-card/40 backdrop-blur-md shadow-lg transition-all duration-300 hover:border-white/10 hover:shadow-xl">
+      <CardContent className="grid gap-5 p-5 md:grid-cols-[100px_minmax(0,1fr)] md:p-6">
+        <CoverArt
+          game={entry.game}
+          className="aspect-[2/3] w-24 justify-self-center rounded-xl shadow-md transition-transform duration-300 group-hover:scale-[1.02] border border-white/5"
+        />
         <div className="grid min-w-0 gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                 {formatGameDescriptor(entry.game)}
               </p>
-              <h2 className="font-display text-2xl font-extrabold leading-tight">
+              <h2 className="font-display text-2xl font-black leading-tight text-foreground mt-0.5">
                 {entry.game.title}
               </h2>
             </div>
-            <Badge variant="positive">Saved pick</Badge>
+            <Badge
+              variant="positive"
+              className="bg-positive-bg text-positive border border-positive/20 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5"
+            >
+              Saved Pick
+            </Badge>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <Metric label="Match" value={entry.affinityScore} />
-            <Metric label="Watch-outs" value={entry.riskScore} />
-            <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
+            <div className="rounded-xl border border-white/5 bg-secondary/20 py-2">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                Match
+              </span>
+              <strong className="mt-0.5 block text-sm font-extrabold text-foreground">
+                {entry.affinityScore}%
+              </strong>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-secondary/20 py-2">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                Watch-outs
+              </span>
+              <strong className="mt-0.5 block text-sm font-extrabold text-foreground">
+                {entry.riskScore}%
+              </strong>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-secondary/20 py-2">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                Confidence
+              </span>
+              <strong className="mt-0.5 block text-sm font-extrabold text-foreground">
+                {confidenceLabel(entry.confidence)}
+              </strong>
+            </div>
           </div>
           <ReasonList reasons={entry.fitReasons} />
-          <Stack direction="row" wrap gap={2} className="items-center">
-            <Button type="button" onClick={() => onStarted(gameId)} className="shadow-sm">
-              <Play className="size-4" />
-              Started
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              aria-expanded={expandedId === gameId}
-              aria-controls={alreadyPlayedPanelId}
-              onClick={() => onToggleAlreadyPlayed(gameId)}
-            >
-              <CheckCircle2 className="size-4" />
-              Already played
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onNotForMe(gameId)}
-              className="hover:bg-destructive/10 hover:text-destructive"
-            >
-              <XCircle className="size-4" />
-              Not for me
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => onRemove(gameId)}>
-              <Trash2 className="size-4" />
-              Remove
-            </Button>
-            <Button type="button" variant="ghost" size="sm" asChild>
-              <Link href={`/play/game/${gameId}`}>
-                <Eye className="size-4" />
-                See why
-              </Link>
-            </Button>
-          </Stack>
+
+          <div className="flex flex-col gap-3.5 pt-3 border-t border-white/5">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                type="button"
+                onClick={() => onStarted(gameId)}
+                className="flex-1 bg-accent text-accent-foreground font-extrabold hover:bg-accent/90 shadow-md h-10 rounded-xl"
+              >
+                <Play className="size-4 mr-1.5" />
+                Started Play
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                aria-expanded={expandedId === gameId}
+                aria-controls={alreadyPlayedPanelId}
+                onClick={() => onToggleAlreadyPlayed(gameId)}
+                className="flex-1 border-white/5 bg-secondary/30 hover:bg-secondary/70 h-10 rounded-xl text-xs"
+              >
+                <CheckCircle2 className="size-4 mr-1.5" />
+                Already Played
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onNotForMe(gameId)}
+                className="flex-1 border-white/5 bg-secondary/30 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs"
+              >
+                <XCircle className="size-4 mr-1.5" />
+                Not for me
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onRemove(gameId)}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="size-3.5 mr-1" />
+                Remove Pick
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-xs text-accent hover:text-accent/80"
+              >
+                <Link href={`/play/game/${gameId}`}>
+                  <Eye className="size-3.5 mr-1" />
+                  See explainability dossier
+                </Link>
+              </Button>
+            </div>
+          </div>
           {expandedId === gameId ? (
-            <AlreadyPlayedPanel
-              id={alreadyPlayedPanelId}
-              onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
-            />
+            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <AlreadyPlayedPanel
+                id={alreadyPlayedPanelId}
+                onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+              />
+            </div>
           ) : null}
         </div>
       </CardContent>
@@ -149,43 +192,66 @@ function PlayingCard({
   const gameId = entry.game.gameId;
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-accent/20 bg-accent/5 shadow-md">
-      <CardContent className="grid gap-4 p-4 md:grid-cols-[80px_minmax(0,1fr)] md:p-5">
-        <CoverArt game={entry.game} className="aspect-[2/3] w-20 justify-self-center" />
+    <Card className="relative overflow-hidden rounded-3xl border border-accent/20 bg-accent/[0.03] shadow-lg backdrop-blur-md">
+      <div className="pointer-events-none absolute -right-12 -top-12 size-36 rounded-full bg-accent/5 blur-2xl" />
+      <CardContent className="grid gap-4 p-5 md:grid-cols-[80px_minmax(0,1fr)] md:p-6">
+        <CoverArt
+          game={entry.game}
+          className="aspect-[2/3] w-20 justify-self-center rounded-xl shadow-md border border-white/5"
+        />
         <div className="grid min-w-0 gap-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-accent">
-                Playing Now
-              </p>
-              <h2 className="font-display text-xl font-extrabold leading-tight">
+              <div className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-accent animate-ping" />
+                <span className="size-2 rounded-full bg-accent -ml-3.5" />
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-accent">
+                  Active Run
+                </p>
+              </div>
+              <h2 className="font-display text-xl font-extrabold leading-tight text-foreground mt-1">
                 {entry.game.title}
               </h2>
             </div>
-            <Badge variant="info">Active run</Badge>
+            <Badge
+              variant="info"
+              className="bg-accent/15 text-accent border border-accent/30 text-[10px] font-bold"
+            >
+              Currently Playing
+            </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             You started this pick. How is the experience landing? Resolve it to train your taste.
           </p>
-          <Stack direction="row" wrap gap={2} className="items-center">
-            <Button
-              type="button"
-              onClick={() => setShowRating((prev) => !prev)}
-              className="shadow-sm"
-            >
-              <CheckCircle2 className="size-4" />
-              Complete / Rate
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => onStop(gameId)}>
-              Stop playing
-            </Button>
-          </Stack>
-          {showRating ? (
-            <AlreadyPlayedPanel
-              id={`playing-rate-${gameId}`}
-              onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
-            />
-          ) : null}
+
+          <div className="flex flex-col gap-3 pt-2">
+            <Stack direction="row" wrap gap={2} className="items-center">
+              <Button
+                type="button"
+                onClick={() => setShowRating((prev) => !prev)}
+                className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90 shadow-md h-9 text-xs rounded-xl"
+              >
+                <CheckCircle2 className="size-4 mr-1.5" />
+                Complete & Rate Game
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onStop(gameId)}
+                className="text-xs hover:text-foreground"
+              >
+                Stop Playing
+              </Button>
+            </Stack>
+            {showRating ? (
+              <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <AlreadyPlayedPanel
+                  id={`playing-rate-${gameId}`}
+                  onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -253,17 +319,21 @@ export function PicksShell() {
 
   if (!profileReady) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tune your taste first</CardTitle>
-              <CardDescription>
+      <div className="min-h-screen text-foreground relative flex items-center justify-center">
+        <Container as="main" size="sm" className="py-8">
+          <Card className="rounded-3xl border border-white/5 bg-card/65 backdrop-blur-md shadow-2xl p-6 text-center">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-2xl font-black">Tune your taste first</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground mt-1">
                 Pick your platforms and a few games so Playfit can build your picks.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button type="button" asChild>
+            <CardContent className="px-0 pb-0 pt-4">
+              <Button
+                type="button"
+                asChild
+                className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
+              >
                 <Link href="/play">Start Play Next</Link>
               </Button>
             </CardContent>
@@ -276,10 +346,10 @@ export function PicksShell() {
   if (loading) {
     return (
       <Container as="main" size="md" className="grid gap-4 py-8">
-        <Skeleton className="h-8 w-52" />
-        <Skeleton className="h-6 w-96" />
-        <Skeleton className="h-44 w-full" />
-        <Skeleton className="h-44 w-full" />
+        <Skeleton className="h-8 w-52 rounded-xl" />
+        <Skeleton className="h-6 w-96 rounded-lg" />
+        <Skeleton className="h-44 w-full rounded-2xl" />
+        <Skeleton className="h-44 w-full rounded-2xl" />
       </Container>
     );
   }
@@ -291,44 +361,69 @@ export function PicksShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="lg:h-screen lg:overflow-hidden"
+      className="lg:h-screen lg:overflow-hidden relative"
     >
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+      {/* Background glow effects */}
+      <div className="pointer-events-none absolute left-1/4 top-1/4 size-[400px] rounded-full bg-accent/5 blur-[100px]" />
+      <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[350px] rounded-full bg-indigo-500/5 blur-[90px]" />
+
+      <div className="min-h-screen text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
         <Container
           as="main"
           size="md"
           className="flex flex-col gap-6 py-6 lg:h-full lg:max-h-full lg:py-8 lg:overflow-hidden"
         >
           <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/play">
-                <ArrowLeft className="size-4" />
-                Back to Play Next
-              </Link>
-            </Button>
             <Button
               type="button"
-              variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+              variant="ghost"
               asChild
+              className="text-xs hover:text-foreground hover:bg-white/5"
             >
-              <Link href="/play/taste">
-                <SlidersHorizontal className="size-4" />
-                Your Taste
+              <Link href="/play" className="flex items-center">
+                <ArrowLeft className="size-4 mr-1.5" />
+                Back to Play Next Recommendation
               </Link>
             </Button>
+            <div className="flex gap-1 bg-secondary/40 p-1 rounded-2xl border border-white/5">
+              <Button
+                type="button"
+                variant={pathname === "/play/picks" ? "secondary" : "ghost"}
+                asChild
+                className="h-8 px-3.5 text-xs rounded-xl font-extrabold bg-card shadow-sm text-foreground"
+              >
+                <Link href="/play/picks">Picks</Link>
+              </Button>
+              <Button
+                type="button"
+                variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+                asChild
+                className="h-8 px-3.5 text-xs rounded-xl font-extrabold text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                <Link href="/play/taste">Your Taste</Link>
+              </Button>
+            </div>
           </div>
 
-          <section className="grid gap-4 rounded-3xl border border-border bg-card/80 p-6 shadow-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-end shrink-0">
-            <div className="grid gap-2">
-              <Sparkles className="size-5 text-accent" />
-              <h1 className="font-display text-4xl font-extrabold leading-tight">Playfit Picks</h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                Games Playfit thinks are worth your time next.
+          <section className="relative overflow-hidden grid gap-4 rounded-3xl border border-white/10 bg-gradient-to-br from-card/85 to-card/60 p-6 shadow-xl backdrop-blur-md md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end shrink-0">
+            <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-accent/10 blur-xl" />
+            <div className="grid gap-2 relative z-10">
+              <div className="flex items-center gap-2 text-accent">
+                <Sparkles className="size-4" />
+                <span className="text-[10px] font-black uppercase tracking-[0.15em]">
+                  Playfit Curated Dashboard
+                </span>
+              </div>
+              <h1 className="font-display text-4xl font-black tracking-tight text-foreground mt-1">
+                Playfit Picks
+              </h1>
+              <p className="max-w-2xl text-xs text-muted-foreground leading-relaxed mt-0.5">
+                Games Playfit recommends specifically for your active calibration signals.
               </p>
             </div>
-            <div className="flex justify-start md:justify-end">
-              <p className="max-w-xs text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Sorted by current fit, not by the order you saved them.
+            <div className="flex justify-start md:justify-end relative z-10">
+              <p className="max-w-xs text-[10px] font-bold uppercase tracking-[0.12em] text-accent text-left md:text-right">
+                Sorted dynamically by current fit score, not save date.
               </p>
             </div>
           </section>
@@ -340,7 +435,7 @@ export function PicksShell() {
           ) : null}
 
           {/* Scrollable list container on desktop */}
-          <div className="flex flex-col gap-4 lg:flex-1 lg:overflow-y-auto lg:pr-2">
+          <div className="flex flex-col gap-5 lg:flex-1 lg:overflow-y-auto lg:pr-2">
             {model?.currentRun && model.currentRun.length > 0 ? (
               <div className="grid gap-3 shrink-0 pb-2">
                 {model.currentRun.map((entry) => (
@@ -359,16 +454,20 @@ export function PicksShell() {
             ) : null}
 
             {picks.length === 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>No Playfit Picks yet</CardTitle>
-                  <CardDescription>
-                    Add a recommendation from Play Next when it looks worth your time.
+              <Card className="rounded-3xl border border-white/5 bg-card/45 backdrop-blur-sm p-6 text-center">
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle className="text-xl font-bold">No Playfit Picks yet</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-1">
+                    Add a recommendation from Play Next when it matches your gaming criteria.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button type="button" asChild>
-                    <Link href="/play">Find Play Next</Link>
+                <CardContent className="px-0 pb-0 pt-4">
+                  <Button
+                    type="button"
+                    asChild
+                    className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
+                  >
+                    <Link href="/play">Go Find Recommendations</Link>
                   </Button>
                 </CardContent>
               </Card>

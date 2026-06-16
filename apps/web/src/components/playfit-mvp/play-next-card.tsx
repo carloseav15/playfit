@@ -28,15 +28,17 @@ function DecisionMetric({
   value,
   detail,
   numericValue,
+  colorClass = "bg-accent",
 }: {
   label: string;
   value: string;
   detail?: string;
   numericValue?: number;
+  colorClass?: string;
 }) {
   return (
     <div
-      className="rounded-xl border border-border bg-secondary p-3"
+      className="relative overflow-hidden rounded-2xl border border-white/5 bg-secondary/35 p-4 transition-all duration-300 hover:border-white/10 hover:bg-secondary/40"
       {...(numericValue != null
         ? {
             role: "meter",
@@ -49,11 +51,24 @@ function DecisionMetric({
             "aria-label": `${label}: ${value}${detail ? `, ${detail}` : ""}`,
           })}
     >
-      <span className="block text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </span>
-      <strong className="mt-1 block text-sm leading-tight">{value}</strong>
-      {detail ? <span className="mt-1 block text-xs text-muted-foreground">{detail}</span> : null}
+      <strong className="mt-1 block text-base font-extrabold leading-tight text-foreground">
+        {value}
+      </strong>
+      {detail ? (
+        <span className="mt-1 block text-xs text-muted-foreground/80">{detail}</span>
+      ) : null}
+
+      {numericValue != null && (
+        <div className="absolute bottom-0 inset-x-0 h-1 bg-white/5">
+          <div
+            className={cn("h-full transition-all duration-500", colorClass)}
+            style={{ width: `${numericValue}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -102,35 +117,57 @@ export function PlayNextCard({
 
   if (!primary) {
     return (
-      <Card className="overflow-hidden rounded-2xl border-border/80 bg-card/70 shadow-sm">
-        <CardContent className="grid gap-4 p-4 md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center">
-          <CoverArt game={entry.game} className="aspect-[2/3] w-20 justify-self-center" />
-          <div className="grid min-w-0 gap-2">
+      <Card className="group relative overflow-hidden rounded-3xl border border-white/5 bg-card/50 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-white/10 hover:shadow-xl">
+        <CardContent className="grid gap-4 p-5 md:grid-cols-[6rem_minmax(0,1fr)_auto] md:items-center">
+          <CoverArt
+            game={entry.game}
+            className="aspect-[2/3] w-24 justify-self-center rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+          />
+          <div className="grid min-w-0 gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={tone}>Worth checking</Badge>
-              <Badge variant="outline">{label}</Badge>
+              <Badge
+                variant={tone}
+                className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              >
+                {label}
+              </Badge>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 {formatGameDescriptor(entry.game)}
               </p>
-              <h3 className="font-display text-xl font-extrabold leading-tight">
+              <h3 className="font-display text-xl font-extrabold leading-tight text-foreground">
                 {entry.game.title}
               </h3>
             </div>
-            <p className="text-sm leading-6 text-muted-foreground">{bestReason}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{bestReason}</p>
             <div className="flex flex-wrap gap-2 text-xs">
-              <Badge variant="secondary">{matchLabel}</Badge>
-              <Badge variant="secondary">{watchLabel}</Badge>
-              <Badge variant="secondary">{confidence}</Badge>
+              <Badge variant="secondary" className="bg-secondary/40">
+                {matchLabel}
+              </Badge>
+              <Badge variant="secondary" className="bg-secondary/40">
+                {watchLabel}
+              </Badge>
+              <Badge variant="secondary" className="bg-secondary/40">
+                {confidence}
+              </Badge>
             </div>
           </div>
           <div className="grid gap-2 md:min-w-44">
-            <Button type="button" size="sm" onClick={onAddPick} disabled={inPlayfitPicks}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onAddPick}
+              disabled={inPlayfitPicks}
+              className={cn(
+                "w-full bg-accent text-accent-foreground font-extrabold hover:bg-accent/90",
+                inPlayfitPicks && "bg-secondary text-muted-foreground",
+              )}
+            >
               <ListPlus className="size-4" />
               {inPlayfitPicks ? "In Picks" : "Add pick"}
             </Button>
-            <div className="flex flex-wrap gap-2 md:justify-end">
+            <div className="flex flex-wrap gap-1.5 justify-between md:justify-end">
               <Button
                 type="button"
                 variant="ghost"
@@ -141,33 +178,52 @@ export function PlayNextCard({
                   setShowAlreadyPlayed((current) => !current);
                   setShowReasonPicker(false);
                 }}
+                className="text-xs hover:text-foreground"
               >
                 Played
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={markNotForMe}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={markNotForMe}
+                className="text-xs hover:text-foreground"
+              >
                 Not for me
               </Button>
               {onShowAnother ? (
-                <Button type="button" variant="ghost" size="sm" onClick={onShowAnother}>
-                  Show another
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onShowAnother}
+                  className="text-xs hover:text-foreground"
+                >
+                  Skip
                 </Button>
               ) : null}
-              <Button type="button" variant="ghost" size="sm" asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-xs hover:text-accent"
+              >
                 <Link href={`/play/game/${entry.game.gameId}`}>
-                  See why
-                  <ChevronRight className="size-4" />
+                  Why?
+                  <ChevronRight className="size-3.5 ml-0.5" />
                 </Link>
               </Button>
             </div>
           </div>
           {showAlreadyPlayed ? (
-            <div className="md:col-span-3">
+            <div className="md:col-span-3 mt-2">
               <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={chooseAlreadyPlayed} />
             </div>
           ) : null}
           {showReasonPicker ? (
-            <div className="grid gap-2 rounded-2xl border border-border bg-secondary p-4 md:col-span-3">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/30 p-4 md:col-span-3 mt-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 What got in the way?
               </p>
               <Stack direction="row" wrap gap={2}>
@@ -181,6 +237,7 @@ export function PlayNextCard({
                       onReason?.(reason);
                       setShowReasonPicker(false);
                     }}
+                    className="text-xs border-white/10 bg-card hover:bg-secondary"
                   >
                     {reason}
                   </Button>
@@ -196,41 +253,53 @@ export function PlayNextCard({
   return (
     <Card
       className={cn(
-        "min-w-0 overflow-hidden rounded-3xl",
-        primary &&
-          "border-[color-mix(in_srgb,var(--accent),transparent_58%)] bg-[color-mix(in_srgb,var(--card),var(--accent)_7%)] shadow-sm",
+        "relative min-w-0 overflow-hidden rounded-3xl border border-white/10 shadow-2xl backdrop-blur-md",
+        primary && "bg-gradient-to-br from-card/85 to-card/60",
       )}
     >
-      <CardHeader>
+      {/* Decorative inner glows */}
+      <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-accent/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 -bottom-16 size-44 rounded-full bg-indigo-500/10 blur-3xl" />
+
+      <CardHeader className="pb-2 relative z-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Badge variant={tone}>{primary ? "Play this next" : "Worth checking"}</Badge>
-          <Badge variant="outline">{label}</Badge>
+          <Badge
+            variant={tone}
+            className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest bg-accent text-accent-foreground shadow-sm"
+          >
+            {primary ? "Play this next" : "Worth checking"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="border-accent/30 text-accent font-bold px-2 py-0.5 text-xs bg-accent/5"
+          >
+            {label}
+          </Badge>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5">
+      <CardContent className="grid gap-6 relative z-10">
         <div
           className={cn(
-            "grid gap-4",
-            primary && "md:grid-cols-[minmax(150px,220px)_minmax(0,1fr)]",
+            "grid gap-5",
+            primary && "md:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]",
           )}
         >
-          <CoverArt
-            game={entry.game}
-            className={cn(
-              "aspect-[2/3] w-full max-w-48 justify-self-center",
-              primary && "md:max-w-none",
-            )}
-            priority={primary}
-          />
+          <div className="relative group/cover justify-self-center w-full max-w-44 md:max-w-none">
+            <CoverArt
+              game={entry.game}
+              className="aspect-[2/3] w-full rounded-2xl shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-white/5"
+              priority={primary}
+            />
+          </div>
           <div className="grid min-w-0 content-start gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
                 {formatGameDescriptor(entry.game)}
               </p>
               <h2
                 className={cn(
-                  "font-display font-extrabold leading-tight tracking-tight",
-                  primary ? "text-3xl md:text-[2.15rem]" : "text-xl",
+                  "font-display font-black leading-[0.95] tracking-tight mt-1 text-foreground",
+                  primary ? "text-3xl md:text-4xl" : "text-xl",
                 )}
               >
                 {entry.game.title}
@@ -242,87 +311,119 @@ export function PlayNextCard({
                 value={matchLabel}
                 detail={`${entry.affinityScore}/100`}
                 numericValue={entry.affinityScore}
+                colorClass="bg-gradient-to-r from-accent to-indigo-600"
               />
               <DecisionMetric
                 label="Watch-outs"
                 value={watchLabel}
                 detail={`${entry.riskScore}/100`}
                 numericValue={entry.riskScore}
+                colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
               />
-              <DecisionMetric label="Confidence" value={confidence} />
+              <DecisionMetric label="Confidence" value={confidence} colorClass="bg-accent/70" />
             </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <div className="rounded-2xl border border-border bg-secondary p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Best signal
+            <div className="grid gap-3.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+                  Why this fits
                 </p>
-                <p className="mt-2 text-sm leading-6">{bestReason}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{bestReason}</p>
               </div>
-              <div className="rounded-2xl border border-border bg-secondary p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Watch-out
+              <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
+                  Watch-outs
                 </p>
-                <p className="mt-2 text-sm leading-6">{firstWatchOut}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  {firstWatchOut}
+                </p>
               </div>
             </div>
           </div>
         </div>
-        <Stack
-          direction="row"
-          wrap
-          gap={2}
-          className="items-center rounded-2xl bg-secondary/60 p-2"
-        >
-          <Button type="button" onClick={onAddPick} disabled={inPlayfitPicks} className="shadow-sm">
-            <ListPlus className="size-4" />
-            {inPlayfitPicks ? "In Playfit Picks" : "Add to Playfit Picks"}
-          </Button>
-          <span className="px-1 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Correct the read
-          </span>
+
+        <div className="grid gap-4 pt-2 border-t border-white/5">
           <Button
             type="button"
-            variant="secondary"
-            aria-expanded={showAlreadyPlayed}
-            aria-controls={alreadyPlayedPanelId}
-            onClick={() => {
-              setShowAlreadyPlayed((current) => !current);
-              setShowReasonPicker(false);
-            }}
+            onClick={onAddPick}
+            disabled={inPlayfitPicks}
+            className={cn(
+              "w-full h-12 font-extrabold text-sm rounded-2xl transition-all duration-300 active:scale-[0.99]",
+              inPlayfitPicks
+                ? "bg-secondary text-muted-foreground cursor-not-allowed"
+                : "bg-gradient-to-r from-accent to-indigo-600 text-white shadow-[0_0_20px_rgba(255,106,61,0.2)] hover:shadow-[0_0_25px_rgba(255,106,61,0.35)] scale-100 hover:scale-[1.01]",
+            )}
           >
-            <CheckCircle2 className="size-4" />
-            Already played
+            <ListPlus className="size-4 mr-2" />
+            {inPlayfitPicks ? "Saved in Playfit Picks" : "Add to Playfit Picks"}
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={markNotForMe}
-            className="hover:bg-destructive/10 hover:text-destructive"
-          >
-            <XCircle className="size-4" />
-            Not for me
-          </Button>
-        </Stack>
-        <div className="flex flex-wrap items-center gap-2">
+
+          <div className="flex flex-col gap-3 p-3 rounded-2xl bg-secondary/15 border border-white/5">
+            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/80 px-1">
+              Calibration Feedback
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                aria-expanded={showAlreadyPlayed}
+                aria-controls={alreadyPlayedPanelId}
+                onClick={() => {
+                  setShowAlreadyPlayed((current) => !current);
+                  setShowReasonPicker(false);
+                }}
+                className="flex-1 text-xs border-white/5 bg-secondary/40 hover:bg-secondary/80 hover:text-foreground"
+              >
+                <CheckCircle2 className="size-4" />
+                Already Played
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={markNotForMe}
+                className="flex-1 text-xs border-white/5 bg-secondary/40 hover:bg-destructive-bg hover:text-destructive"
+              >
+                <XCircle className="size-4" />
+                Not for me
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
           {onShowAnother ? (
-            <Button type="button" variant="ghost" onClick={onShowAnother}>
-              <Dices className="size-4" />
-              Show another
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onShowAnother}
+              className="text-xs hover:text-foreground"
+            >
+              <Dices className="size-4 mr-1.5 text-muted-foreground" />
+              Show another recommendation
             </Button>
-          ) : null}
-          <Button type="button" variant="ghost" size="sm" asChild>
+          ) : (
+            <div />
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-xs text-accent hover:text-accent/80"
+          >
             <Link href={`/play/game/${entry.game.gameId}`}>
-              <Eye className="size-4" />
-              See why
+              <Eye className="size-4 mr-1.5" />
+              See full dossier & explainability
             </Link>
           </Button>
         </div>
         {showAlreadyPlayed ? (
-          <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={chooseAlreadyPlayed} />
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={chooseAlreadyPlayed} />
+          </div>
         ) : null}
         {showReasonPicker ? (
-          <div className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/35 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               What got in the way?
             </p>
             <Stack direction="row" wrap gap={2}>
@@ -336,6 +437,7 @@ export function PlayNextCard({
                     onReason?.(reason);
                     setShowReasonPicker(false);
                   }}
+                  className="text-xs border-white/10 bg-card hover:bg-secondary"
                 >
                   {reason}
                 </Button>
