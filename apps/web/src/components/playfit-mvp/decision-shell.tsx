@@ -13,10 +13,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addGamesToCache } from "@/lib/game-cache";
+import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import { OnboardingSection } from "../playfit/onboarding-section";
 import { usePlayfit } from "../playfit/playfit-context";
@@ -145,8 +146,8 @@ export function DecisionShell() {
 
   if (!profileReady) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Container as="main" size="sm" className="grid gap-6 py-6 md:py-8">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        <Container as="main" size="md" className="grid gap-6 py-4 md:py-8 w-full">
           {!startedCalibration ? (
             <DecisionIntro onStart={() => setStartedCalibration(true)} />
           ) : (
@@ -226,13 +227,17 @@ export function DecisionShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="lg:h-screen lg:overflow-hidden"
+      className="lg:h-screen lg:overflow-hidden relative"
     >
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+      {/* Background glow effects */}
+      <div className="pointer-events-none absolute left-1/4 top-1/4 size-[500px] rounded-full bg-accent/5 blur-[120px]" />
+      <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[400px] rounded-full bg-indigo-500/5 blur-[100px]" />
+
+      <div className="min-h-screen text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
         <Container
           as="main"
           size="lg"
-          className="grid gap-6 py-6 lg:h-full lg:max-h-full lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:py-8 lg:overflow-hidden"
+          className="grid gap-8 py-6 lg:h-full lg:max-h-full lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:py-8 lg:overflow-hidden"
         >
           {/* LEFT COLUMN: Primary Card (Centered, Fixed) */}
           <div className="flex flex-col justify-center min-w-0 lg:h-full lg:overflow-hidden">
@@ -257,88 +262,125 @@ export function DecisionShell() {
 
           {/* RIGHT COLUMN: Nav, Signals, and Scrollable Alternatives */}
           <div className="flex flex-col gap-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2">
-            <section className="grid gap-3">
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  type="button"
-                  variant={pathname === "/play/picks" ? "secondary" : "ghost"}
-                  asChild
-                >
-                  <Link href="/play/picks">
-                    <ListChecks className="size-4" />
-                    Picks {picksCount ? `(${picksCount})` : ""}
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant={pathname === "/play/taste" ? "secondary" : "ghost"}
-                  asChild
-                >
-                  <Link href="/play/taste">
-                    <SlidersHorizontal className="size-4" />
-                    Taste
-                  </Link>
-                </Button>
+            <section className="grid gap-4 bg-secondary/10 border border-white/5 rounded-3xl p-5 backdrop-blur-sm shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-accent">
+                  Play Next Engine
+                </span>
+                <div className="flex gap-1.5 bg-secondary/40 p-1 rounded-2xl border border-white/5">
+                  <Button
+                    type="button"
+                    variant={pathname === "/play/picks" ? "secondary" : "ghost"}
+                    asChild
+                    className={cn(
+                      "h-8 px-3.5 text-xs rounded-xl font-extrabold transition-all active:scale-[0.98]",
+                      pathname === "/play/picks"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                    )}
+                  >
+                    <Link href="/play/picks">
+                      <ListChecks className="size-3.5 mr-1" />
+                      Picks {picksCount ? `(${picksCount})` : ""}
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+                    asChild
+                    className={cn(
+                      "h-8 px-3.5 text-xs rounded-xl font-extrabold transition-all active:scale-[0.98]",
+                      pathname === "/play/taste"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                    )}
+                  >
+                    <Link href="/play/taste">
+                      <SlidersHorizontal className="size-3.5 mr-1" />
+                      Taste
+                    </Link>
+                  </Button>
+                </div>
               </div>
-              <div className="grid justify-items-center gap-1">
-                <CardTitle as="h2" className="text-center text-balance">
+
+              <div className="grid gap-1">
+                <CardTitle as="h2" className="text-xl font-black tracking-tight text-foreground">
                   {recommendationGroupTitle(model?.nextUp ?? [])}
                 </CardTitle>
-                <CardDescription className="max-w-2xl text-center text-xs">
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed">
                   Find what to play next, save promising picks, and keep the reasons visible. Only
                   active platform games are suggested.
                 </CardDescription>
               </div>
-              <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+
+              <div className="flex items-center gap-2 rounded-xl bg-accent/5 border border-accent/20 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
                 <span>{tasteSignalCount} taste signals</span>
-                <span aria-hidden="true">/</span>
+                <span aria-hidden="true" className="opacity-40">
+                  /
+                </span>
                 <span>{positiveSignalCount} lean toward</span>
-                <span aria-hidden="true">/</span>
+                <span aria-hidden="true" className="opacity-40">
+                  /
+                </span>
                 <span>{negativeSignalCount} steer away</span>
               </div>
             </section>
 
             {alternatives.length > 0 && (
               <section className="grid gap-3">
-                <div>
-                  <CardTitle as="h3" className="text-sm font-bold">
+                <div className="px-1">
+                  <CardTitle as="h3" className="text-sm font-extrabold text-foreground">
                     Also worth considering
                   </CardTitle>
-                  <CardDescription className="text-xs">
-                    Shortlist only. Open a dossier when one needs more explanation.
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Other potential candidates matching your active taste signals.
                   </CardDescription>
                 </div>
-                <div className="grid gap-3">
-                  {alternatives.map((entry) => (
-                    <Card
-                      key={entry.game.gameId}
-                      className="overflow-hidden rounded-2xl border-border/80 bg-card/70 shadow-sm"
-                    >
-                      <CardContent className="flex flex-wrap items-center justify-between gap-4 p-3 sm:flex-nowrap">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <CoverArt game={entry.game} className="aspect-[2/3] w-12 shrink-0" />
+                <Card className="overflow-hidden rounded-3xl border border-white/5 bg-card/45 shadow-xl backdrop-blur-sm">
+                  <div className="divide-y divide-white/5">
+                    {alternatives.map((entry) => (
+                      <div
+                        key={entry.game.gameId}
+                        className="group flex items-center justify-between gap-4 p-4 transition-all duration-300 hover:bg-secondary/25"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <CoverArt
+                            game={entry.game}
+                            className="aspect-[2/3] w-11 shrink-0 rounded-xl shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+                          />
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground truncate">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-accent truncate">
                               {formatGameDescriptor(entry.game)}
                             </p>
-                            <h3 className="font-display text-base font-extrabold leading-tight text-foreground truncate">
+                            <h3 className="font-display text-sm font-extrabold leading-snug text-foreground truncate mt-0.5">
                               {entry.game.title}
                             </h3>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
-                          <Badge variant="secondary">{entry.affinityScore}% Match</Badge>
-                          <Button type="button" variant="ghost" size="sm" asChild>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <Badge
+                            variant="secondary"
+                            className="bg-positive-bg text-positive border border-positive/20 text-[10px] font-extrabold"
+                          >
+                            {entry.affinityScore}% Match
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            className="h-8 px-2.5 rounded-lg text-xs hover:text-accent"
+                          >
                             <Link href={`/play/game/${entry.game.gameId}`}>
                               See why
-                              <ChevronRight className="size-4" />
+                              <ChevronRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-0.5" />
                             </Link>
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
               </section>
             )}
           </div>

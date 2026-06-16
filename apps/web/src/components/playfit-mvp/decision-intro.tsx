@@ -1,69 +1,226 @@
-import { CircleAlert, Gauge, Sparkles } from "lucide-react";
+"use client";
+
+import type { SeedGame } from "@playfit/core/types";
+import { Compass, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CoverArt } from "../playfit/cover-art";
+
+const MOCK_GAMES = [
+  {
+    title: "Hollow Knight",
+    primaryGenre: "Action-Adventure • Metroidvania",
+    description: "Atmospheric adventure through a ruined kingdom of insects.",
+    vibeFit: 94,
+    cautionRisk: 35,
+    whyMatches: "Matches atmospheric tag",
+    watchOut: "High difficulty curve",
+    confidence: "High",
+  },
+  {
+    title: "Hades",
+    primaryGenre: "Action • Roguelike",
+    description: "Defy the god of the dead in a hack-and-slash underworld escape.",
+    vibeFit: 96,
+    cautionRisk: 25,
+    whyMatches: "High action affinity",
+    watchOut: "Repetitive run loops",
+    confidence: "High",
+  },
+  {
+    title: "Metroid Dread",
+    primaryGenre: "Action • Platformer",
+    description: "Confront a mysterious mechanical threat on planet ZDR.",
+    vibeFit: 91,
+    cautionRisk: 40,
+    whyMatches: "Matches platformer bias",
+    watchOut: "Intense stalker chases",
+    confidence: "Medium",
+  },
+  {
+    title: "Outer Wilds",
+    primaryGenre: "Adventure • Exploration",
+    description: "Solve a space exploration mystery in a 22-minute time loop.",
+    vibeFit: 95,
+    cautionRisk: 15,
+    whyMatches: "Matches discovery tag",
+    watchOut: "No combat/action",
+    confidence: "High",
+  },
+];
 
 export function DecisionIntro({ onStart }: { onStart?: () => void }) {
+  const [mockIndex, setMockIndex] = useState(0);
+  const [realGame, setRealGame] = useState<SeedGame | null>(null);
+
+  // Pick a random game on mount to prevent SSR hydration mismatches
+  useEffect(() => {
+    const idx = Math.floor(Math.random() * MOCK_GAMES.length);
+    setMockIndex(idx);
+    const selected = MOCK_GAMES[idx];
+
+    // Fetch from backend search API to get the real cover path!
+    fetch(`/api/games?q=${encodeURIComponent(selected.title)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.games) && data.games.length > 0) {
+          const found =
+            data.games.find(
+              (g: SeedGame) => g.title.toLowerCase() === selected.title.toLowerCase(),
+            ) || data.games[0];
+          setRealGame(found);
+        }
+      })
+      .catch((err) => console.error("Mock fetch failed", err));
+  }, []);
+
+  const mock = MOCK_GAMES[mockIndex];
+
+  const mockGame = {
+    gameId: `mock-${mock.title.toLowerCase().replace(/\s+/g, "-")}`,
+    title: mock.title,
+    aliases: [],
+    series: "",
+    source: "rawg",
+    primaryGenre: mock.primaryGenre.split(" • ")[1] || mock.primaryGenre,
+    genreId: "action_adventure",
+    tags: [],
+    notes: "",
+    coverPath: "",
+    externalCoverUrl: "",
+    availablePlatformIds: [],
+    availablePlatformNames: [],
+    releaseState: "released",
+  } as unknown as SeedGame;
+
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_30%)] p-6 text-card-foreground shadow-sm md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] md:gap-6 md:p-8">
-      <div className="grid gap-5">
-        <div className="grid gap-3">
-          <Badge variant="outline" className="w-fit">
-            Public portfolio demo
-          </Badge>
-          <h1 className="max-w-xl font-display text-5xl font-black leading-[0.95] tracking-tight md:text-6xl">
-            Find what to play next
+    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-card to-background p-5 sm:p-8 md:p-12 text-card-foreground shadow-2xl backdrop-blur-md grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)] md:gap-10">
+      {/* Decorative Glow Elements */}
+      <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-accent/20 blur-[120px]" />
+      <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-positive/10 blur-[100px]" />
+
+      <div className="relative z-10 flex flex-col justify-between gap-6">
+        <div className="grid gap-5">
+          <div className="flex items-center gap-3">
+            <div className="relative size-12 rounded-2xl overflow-hidden shadow-lg border border-white/10 shrink-0 bg-secondary/30">
+              <Image
+                src="/playfit_logo.png"
+                alt="Playfit Brand Logo"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-accent font-mono">
+              Playfit AI
+            </span>
+          </div>
+          <h1 className="max-w-xl font-display text-4xl sm:text-5xl md:text-6xl font-black leading-[0.95] tracking-tight text-foreground">
+            Your next game,{" "}
+            <span className="bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
+              curated.
+            </span>
           </h1>
-          <p className="max-w-prose text-base leading-7 text-muted-foreground md:text-lg">
-            Pick your platforms, 3 games you loved, and 1 that missed. Get one clear next pick,
-            understand why, and correct it fast.
+          <p className="max-w-prose text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Select your platforms, three favorites, and one notable miss. Get one clear
+            recommendation with its complete decision dossier.
           </p>
-          <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-            The interface is intentionally narrow: it shows one decision, the reasons behind it, and
-            a direct correction path.
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground/60">
+            Zero noise. Zero decision fatigue.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button type="button" className="w-fit" onClick={onStart}>
-            Tune my taste
+        <div className="flex flex-wrap items-center gap-4">
+          <Button
+            type="button"
+            className="w-fit bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
+            onClick={onStart}
+          >
+            <Compass className="size-4 mr-2" />
+            Begin Calibration
           </Button>
-          <Badge variant="info" className="w-fit">
-            Playfit decision assistant
+          <Badge
+            variant="info"
+            className="w-fit border-indigo-500/30 bg-indigo-500/10 text-indigo-400 py-1 px-3"
+          >
+            Play Next Engine
           </Badge>
         </div>
       </div>
-      <div className="grid gap-3 rounded-2xl border border-border bg-card/90 p-4 backdrop-blur-sm md:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <Badge variant="positive">Play Next preview</Badge>
-          <Badge variant="outline">High confidence</Badge>
+
+      <div className="relative z-10 rounded-3xl border border-white/10 bg-card/40 p-4 sm:p-6 backdrop-blur-md shadow-2xl flex flex-col justify-between overflow-hidden group">
+        {/* Glowing aura inside card */}
+        <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-accent/20 blur-2xl group-hover:scale-110 transition-transform duration-500" />
+
+        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-3">
+          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-accent flex items-center gap-1.5">
+            <Sparkles className="size-3.5 animate-pulse" />
+            Live Preview Mock
+          </span>
+          <Badge
+            variant="outline"
+            className="border-accent/30 text-accent font-bold px-2 py-0.5 text-[10px] bg-accent/5"
+          >
+            {mock.vibeFit}% Vibe Fit
+          </Badge>
         </div>
-        <div className="grid gap-3">
-          <div className="grid gap-2 rounded-xl border border-border bg-secondary p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Sparkles className="size-4 text-positive" />
-              Why it fits your taste
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Playfit uses your platforms, loved games, and misses to make the first read.
+
+        <div className="grid grid-cols-[72px_1fr] gap-4 py-5">
+          <CoverArt
+            game={realGame || mockGame}
+            className="aspect-[2/3] w-18 rounded-xl shadow-md border border-white/5 bg-secondary/35 shrink-0"
+          />
+          <div className="flex flex-col justify-center min-w-0">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+              {mock.primaryGenre}
+            </span>
+            <h3 className="font-display text-lg font-black text-foreground mt-0.5 truncate">
+              {mock.title}
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed mt-1.5 line-clamp-2">
+              {mock.description}
             </p>
           </div>
-          <div className="grid gap-2 rounded-xl border border-border bg-secondary p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <CircleAlert className="size-4 text-warning" />
-              Watch-outs before you commit
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Every recommendation keeps a visible reason and a correction path.
-            </p>
+        </div>
+
+        <div className="grid gap-2.5 pt-3 border-t border-white/5 text-[11px]">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-positive" />
+              Why it matches
+            </span>
+            <span className="font-semibold text-foreground text-right truncate max-w-[150px]">
+              {mock.whyMatches}
+            </span>
           </div>
-          <div className="grid gap-2 rounded-xl border border-border bg-secondary p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Gauge className="size-4 text-accent" />
-              Confidence based on your signals
-            </div>
-            <p className="text-sm text-muted-foreground">
-              The read gets steadier as calibration and history accumulate.
-            </p>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-warning" />
+              Watch-outs
+            </span>
+            <span className="font-semibold text-foreground text-right truncate max-w-[150px]">
+              {mock.watchOut}
+            </span>
           </div>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-accent" />
+              Confidence
+            </span>
+            <Badge variant="secondary" className="text-[9px] font-bold py-0 px-1.5 bg-secondary/50">
+              {mock.confidence}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-2">
+          <Button
+            type="button"
+            disabled
+            className="w-full text-xs font-extrabold bg-accent/15 text-accent border border-accent/20 h-9 rounded-xl cursor-default opacity-80"
+          >
+            Configure profile to activate
+          </Button>
         </div>
       </div>
     </section>
