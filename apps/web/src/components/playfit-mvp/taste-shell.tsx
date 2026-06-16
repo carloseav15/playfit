@@ -20,6 +20,7 @@ import {
   Waves,
   XCircle,
 } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -88,7 +89,7 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
   const maxStrength = Math.max(...traits.map((trait) => trait.strength), 1);
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-3xl shadow-sm">
       <CardHeader>
         <CardTitle>Taste Map</CardTitle>
         <CardDescription>
@@ -97,7 +98,7 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="hidden sm:grid sm:grid-cols-[1fr_auto_1fr] gap-3 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
           <span className="text-right">Steer away from</span>
           <span>Neutral</span>
           <span>Lean toward</span>
@@ -130,15 +131,29 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
                       {trait.confidence}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+                    <div
+                      className="h-3 overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={trait.negativeCount}
+                      aria-valuemin={0}
+                      aria-valuemax={maxStrength}
+                      aria-label={`${trait.label} steer away: ${trait.negativeCount}`}
+                    >
                       <div
                         className="ml-auto h-full rounded-full bg-negative"
                         style={{ width: negativeWidth }}
                       />
                     </div>
                     <span className="h-5 w-px bg-border" />
-                    <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-3 overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={trait.positiveCount}
+                      aria-valuemin={0}
+                      aria-valuemax={maxStrength}
+                      aria-label={`${trait.label} lean toward: ${trait.positiveCount}`}
+                    >
                       <div
                         className="h-full rounded-full bg-positive"
                         style={{ width: positiveWidth }}
@@ -161,12 +176,14 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
 }
 
 function ChangeSignalPanel({
+  id,
   onSelect,
 }: {
+  id?: string;
   onSelect: (feedback: ProductDecisionFeedback) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
+    <div id={id} className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
       <SectionLabel>Change signal</SectionLabel>
       <Stack direction="row" wrap gap={2}>
         {changeOptions.map(({ feedback, label, Icon }) => (
@@ -201,11 +218,12 @@ function TasteHistoryRow({
 }) {
   const { getSeedGame } = usePlayfit();
   const game = getSeedGame(entry.gameId);
+  const changePanelId = `change-signal-${entry.gameId}`;
 
   if (!game) return null;
 
   return (
-    <div className="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="grid grid-cols-[3.25rem_1fr] gap-3 md:grid-cols-[3.25rem_1fr_auto] md:items-center">
         <CoverArt game={game} className="aspect-[2/3] w-12" />
         <div className="min-w-0">
@@ -228,7 +246,14 @@ function TasteHistoryRow({
           </Stack>
         </div>
         <Stack direction="row" wrap gap={2} className="md:justify-end">
-          <Button type="button" variant="secondary" size="sm" onClick={onToggleChange}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-expanded={changing}
+            aria-controls={changePanelId}
+            onClick={onToggleChange}
+          >
             <Pencil className="size-4" />
             Change
           </Button>
@@ -244,7 +269,7 @@ function TasteHistoryRow({
           </Button>
         </Stack>
       </div>
-      {changing ? <ChangeSignalPanel onSelect={onChange} /> : null}
+      {changing ? <ChangeSignalPanel id={changePanelId} onSelect={onChange} /> : null}
     </div>
   );
 }
@@ -367,71 +392,89 @@ export function TasteShell() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
-      <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button type="button" variant="ghost" asChild>
-            <Link href="/play">
-              <ArrowLeft className="size-4" />
-              Back to Play Next
-            </Link>
-          </Button>
-          <Badge variant="info">Based on {model.evidenceCount} taste signals</Badge>
-        </div>
-        <section className="grid gap-3 rounded-3xl border border-border bg-card/80 p-6 shadow-sm">
-          <h1 className="font-display text-4xl font-extrabold leading-tight">Your Taste</h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            What Playfit is learning from your decisions. {model.confidenceLabel}.
-          </p>
-        </section>
-        {belowCalibration ? (
-          <Alert variant="warning">
-            Taste is below calibration strength. You can still use Playfit, but adding 3 liked games
-            and 1 miss will make recommendations steadier.
-          </Alert>
-        ) : null}
-        {missingIds.length > 0 ? (
-          <Alert variant="warning">Some older signals could not be loaded.</Alert>
-        ) : null}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Signals
-            </p>
-            <strong className="mt-1 block font-mono text-2xl">{model.evidenceCount}</strong>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
+        <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/play">
+                <ArrowLeft className="size-4" />
+                Back to Play Next
+              </Link>
+            </Button>
+            <Badge variant="info">Based on {model.evidenceCount} taste signals</Badge>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Lean toward
-            </p>
-            <strong className="mt-1 block font-mono text-2xl">{model.positiveCount}</strong>
+          <section className="grid gap-4 rounded-3xl border border-border bg-card/80 p-6 shadow-sm md:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.85fr)] md:items-end">
+            <div className="grid gap-2">
+              <h1 className="font-display text-4xl font-extrabold leading-tight">Your Taste</h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                What Playfit is learning from your decisions. {model.confidenceLabel}.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-secondary p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Summary
+              </p>
+              <p className="mt-2 text-sm leading-6 text-foreground">
+                {model.positiveCount > model.negativeCount
+                  ? "Playfit leans toward your favorites, but still needs more signals to sharpen the edge cases."
+                  : "Playfit is still balancing your likes and misses; a few more decisions will make the next pick steadier."}
+              </p>
+            </div>
+          </section>
+          {belowCalibration ? (
+            <Alert variant="warning">
+              Taste is below calibration strength. You can still use Playfit, but adding 3 liked
+              games and 1 miss will make recommendations steadier.
+            </Alert>
+          ) : null}
+          {missingIds.length > 0 ? (
+            <Alert variant="warning">Some older signals could not be loaded.</Alert>
+          ) : null}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Signals
+              </p>
+              <strong className="mt-1 block font-mono text-2xl">{model.evidenceCount}</strong>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Lean toward
+              </p>
+              <strong className="mt-1 block font-mono text-2xl">{model.positiveCount}</strong>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Steer away
+              </p>
+              <strong className="mt-1 block font-mono text-2xl">{model.negativeCount}</strong>
+            </div>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Steer away
-            </p>
-            <strong className="mt-1 block font-mono text-2xl">{model.negativeCount}</strong>
-          </div>
-        </div>
-        <TasteMap traits={model.mapTraits} />
-        <Separator />
-        <TasteHistory
-          entries={model.historyEntries}
-          changingId={changingId}
-          onToggleChange={(gameId) =>
-            setChangingId((current) => (current === gameId ? null : gameId))
-          }
-          onChange={(entry, feedback) => {
-            applyDecisionFeedback(entry.gameId, feedback);
-            setChangingId(null);
-          }}
-          onRemove={(entry) => {
-            removeTasteSignal(entry.gameId, entry.source);
-            setChangingId(null);
-          }}
-        />
-      </Container>
-      <StatusToast />
-    </div>
+          <TasteMap traits={model.mapTraits} />
+          <Separator />
+          <TasteHistory
+            entries={model.historyEntries}
+            changingId={changingId}
+            onToggleChange={(gameId) =>
+              setChangingId((current) => (current === gameId ? null : gameId))
+            }
+            onChange={(entry, feedback) => {
+              applyDecisionFeedback(entry.gameId, feedback);
+              setChangingId(null);
+            }}
+            onRemove={(entry) => {
+              removeTasteSignal(entry.gameId, entry.source);
+              setChangingId(null);
+            }}
+          />
+        </Container>
+        <StatusToast />
+      </div>
+    </motion.div>
   );
 }

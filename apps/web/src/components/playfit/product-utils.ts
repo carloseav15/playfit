@@ -95,6 +95,20 @@ export function decisionLabel(entry: RankedSeedGame) {
   return "Still learning";
 }
 
+export function matchQualityLabel(score: number) {
+  if (score >= STRONG_FIT_THRESHOLD) return "Strong match";
+  if (score >= PROMISING_FIT_THRESHOLD) return "Promising";
+  if (score >= 35) return "Moderate match";
+  return "Early match";
+}
+
+export function watchOutLabel(score: number) {
+  if (score >= HIGH_FRICTION_THRESHOLD) return "High friction";
+  if (score >= 35) return "Some watch-outs";
+  if (score >= 15) return "Low watch-out";
+  return "Clear read";
+}
+
 export function primaryReason(entry: RankedSeedGame) {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD && entry.cautionReasons[0]) {
     return entry.cautionReasons[0];
