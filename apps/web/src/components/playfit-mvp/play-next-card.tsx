@@ -23,34 +23,6 @@ import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played
 
 const reasonOptions = ["Wrong mood", "Too long", "Too hard", "Not my genre"];
 
-function ReasonList({
-  title,
-  reasons,
-  fallback,
-}: {
-  title: string;
-  reasons: string[];
-  fallback: string;
-}) {
-  const visibleReasons = reasons.length ? reasons : [fallback];
-
-  return (
-    <div className="rounded-md border border-border bg-secondary p-3">
-      <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-        {title}
-      </p>
-      <ul className="grid gap-1.5 text-sm text-foreground">
-        {visibleReasons.slice(0, 3).map((reason) => (
-          <li key={reason} className="flex gap-2">
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-current" />
-            <span>{reason}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function DecisionMetric({
   label,
   value,
@@ -292,20 +264,6 @@ export function PlayNextCard({
                 </p>
                 <p className="mt-2 text-sm leading-6">{firstWatchOut}</p>
               </div>
-            </div>
-            <div className={cn("grid gap-3", entry.cautionReasons.length > 1 && "md:grid-cols-2")}>
-              <ReasonList
-                title="Signals behind the read"
-                reasons={entry.fitReasons}
-                fallback="Playfit needs a little more feedback before making a strong claim."
-              />
-              {entry.cautionReasons.length > 1 ? (
-                <ReasonList
-                  title="More watch-outs"
-                  reasons={entry.cautionReasons.slice(1)}
-                  fallback="No other watch-out yet."
-                />
-              ) : null}
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { CircleAlert, Gauge, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export function DecisionIntro() {
+export function DecisionIntro({ onStart }: { onStart?: () => void }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-border bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_30%)] p-6 text-card-foreground shadow-sm md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] md:gap-6 md:p-8">
       <div className="grid gap-5">
@@ -23,8 +23,8 @@ export function DecisionIntro() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button type="button" className="w-fit" asChild>
-            <a href="#tune-your-taste">Tune my taste</a>
+          <Button type="button" className="w-fit" onClick={onStart}>
+            Tune my taste
           </Button>
           <Badge variant="info" className="w-fit">
             Playfit decision assistant
