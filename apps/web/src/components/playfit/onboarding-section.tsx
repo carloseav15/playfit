@@ -597,6 +597,11 @@ export function OnboardingSection() {
                     </Alert>
                   ) : onboardingSearchError ? (
                     <Alert variant="error">{onboardingSearchError}</Alert>
+                  ) : seedData.allGames.length === 0 ? (
+                    <Alert variant="warning">
+                      The game catalog is currently empty. Make sure you run the seeding script (
+                      <code>bash scripts/seed-catalog.sh</code>) to import games.
+                    </Alert>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       No games found. Try a different title.
@@ -681,14 +686,15 @@ export function OnboardingSection() {
                         className={cn(
                           "flex items-center justify-between gap-3 rounded-md border border-border bg-secondary p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           selected && "border-[color-mix(in_srgb,var(--negative),transparent_40%)]",
+                          loved && "opacity-50 cursor-not-allowed bg-muted",
                         )}
                         onClick={() => addDislikedAnchor(game)}
-                        disabled={selected}
+                        disabled={selected || loved}
                       >
                         <span>
                           <strong>{game.title}</strong>
                           <span className="block text-sm text-muted-foreground">
-                            {loved ? "Moves out of loved picks" : formatGameDescriptor(game)}
+                            {loved ? "Loved in Step 2" : formatGameDescriptor(game)}
                           </span>
                         </span>
                         {selected ? (
@@ -707,6 +713,11 @@ export function OnboardingSection() {
                     </Alert>
                   ) : onboardingSearchError ? (
                     <Alert variant="error">{onboardingSearchError}</Alert>
+                  ) : seedData.allGames.length === 0 ? (
+                    <Alert variant="warning">
+                      The game catalog is currently empty. Make sure you run the seeding script (
+                      <code>bash scripts/seed-catalog.sh</code>) to import games.
+                    </Alert>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       No games found. Try a different title.
