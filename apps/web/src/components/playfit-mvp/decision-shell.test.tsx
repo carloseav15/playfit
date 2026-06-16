@@ -69,7 +69,7 @@ describe("DecisionShell", () => {
     const html = renderToStaticMarkup(<DecisionShell />);
 
     expect(html).toContain("Find what to play next");
-    expect(html).toContain("Tune your taste");
+    expect(html).toContain("Tune my taste");
     expect(html).not.toContain("Not ready yet");
   });
 

@@ -5,20 +5,22 @@ import type {
   ProductTodayModel,
   RankedSeedGame,
 } from "@playfit/core/types";
-import { ListChecks, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, ListChecks, SlidersHorizontal } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addGamesToCache } from "@/lib/game-cache";
+import { CoverArt } from "../playfit/cover-art";
 import { OnboardingSection } from "../playfit/onboarding-section";
 import { usePlayfit } from "../playfit/playfit-context";
-import { recommendationGroupTitle } from "../playfit/product-utils";
+import { formatGameDescriptor, recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { DecisionIntro } from "./decision-intro";
 import { PlayNextCard } from "./play-next-card";
@@ -40,6 +42,7 @@ export function DecisionShell() {
   const [loading, setLoading] = useState(true);
   const [slowLoading, setSlowLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [startedCalibration, setStartedCalibration] = useState(false);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
 
   useEffect(() => {
@@ -144,10 +147,13 @@ export function DecisionShell() {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Container as="main" size="sm" className="grid gap-6 py-6 md:py-8">
-          <DecisionIntro />
-          <div id="tune-your-taste">
-            <OnboardingSection />
-          </div>
+          {!startedCalibration ? (
+            <DecisionIntro onStart={() => setStartedCalibration(true)} />
+          ) : (
+            <div id="tune-your-taste">
+              <OnboardingSection />
+            </div>
+          )}
         </Container>
         <StatusToast />
       </div>
@@ -220,90 +226,122 @@ export function DecisionShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
+      className="lg:h-screen lg:overflow-hidden"
     >
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
-        <Container as="main" size="sm" className="grid gap-6 py-8">
-          <section className="grid gap-3">
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant={pathname === "/play/picks" ? "secondary" : "ghost"}
-                asChild
-              >
-                <Link href="/play/picks">
-                  <ListChecks className="size-4" />
-                  Picks {picksCount ? `(${picksCount})` : ""}
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant={pathname === "/play/taste" ? "secondary" : "ghost"}
-                asChild
-              >
-                <Link href="/play/taste">
-                  <SlidersHorizontal className="size-4" />
-                  Taste
-                </Link>
-              </Button>
-            </div>
-            <div className="grid justify-items-center gap-1">
-              <CardTitle as="h2" className="text-center text-balance">
-                {recommendationGroupTitle(model?.nextUp ?? [])}
-              </CardTitle>
-              <CardDescription className="max-w-2xl text-center">
-                Find what to play next, save promising picks, and keep the reasons visible.
-              </CardDescription>
-            </div>
-            <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              <span>{tasteSignalCount} taste signals</span>
-              <span aria-hidden="true">/</span>
-              <span>{positiveSignalCount} lean toward</span>
-              <span aria-hidden="true">/</span>
-              <span>{negativeSignalCount} steer away</span>
-            </div>
-          </section>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+        <Container
+          as="main"
+          size="lg"
+          className="grid gap-6 py-6 lg:h-full lg:max-h-full lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:py-8 lg:overflow-hidden"
+        >
+          {/* LEFT COLUMN: Primary Card (Centered, Fixed) */}
+          <div className="flex flex-col justify-center min-w-0 lg:h-full lg:overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
+              className="w-full"
+            >
+              <PlayNextCard
+                entry={primary}
+                primary
+                inPlayfitPicks={primary.inPlayfitPicks}
+                onAddPick={() => handleAddPick(primary)}
+                onNotForMe={() => handleFeedback(primary, "not_for_me")}
+                onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
+                onShowAnother={() => handleShowAnother(primary)}
+                onReason={handleReason}
+              />
+            </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
-          >
-            <PlayNextCard
-              entry={primary}
-              primary
-              inPlayfitPicks={primary.inPlayfitPicks}
-              onAddPick={() => handleAddPick(primary)}
-              onNotForMe={() => handleFeedback(primary, "not_for_me")}
-              onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
-              onShowAnother={() => handleShowAnother(primary)}
-              onReason={handleReason}
-            />
-          </motion.div>
-
-          {alternatives.length > 0 && (
+          {/* RIGHT COLUMN: Nav, Signals, and Scrollable Alternatives */}
+          <div className="flex flex-col gap-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2">
             <section className="grid gap-3">
-              <div>
-                <CardTitle as="h2" className="text-base">
-                  Also worth considering
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant={pathname === "/play/picks" ? "secondary" : "ghost"}
+                  asChild
+                >
+                  <Link href="/play/picks">
+                    <ListChecks className="size-4" />
+                    Picks {picksCount ? `(${picksCount})` : ""}
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant={pathname === "/play/taste" ? "secondary" : "ghost"}
+                  asChild
+                >
+                  <Link href="/play/taste">
+                    <SlidersHorizontal className="size-4" />
+                    Taste
+                  </Link>
+                </Button>
+              </div>
+              <div className="grid justify-items-center gap-1">
+                <CardTitle as="h2" className="text-center text-balance">
+                  {recommendationGroupTitle(model?.nextUp ?? [])}
                 </CardTitle>
-                <CardDescription>
-                  Shortlist only. Open a dossier when one needs more explanation.
+                <CardDescription className="max-w-2xl text-center text-xs">
+                  Find what to play next, save promising picks, and keep the reasons visible. Only
+                  active platform games are suggested.
                 </CardDescription>
               </div>
-              {alternatives.map((entry) => (
-                <PlayNextCard
-                  key={entry.game.gameId}
-                  entry={entry}
-                  inPlayfitPicks={entry.inPlayfitPicks}
-                  onAddPick={() => handleAddPick(entry)}
-                  onNotForMe={() => handleFeedback(entry, "not_for_me")}
-                  onAlreadyPlayed={(feedback) => handleFeedback(entry, feedback)}
-                  onShowAnother={() => handleShowAnother(entry)}
-                  onReason={handleReason}
-                />
-              ))}
+              <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <span>{tasteSignalCount} taste signals</span>
+                <span aria-hidden="true">/</span>
+                <span>{positiveSignalCount} lean toward</span>
+                <span aria-hidden="true">/</span>
+                <span>{negativeSignalCount} steer away</span>
+              </div>
             </section>
-          )}
+
+            {alternatives.length > 0 && (
+              <section className="grid gap-3">
+                <div>
+                  <CardTitle as="h3" className="text-sm font-bold">
+                    Also worth considering
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Shortlist only. Open a dossier when one needs more explanation.
+                  </CardDescription>
+                </div>
+                <div className="grid gap-3">
+                  {alternatives.map((entry) => (
+                    <Card
+                      key={entry.game.gameId}
+                      className="overflow-hidden rounded-2xl border-border/80 bg-card/70 shadow-sm"
+                    >
+                      <CardContent className="flex flex-wrap items-center justify-between gap-4 p-3 sm:flex-nowrap">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <CoverArt game={entry.game} className="aspect-[2/3] w-12 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground truncate">
+                              {formatGameDescriptor(entry.game)}
+                            </p>
+                            <h3 className="font-display text-base font-extrabold leading-tight text-foreground truncate">
+                              {entry.game.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
+                          <Badge variant="secondary">{entry.affinityScore}% Match</Badge>
+                          <Button type="button" variant="ghost" size="sm" asChild>
+                            <Link href={`/play/game/${entry.game.gameId}`}>
+                              See why
+                              <ChevronRight className="size-4" />
+                            </Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
           <StatusToast />
         </Container>
       </div>
