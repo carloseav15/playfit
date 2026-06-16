@@ -88,9 +88,9 @@ export function PlayNextCard({
   return (
     <Card
       className={cn(
-        "min-w-0 overflow-hidden",
+        "min-w-0 overflow-hidden rounded-2xl",
         primary &&
-          "border-[color-mix(in_srgb,var(--accent),transparent_58%)] bg-[color-mix(in_srgb,var(--card),var(--accent)_7%)]",
+          "border-[color-mix(in_srgb,var(--accent),transparent_58%)] bg-[color-mix(in_srgb,var(--card),var(--accent)_7%)] shadow-sm",
       )}
     >
       <CardHeader>
@@ -121,8 +121,8 @@ export function PlayNextCard({
               </p>
               <h2
                 className={cn(
-                  "font-display font-extrabold leading-tight",
-                  primary ? "text-3xl" : "text-xl",
+                  "font-display font-extrabold leading-tight tracking-tight",
+                  primary ? "text-3xl md:text-[2.15rem]" : "text-xl",
                 )}
               >
                 {entry.game.title}
@@ -147,7 +147,7 @@ export function PlayNextCard({
             </div>
           </div>
         </div>
-        <Stack direction="row" wrap gap={2}>
+        <Stack direction="row" wrap gap={2} className="items-center">
           <Button type="button" onClick={onAddPick} disabled={inPlayfitPicks}>
             <ListPlus className="size-4" />
             {inPlayfitPicks ? "In Playfit Picks" : "Add to Playfit Picks"}
@@ -167,8 +167,10 @@ export function PlayNextCard({
             <XCircle className="size-4" />
             Not for me
           </Button>
+        </Stack>
+        <div className="flex flex-wrap items-center gap-2">
           {onShowAnother ? (
-            <Button type="button" variant="secondary" onClick={onShowAnother}>
+            <Button type="button" variant="ghost" onClick={onShowAnother}>
               <Dices className="size-4" />
               Show another
             </Button>
@@ -179,7 +181,7 @@ export function PlayNextCard({
               See why
             </Link>
           </Button>
-        </Stack>
+        </div>
         {showAlreadyPlayed ? <AlreadyPlayedPanel onSelect={chooseAlreadyPlayed} /> : null}
         {showReasonPicker ? (
           <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">

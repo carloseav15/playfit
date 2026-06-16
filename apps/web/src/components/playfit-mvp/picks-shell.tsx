@@ -5,9 +5,9 @@ import {
   ArrowLeft,
   CheckCircle2,
   Eye,
-  ListChecks,
   Play,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -65,7 +65,7 @@ function PickCard({
   const gameId = entry.game.gameId;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-2xl border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]">
       <CardContent className="grid gap-4 p-4 md:grid-cols-[96px_minmax(0,1fr)] md:p-5">
         <CoverArt game={entry.game} className="aspect-[2/3] w-28 justify-self-center md:w-full" />
         <div className="grid min-w-0 gap-4">
@@ -78,7 +78,7 @@ function PickCard({
                 {entry.game.title}
               </h2>
             </div>
-            <Badge variant="positive">Playfit Pick</Badge>
+            <Badge variant="positive">Saved pick</Badge>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <Metric label="Match" value={entry.affinityScore} />
@@ -99,7 +99,7 @@ function PickCard({
               <XCircle className="size-4" />
               Not for me
             </Button>
-            <Button type="button" variant="secondary" onClick={() => onRemove(gameId)}>
+            <Button type="button" variant="ghost" onClick={() => onRemove(gameId)}>
               <Trash2 className="size-4" />
               Remove
             </Button>
@@ -212,7 +212,7 @@ export function PicksShell() {
   const picks = model?.picks ?? [];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground">
       <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button type="button" variant="ghost" asChild>
@@ -228,12 +228,12 @@ export function PicksShell() {
             </Link>
           </Button>
         </div>
-        <section className="grid gap-2">
+        <section className="grid gap-3 rounded-3xl border border-border bg-card/80 p-6 shadow-sm">
           <div className="flex items-center gap-2">
-            <ListChecks className="size-5 text-muted-foreground" />
+            <Sparkles className="size-5 text-accent" />
             <h1 className="font-display text-4xl font-extrabold leading-tight">Playfit Picks</h1>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             Games Playfit thinks are worth your time next.
           </p>
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -256,7 +256,7 @@ export function PicksShell() {
             </CardContent>
           </Card>
         ) : (
-          <section className="grid gap-3">
+          <section className="grid gap-4">
             {picks.map((entry) => (
               <PickCard
                 key={entry.game.gameId}

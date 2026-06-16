@@ -188,7 +188,7 @@ export function DecisionShell() {
   return (
     <Container as="main" size="sm" className="grid gap-6 py-8">
       <section className="grid gap-3">
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" asChild>
             <Link href="/play/picks">
               <ListChecks className="size-4" />
@@ -202,11 +202,13 @@ export function DecisionShell() {
             </Link>
           </Button>
         </div>
-        <div>
-          <CardTitle as="h2" className="text-center">
+        <div className="grid justify-items-center gap-1">
+          <CardTitle as="h2" className="text-center text-balance">
             {recommendationGroupTitle(model?.nextUp ?? [])}
           </CardTitle>
-          <CardDescription className="mt-1 text-center">Find what to play next.</CardDescription>
+          <CardDescription className="max-w-2xl text-center">
+            Find what to play next, save promising picks, and keep the reasons visible.
+          </CardDescription>
         </div>
       </section>
 

@@ -277,7 +277,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
       <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button type="button" variant="ghost" className="w-fit" asChild>
@@ -320,7 +320,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                 inPlayfitPicks={gameState?.inPlayfitPicks}
               />
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="grid grid-cols-1 gap-2 text-center text-xs sm:grid-cols-3">
               <Metric label="Match" value={entry.affinityScore} />
               <Metric label="Watch-outs" value={entry.riskScore} />
               <Metric label="Confidence" value={confidenceLabel(entry.confidence)} />
