@@ -136,8 +136,65 @@ function PickCard({
   );
 }
 
+function PlayingCard({
+  entry,
+  onAlreadyPlayed,
+  onStop,
+}: {
+  entry: RankedSeedGame;
+  onAlreadyPlayed: (gameId: string, feedback: AlreadyPlayedFeedback) => void;
+  onStop: (gameId: string) => void;
+}) {
+  const [showRating, setShowRating] = useState(false);
+  const gameId = entry.game.gameId;
+
+  return (
+    <Card className="overflow-hidden rounded-3xl border-accent/20 bg-accent/5 shadow-md">
+      <CardContent className="grid gap-4 p-4 md:grid-cols-[80px_minmax(0,1fr)] md:p-5">
+        <CoverArt game={entry.game} className="aspect-[2/3] w-20 justify-self-center" />
+        <div className="grid min-w-0 gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-accent">
+                Playing Now
+              </p>
+              <h2 className="font-display text-xl font-extrabold leading-tight">
+                {entry.game.title}
+              </h2>
+            </div>
+            <Badge variant="info">Active run</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            You started this pick. How is the experience landing? Resolve it to train your taste.
+          </p>
+          <Stack direction="row" wrap gap={2} className="items-center">
+            <Button
+              type="button"
+              onClick={() => setShowRating((prev) => !prev)}
+              className="shadow-sm"
+            >
+              <CheckCircle2 className="size-4" />
+              Complete / Rate
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => onStop(gameId)}>
+              Stop playing
+            </Button>
+          </Stack>
+          {showRating ? (
+            <AlreadyPlayedPanel
+              id={`playing-rate-${gameId}`}
+              onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+            />
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function PicksShell() {
-  const { applyDecisionFeedback, setPlayfitPick, startPlayfitPick, state } = usePlayfit();
+  const { applyDecisionFeedback, setPlayfitPick, startPlayfitPick, setPlayStatus, state } =
+    usePlayfit();
   const pathname = usePathname();
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -234,10 +291,15 @@ export function PicksShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
+      className="lg:h-screen lg:overflow-hidden"
     >
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground">
-        <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(94,128,255,0.1),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_34%)] text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+        <Container
+          as="main"
+          size="md"
+          className="flex flex-col gap-6 py-6 lg:h-full lg:max-h-full lg:py-8 lg:overflow-hidden"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
             <Button type="button" variant="ghost" asChild>
               <Link href="/play">
                 <ArrowLeft className="size-4" />
@@ -255,7 +317,8 @@ export function PicksShell() {
               </Link>
             </Button>
           </div>
-          <section className="grid gap-4 rounded-3xl border border-border bg-card/80 p-6 shadow-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-end">
+
+          <section className="grid gap-4 rounded-3xl border border-border bg-card/80 p-6 shadow-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-end shrink-0">
             <div className="grid gap-2">
               <Sparkles className="size-5 text-accent" />
               <h1 className="font-display text-4xl font-extrabold leading-tight">Playfit Picks</h1>
@@ -269,42 +332,68 @@ export function PicksShell() {
               </p>
             </div>
           </section>
-          {loadError ? <Alert variant="warning">{loadError}</Alert> : null}
-          {picks.length === 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>No Playfit Picks yet</CardTitle>
-                <CardDescription>
-                  Add a recommendation from Play Next when it looks worth your time.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button type="button" asChild>
-                  <Link href="/play">Find Play Next</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <section className="grid gap-4">
-              {picks.map((entry) => (
-                <PickCard
-                  key={entry.game.gameId}
-                  entry={entry}
-                  expandedId={expandedId}
-                  onToggleAlreadyPlayed={(gameId) =>
-                    setExpandedId((current) => (current === gameId ? null : gameId))
-                  }
-                  onAlreadyPlayed={(gameId, feedback) => {
-                    applyDecisionFeedback(gameId, feedback);
-                    setExpandedId(null);
-                  }}
-                  onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
-                  onRemove={(gameId) => setPlayfitPick(gameId, false)}
-                  onStarted={(gameId) => startPlayfitPick(gameId)}
-                />
-              ))}
-            </section>
-          )}
+
+          {loadError ? (
+            <Alert variant="warning" className="shrink-0">
+              {loadError}
+            </Alert>
+          ) : null}
+
+          {/* Scrollable list container on desktop */}
+          <div className="flex flex-col gap-4 lg:flex-1 lg:overflow-y-auto lg:pr-2">
+            {model?.currentRun && model.currentRun.length > 0 ? (
+              <div className="grid gap-3 shrink-0 pb-2">
+                {model.currentRun.map((entry) => (
+                  <PlayingCard
+                    key={entry.game.gameId}
+                    entry={entry}
+                    onAlreadyPlayed={(gameId, feedback) => {
+                      applyDecisionFeedback(gameId, feedback);
+                    }}
+                    onStop={(gameId) => {
+                      setPlayStatus(gameId, undefined);
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {picks.length === 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>No Playfit Picks yet</CardTitle>
+                  <CardDescription>
+                    Add a recommendation from Play Next when it looks worth your time.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button type="button" asChild>
+                    <Link href="/play">Find Play Next</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <section className="grid gap-4 pb-4">
+                {picks.map((entry) => (
+                  <PickCard
+                    key={entry.game.gameId}
+                    entry={entry}
+                    expandedId={expandedId}
+                    onToggleAlreadyPlayed={(gameId) =>
+                      setExpandedId((current) => (current === gameId ? null : gameId))
+                    }
+                    onAlreadyPlayed={(gameId, feedback) => {
+                      applyDecisionFeedback(gameId, feedback);
+                      setExpandedId(null);
+                    }}
+                    onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
+                    onRemove={(gameId) => setPlayfitPick(gameId, false)}
+                    onStarted={(gameId) => startPlayfitPick(gameId)}
+                  />
+                ))}
+              </section>
+            )}
+          </div>
         </Container>
         <StatusToast />
       </div>

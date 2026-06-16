@@ -1,10 +1,16 @@
 "use client";
 
-import { scoreSeedGame } from "@playfit/core/domain";
+import {
+  findSeriesGames,
+  findSimilarGames,
+  getTagWeight,
+  scoreSeedGame,
+} from "@playfit/core/domain";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   ListChecks,
   ListPlus,
   Play,
@@ -17,7 +23,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Stack } from "@/components/ui/stack";
 import { fetchGame } from "@/lib/game-cache";
@@ -198,7 +204,7 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
 }
 
 export function DecisionDossier({ gameId }: { gameId: string }) {
-  const { getSeedGame, state } = usePlayfit();
+  const { getSeedGame, state, seedData } = usePlayfit();
   const pathname = usePathname();
   const cachedGame = getSeedGame(gameId);
   const [fetchedGame, setFetchedGame] = useState<SeedGame | null>(null);
@@ -235,6 +241,14 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   const entry = useMemo(
     () => (game && state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null),
     [game, state],
+  );
+  const seriesGames = useMemo(
+    () => (game && seedData?.allGames ? findSeriesGames(game, seedData.allGames, 3) : []),
+    [game, seedData?.allGames],
+  );
+  const similarGames = useMemo(
+    () => (game && seedData?.allGames ? findSimilarGames(game, seedData.allGames, 3) : []),
+    [game, seedData?.allGames],
   );
   const gameState = game ? state.user.gameStates[game.gameId] : null;
 
@@ -374,6 +388,135 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
               <DossierActions entry={entry} />
             </div>
           </div>
+
+          {/* SIMILAR & SERIES GAMES */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="rounded-3xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-bold">Similar Games</CardTitle>
+                <CardDescription className="text-xs">
+                  Based on gameplay style tag overlap.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {similarGames.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    No similar games found in catalog.
+                  </p>
+                ) : (
+                  similarGames.map((simGame) => (
+                    <div
+                      key={simGame.gameId}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 p-2.5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CoverArt game={simGame} className="aspect-[2/3] w-10 shrink-0" />
+                        <span className="truncate text-sm font-bold">{simGame.title}</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" asChild>
+                        <Link href={`/play/game/${simGame.gameId}`}>
+                          View
+                          <ChevronRight className="size-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-bold">From the Same Series</CardTitle>
+                <CardDescription className="text-xs">
+                  Other titles in this franchise.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {seriesGames.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    No other games from this franchise in catalog.
+                  </p>
+                ) : (
+                  seriesGames.map((serGame) => (
+                    <div
+                      key={serGame.gameId}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 p-2.5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CoverArt game={serGame} className="aspect-[2/3] w-10 shrink-0" />
+                        <span className="truncate text-sm font-bold">{serGame.title}</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" asChild>
+                        <Link href={`/play/game/${serGame.gameId}`}>
+                          View
+                          <ChevronRight className="size-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* TAG SCORED EXPLAINABILITY TABLE */}
+          <Card className="rounded-3xl shadow-sm overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-base font-bold">Algorithmic Tag Explainability</CardTitle>
+              <CardDescription className="text-xs">
+                How the recommendation engine evaluated this game's tags against your calibration
+                signals.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    <th className="p-4">Gameplay Tag</th>
+                    <th className="p-4">Calibration Preference</th>
+                    <th className="p-4">Tag Weight</th>
+                    <th className="p-4 text-right">Scoring Impact</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {game.tags.map((tag) => {
+                    const likedCount = state.user.profile?.likedTags[tag] ?? 0;
+                    const dislikedCount = state.user.profile?.dislikedTags[tag] ?? 0;
+                    const weight = getTagWeight(tag);
+
+                    let prefLabel = "Neutral";
+                    let prefVariant: "outline" | "positive" | "negative" = "outline";
+                    let impact = "0";
+                    let impactClass = "text-muted-foreground";
+
+                    if (likedCount > dislikedCount) {
+                      prefLabel = `Lean toward (${likedCount})`;
+                      prefVariant = "positive";
+                      impact = `+${likedCount * weight}`;
+                      impactClass = "text-positive font-bold";
+                    } else if (dislikedCount > likedCount) {
+                      prefLabel = `Steer away (${dislikedCount})`;
+                      prefVariant = "negative";
+                      impact = `-${dislikedCount * weight * 2}`;
+                      impactClass = "text-destructive font-bold";
+                    }
+
+                    return (
+                      <tr key={tag} className="hover:bg-secondary/20 transition-colors">
+                        <td className="p-4 font-mono text-xs">{tag.replace(/_/g, " ")}</td>
+                        <td className="p-4">
+                          <Badge variant={prefVariant}>{prefLabel}</Badge>
+                        </td>
+                        <td className="p-4 font-mono text-xs">{weight}</td>
+                        <td className={`p-4 text-right font-mono ${impactClass}`}>{impact}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
         </Container>
         <StatusToast />
       </div>
