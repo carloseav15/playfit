@@ -24,11 +24,10 @@ const GENRE_MATCH_BONUS = 8;
 const GENRE_MISMATCH_PENALTY = 6;
 const SOULS_LIKE_RISK = 15;
 const HORROR_RISK = 12;
-const DISLIKED_TAG_PENALTY_MULTIPLIER = 2;
 const CONFIDENCE_HIGH_THRESHOLD = 6;
 const CONFIDENCE_MEDIUM_THRESHOLD = 3;
 const AFFINITY_MULTIPLIER: Record<ProductConfidence, number> = {
-  low: 0.75,
+  low: 0.65,
   medium: 0.9,
   high: 1.0,
 };
@@ -231,7 +230,7 @@ function getPlatformAvailability(
     : "unavailable";
 }
 
-function getTagWeight(tag: string): number {
+export function getTagWeight(tag: string): number {
   return TAG_WEIGHTS[tag] ?? 2;
 }
 
@@ -249,6 +248,38 @@ function buildDislikedTagsFromProfile(profile: ProductProfile) {
       ([tag, count]) => count > (profile.likedTags[tag] ?? 0),
     ),
   );
+}
+
+function weightedCosineSimilarity(gameTags: string[], profileTags: Record<string, number>): number {
+  let dotProduct = 0;
+  let normGame = 0;
+  let normProfile = 0;
+
+  for (const tag of gameTags) {
+    const weight = getTagWeight(tag);
+    normGame += weight * weight;
+
+    const profileCount = profileTags[tag] ?? 0;
+    if (profileCount > 0) {
+      const profileVal = profileCount * weight;
+      dotProduct += weight * profileVal;
+    }
+  }
+
+  for (const [tag, count] of Object.entries(profileTags)) {
+    const weight = getTagWeight(tag);
+    const profileVal = count * weight;
+    normProfile += profileVal * profileVal;
+  }
+
+  if (normGame === 0 || normProfile === 0) {
+    return 0;
+  }
+
+  // Regularize the game norm to reward games with more matching tags
+  // and prevent high similarity scores for low-information (single-tag) games.
+  const regularizedNormGame = Math.sqrt(normGame + 15.0);
+  return dotProduct / (regularizedNormGame * Math.sqrt(normProfile));
 }
 
 export function scoreSeedGame(
@@ -290,15 +321,9 @@ export function scoreSeedGame(
   const gameTags = game.tags;
   const gameTagsByWeight = [...gameTags].sort((a, b) => getTagWeight(b) - getTagWeight(a));
 
-  let affinity = BASE_AFFINITY;
-  let risk = BASE_RISK;
-
   for (const tag of gameTagsByWeight) {
-    const weight = getTagWeight(tag);
     const likedScore = likedTags[tag] ?? 0;
     if (likedScore > 0) {
-      const boost = likedScore * weight;
-      affinity += boost;
       fitReasons.push(matchCopy(tag, confidence));
     }
   }
@@ -306,11 +331,15 @@ export function scoreSeedGame(
   for (const tag of gameTagsByWeight) {
     const dislikedScore = dislikedTags[tag] ?? 0;
     if (dislikedScore > 0) {
-      const penalty = dislikedScore * getTagWeight(tag) * DISLIKED_TAG_PENALTY_MULTIPLIER;
-      risk += penalty;
       cautionReasons.push(caveatCopy(tag, confidence));
     }
   }
+
+  const similarityLiked = weightedCosineSimilarity(gameTags, likedTags);
+  const similarityDisliked = weightedCosineSimilarity(gameTags, dislikedTags);
+
+  let affinity = BASE_AFFINITY + similarityLiked * (MAX_AFFINITY_SCORE - BASE_AFFINITY);
+  let risk = BASE_RISK + similarityDisliked * (MAX_RISK_SCORE - BASE_RISK);
 
   const genreKey = game.genreId ?? game.primaryGenre;
   if (profile.likedGenres.includes(genreKey)) {
