@@ -90,6 +90,7 @@ interface PlayfitContextValue {
   setStatusMessage: (message: string | null) => void;
   finderSearchError: string | null;
   onboardingSearchError: string | null;
+  onboardingSearchPending: boolean;
   retrySave: () => Promise<void>;
   resetLocalState: () => void;
   signOut: () => Promise<void>;
@@ -349,6 +350,7 @@ export function PlayfitProvider({
   const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
   const [finderSearchError, setFinderSearchError] = useState<string | null>(null);
   const [onboardingSearchError, setOnboardingSearchError] = useState<string | null>(null);
+  const [onboardingSearchPending, setOnboardingSearchPending] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onboardingSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchRequestCounterRef = useRef(0);
@@ -531,10 +533,12 @@ export function PlayfitProvider({
     if (!ui?.onboardingQuery?.trim()) {
       setOnboardingSearchResults([]);
       setOnboardingSearchError(null);
+      setOnboardingSearchPending(false);
       return;
     }
     const requestId = ++onboardingSearchRequestCounterRef.current;
     if (onboardingSearchTimerRef.current) clearTimeout(onboardingSearchTimerRef.current);
+    setOnboardingSearchPending(true);
     onboardingSearchTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/games?q=${encodeURIComponent(ui.onboardingQuery.trim())}`);
@@ -542,6 +546,7 @@ export function PlayfitProvider({
           if (requestId !== onboardingSearchRequestCounterRef.current) return;
           setOnboardingSearchError("Search could not load. Try again.");
           setOnboardingSearchResults([]);
+          setOnboardingSearchPending(false);
           return;
         }
         const data = (await res.json()) as { games: SeedGame[] };
@@ -549,10 +554,12 @@ export function PlayfitProvider({
         setOnboardingSearchError(null);
         addGamesToCache(data.games);
         setOnboardingSearchResults(data.games);
+        setOnboardingSearchPending(false);
       } catch {
         if (requestId !== onboardingSearchRequestCounterRef.current) return;
         setOnboardingSearchError("Search could not load. Try again.");
         setOnboardingSearchResults([]);
+        setOnboardingSearchPending(false);
       }
     }, 250);
     return () => {
@@ -617,6 +624,7 @@ export function PlayfitProvider({
       isSaving,
       finderSearchError,
       onboardingSearchError,
+      onboardingSearchPending,
       setUi: updateUi,
       updateState,
       getSeedGame(gameId: string) {
@@ -987,6 +995,7 @@ export function PlayfitProvider({
     onboardingSearchResults,
     finderSearchError,
     onboardingSearchError,
+    onboardingSearchPending,
     gamesByIdForProfile,
     updateState,
     updateUi,
