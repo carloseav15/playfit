@@ -45,9 +45,8 @@ function NavButton({
   return (
     <button
       type="button"
-      aria-pressed={active}
       className={cn(
-        "flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+        "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active &&
           "border border-[color-mix(in_srgb,var(--accent),transparent_62%)] bg-[color-mix(in_srgb,var(--accent),transparent_88%)] text-foreground",
       )}
@@ -98,9 +97,8 @@ function MobileNavButton({
   return (
     <button
       type="button"
-      aria-pressed={active}
       className={cn(
-        "grid place-items-center gap-1 rounded-md p-2 text-[0.68rem] font-bold text-muted-foreground cursor-pointer",
+        "grid cursor-pointer place-items-center gap-1 rounded-md p-2 text-[0.68rem] font-bold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active && "bg-secondary text-foreground",
       )}
       aria-current={active ? "page" : undefined}
@@ -144,14 +142,14 @@ function ProductShell() {
   const visibleTabs = tabItems.filter((t) => showSetup || t.tab !== "onboarding");
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="grid min-h-screen md:grid-cols-[240px_1fr]">
-        <aside className="sticky top-0 hidden h-screen border-r border-border bg-card/72 p-5 backdrop-blur-xl md:grid md:grid-rows-[auto_1fr_auto]">
-          <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.09),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_30%)] text-foreground">
+      <div className="grid min-h-screen md:grid-cols-[260px_1fr]">
+        <aside className="sticky top-0 hidden h-screen border-r border-border bg-card/78 p-6 backdrop-blur-xl md:grid md:grid-rows-[auto_1fr_auto]">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <svg
                 viewBox="0 0 24 24"
-                className="size-5 shrink-0"
+                className="size-5 shrink-0 text-accent"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.5"
@@ -163,21 +161,26 @@ function ProductShell() {
             </div>
             <SaveIndicator />
           </div>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
+            A decision system for what to play next, with memory and reasons attached.
+          </p>
           <nav className="mt-8 grid content-start gap-2" aria-label="Main navigation">
             {visibleTabs.map((item) => (
               <NavButton key={item.tab} {...item} />
             ))}
           </nav>
-          <p className="text-sm text-muted-foreground">Game decisions you can trust.</p>
+          <p className="text-sm text-muted-foreground">
+            Decision surfaces, not backlog management.
+          </p>
         </aside>
 
         <div className="min-w-0 pb-20 md:pb-0">
-          <header className="border-b border-border bg-background/90 p-4 backdrop-blur-xl md:hidden">
-            <div className="flex items-center gap-2">
+          <header className="border-b border-border bg-background/88 p-4 backdrop-blur-xl md:hidden">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <svg
                   viewBox="0 0 24 24"
-                  className="size-5 shrink-0"
+                  className="size-5 shrink-0 text-accent"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.5"
@@ -194,9 +197,9 @@ function ProductShell() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={ui.activeTab}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
+                exit={{ opacity: 0, y: -16 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
                 <ErrorBoundary>
@@ -206,7 +209,7 @@ function ProductShell() {
             </AnimatePresence>
           </Container>
           <nav
-            className={`fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-background/95 p-2 backdrop-blur-xl md:hidden ${showSetup ? "grid-cols-6" : "grid-cols-5"}`}
+            className={`fixed inset-x-0 bottom-0 z-40 grid border-t border-border bg-background/96 p-2 backdrop-blur-xl md:hidden ${showSetup ? "grid-cols-6" : "grid-cols-5"}`}
             aria-label="Main navigation"
           >
             {visibleTabs.map(({ tab, label, icon: Icon }) => (

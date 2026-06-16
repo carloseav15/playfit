@@ -88,7 +88,7 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
   const maxStrength = Math.max(...traits.map((trait) => trait.strength), 1);
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Taste Map</CardTitle>
         <CardDescription>
@@ -205,7 +205,7 @@ function TasteHistoryRow({
   if (!game) return null;
 
   return (
-    <div className="grid gap-3 rounded-md border border-border bg-card p-3">
+    <div className="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="grid grid-cols-[3.25rem_1fr] gap-3 md:grid-cols-[3.25rem_1fr_auto] md:items-center">
         <CoverArt game={game} className="aspect-[2/3] w-12" />
         <div className="min-w-0">
@@ -367,7 +367,7 @@ export function TasteShell() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(94,128,255,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_38%)] text-foreground">
       <Container as="main" size="md" className="grid gap-6 py-6 md:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button type="button" variant="ghost" asChild>
@@ -378,9 +378,9 @@ export function TasteShell() {
           </Button>
           <Badge variant="info">Based on {model.evidenceCount} taste signals</Badge>
         </div>
-        <section className="grid gap-2">
+        <section className="grid gap-3 rounded-3xl border border-border bg-card/80 p-6 shadow-sm">
           <h1 className="font-display text-4xl font-extrabold leading-tight">Your Taste</h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             What Playfit is learning from your decisions. {model.confidenceLabel}.
           </p>
         </section>
@@ -393,18 +393,24 @@ export function TasteShell() {
         {missingIds.length > 0 ? (
           <Alert variant="warning">Some older signals could not be loaded.</Alert>
         ) : null}
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-md border border-border bg-card p-3">
-            <p className="text-muted-foreground">Signals</p>
-            <strong className="font-mono text-lg">{model.evidenceCount}</strong>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Signals
+            </p>
+            <strong className="mt-1 block font-mono text-2xl">{model.evidenceCount}</strong>
           </div>
-          <div className="rounded-md border border-border bg-card p-3">
-            <p className="text-muted-foreground">Lean toward</p>
-            <strong className="font-mono text-lg">{model.positiveCount}</strong>
+          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Lean toward
+            </p>
+            <strong className="mt-1 block font-mono text-2xl">{model.positiveCount}</strong>
           </div>
-          <div className="rounded-md border border-border bg-card p-3">
-            <p className="text-muted-foreground">Steer away</p>
-            <strong className="font-mono text-lg">{model.negativeCount}</strong>
+          <div className="rounded-xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Steer away
+            </p>
+            <strong className="mt-1 block font-mono text-2xl">{model.negativeCount}</strong>
           </div>
         </div>
         <TasteMap traits={model.mapTraits} />
