@@ -14,10 +14,5 @@ const sizeStyles: Record<string, string> = {
 };
 
 export function Container({ className, as: Comp = "div", size = "lg", ...props }: ContainerProps) {
-  return (
-    <Comp
-      className={cn("mx-auto w-[min(100%-2rem,100%)] px-0", sizeStyles[size], className)}
-      {...props}
-    />
-  );
+  return <Comp className={cn("mx-auto w-full px-4", sizeStyles[size], className)} {...props} />;
 }

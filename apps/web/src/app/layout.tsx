@@ -80,7 +80,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           <a
             href="#main-content"
-            className="fixed -top-full left-4 z-[100] rounded-b-md bg-accent px-4 py-2 text-sm font-bold text-accent-foreground shadow-md transition-all focus:top-0 focus:outline-none"
+            className="fixed -top-full left-4 z-[100] rounded-b-md bg-accent px-4 py-2 text-sm font-bold text-accent-foreground shadow-md transition-all focus:top-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Skip to content
           </a>
