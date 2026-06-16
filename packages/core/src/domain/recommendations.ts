@@ -287,9 +287,26 @@ export function scoreSeedGame(
   state: ProductState,
   profile: ProductProfile,
 ): RankedSeedGame {
+  return scoreSeedGameWithContext(
+    game,
+    state,
+    buildLikedTagsFromProfile(profile),
+    buildDislikedTagsFromProfile(profile),
+    buildAccessiblePlatformIds(state),
+    profile,
+  );
+}
+
+function scoreSeedGameWithContext(
+  game: SeedGame,
+  state: ProductState,
+  likedTags: Record<string, number>,
+  dislikedTags: Record<string, number>,
+  accessiblePlatformIds: Set<string>,
+  profile: ProductProfile,
+): RankedSeedGame {
   const fitReasons: string[] = [];
   const cautionReasons: string[] = [];
-  const accessiblePlatformIds = buildAccessiblePlatformIds(state);
   const platformAvailability = getPlatformAvailability(game, accessiblePlatformIds);
   const accessStatus = getAccessStatus(game, platformAvailability);
   const gameState = state.user.gameStates[game.gameId];
@@ -315,9 +332,6 @@ export function scoreSeedGame(
       similarGames: [],
     };
   }
-
-  const likedTags = buildLikedTagsFromProfile(profile);
-  const dislikedTags = buildDislikedTagsFromProfile(profile);
   const gameTags = game.tags;
   const gameTagsByWeight = [...gameTags].sort((a, b) => getTagWeight(b) - getTagWeight(a));
 
@@ -423,8 +437,28 @@ export function buildTodayModel(
     ...(state.user.onboarding.dislikedGameIds ?? []),
   ]);
 
-  const afterScored = games.filter(isScoredGame);
-  const afterMap = afterScored.map((game) => scoreSeedGame(game, state, profile));
+  // Hoist: compute profile vectors once instead of per-game
+  const likedTags = buildLikedTagsFromProfile(profile);
+  const dislikedTags = buildDislikedTagsFromProfile(profile);
+  const accessiblePlatformIds = buildAccessiblePlatformIds(state);
+
+  const allProfileTags = new Set([...Object.keys(likedTags), ...Object.keys(dislikedTags)]);
+  const hasProfileTags = allProfileTags.size > 0;
+
+  const afterScored = games.filter((game) => {
+    if (!isScoredGame(game)) return false;
+    // Pre-filter: skip games with zero tag overlap with the user's profile.
+    // Games the user has interacted with (playing, wishlist, picks) are always kept.
+    if (hasProfileTags && !game.tags.some((tag) => allProfileTags.has(tag))) {
+      const gs = state.user.gameStates[game.gameId];
+      const hasState = gs?.status || gs?.inPlayfitPicks || gs?.inWishlist;
+      if (!hasState) return false;
+    }
+    return true;
+  });
+  const afterMap = afterScored.map((game) =>
+    scoreSeedGameWithContext(game, state, likedTags, dislikedTags, accessiblePlatformIds, profile),
+  );
   const rankedFiltered = afterMap.filter((entry) => {
     const stateEntry = state.user.gameStates[entry.game.gameId];
     if (onboardingGameIds.has(entry.game.gameId)) return false;
@@ -460,7 +494,7 @@ export function buildTodayModel(
         filteredAsOnboarding: afterMap.filter((e) => onboardingGameIds.has(e.game.gameId)).length,
         filteredAsTerminal: terminal.length,
         accessStatusDistribution: platformCounts,
-        accessiblePlatformIds: [...buildAccessiblePlatformIds(state)],
+        accessiblePlatformIds: [...accessiblePlatformIds],
       }),
     );
   }

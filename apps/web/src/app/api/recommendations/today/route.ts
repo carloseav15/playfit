@@ -4,11 +4,11 @@ import type {
   ProductOnboardingDraft,
   ProductProfile,
   ProductState,
+  ProductTodayModel,
   SeedGame,
 } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
-import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { paginateTable } from "@/lib/supabase/paginate";
+import { mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
@@ -37,18 +37,55 @@ interface TodayRequest {
 }
 
 const DB_VERSION = 2;
-const CACHE_KEY = "catalog:games";
-const CACHE_TTL = 300;
+const CATALOG_CACHE_KEY = "catalog:games";
+const CATALOG_CACHE_TTL = 300;
+const RECS_CACHE_TTL = 3600;
 const debug = process.env.NODE_ENV === "development";
 
+function simpleHash(data: unknown): string {
+  const json = JSON.stringify(data);
+  let hash = 5381;
+  for (let i = 0; i < json.length; i++) {
+    hash = (hash << 5) + hash + json.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function computeRecsCacheKey(
+  profile: ProductProfile,
+  gameStates: Record<string, ProductGameState>,
+  onboarding: ProductOnboardingDraft,
+): string {
+  const relevantData = {
+    lT: profile.likedTags,
+    dT: profile.dislikedTags,
+    lG: profile.likedGenres,
+    aG: profile.avoidedGenres,
+    rC: profile.ratedCount,
+    p: onboarding.platforms
+      .map((p) => `${p.platformId}:${p.status}`)
+      .sort()
+      .join(","),
+    gs: Object.entries(gameStates)
+      .map(
+        ([id, s]) =>
+          `${id}:${s.status ?? ""}:${s.excluded ? "x" : ""}:${s.inWishlist ? "w" : ""}:${s.inPlayfitPicks ? "p" : ""}`,
+      )
+      .sort()
+      .join(","),
+    v: DB_VERSION,
+  };
+  return `recs:today:${simpleHash(relevantData)}`;
+}
+
 async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Promise<SeedGame[]> {
-  const cached = await getCache<SeedGame[]>(CACHE_KEY, supabase);
+  const cached = await getCache<SeedGame[]>(CATALOG_CACHE_KEY, supabase);
   if (cached) {
     if (debug) {
       console.log(
         JSON.stringify({
           stage: "fetchAllGames.cacheHit",
-          cacheKey: CACHE_KEY,
+          cacheKey: CATALOG_CACHE_KEY,
           cachedCount: cached.length,
           sampleIds: cached.slice(0, 3).map((g) => ({ id: g.gameId, title: g.title })),
         }),
@@ -60,56 +97,36 @@ async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Pro
     console.log(
       JSON.stringify({
         stage: "fetchAllGames.cacheMiss",
-        cacheKey: CACHE_KEY,
+        cacheKey: CATALOG_CACHE_KEY,
       }),
     );
   }
 
-  const pageSize = 1000;
-  let from = 0;
-  let done = false;
-  const allGames: GameRow[] = [];
+  // Single RPC call replaces ~46 paginated queries
+  const { data, error } = await supabase.rpc("get_full_catalog");
+  if (error) throw new Error(`Failed to load catalog: ${error.message}`);
 
-  while (!done) {
-    const { data, error } = await supabase
-      .schema("games_library")
-      .from("games")
-      .select(GAME_SELECT)
-      .order("title")
-      .range(from, from + pageSize - 1);
-
-    if (error) throw new Error(`Failed to load games: ${error.message}`);
-
-    const batch = (data as GameRow[]) ?? [];
-    allGames.push(...batch);
-    from += pageSize;
-    if (batch.length < pageSize) done = true;
-  }
-
-  const [allPlatforms, allAliases] = await Promise.all([
-    paginateTable<{ game_id: string; platform_id: string; platforms: unknown }>(
-      supabase,
-      "game_platforms",
-      "game_id, platform_id, platforms:platform_id(name)",
-    ),
-    paginateTable<{ game_id: string; alias: string }>(supabase, "game_aliases", "game_id, alias"),
-  ]);
+  const catalog = data as {
+    games: GameRow[];
+    platforms: { game_id: string; platform_id: string; platforms: unknown }[];
+    aliases: { game_id: string; alias: string }[];
+  };
 
   const platformsByGame = new Map<string, { platform_id: string; platforms: unknown }[]>();
-  for (const row of allPlatforms) {
+  for (const row of catalog.platforms) {
     const entry = platformsByGame.get(row.game_id) ?? [];
     entry.push(row);
     platformsByGame.set(row.game_id, entry);
   }
 
   const aliasesByGame = new Map<string, string[]>();
-  for (const row of allAliases) {
+  for (const row of catalog.aliases) {
     const entry = aliasesByGame.get(row.game_id) ?? [];
     entry.push(row.alias);
     aliasesByGame.set(row.game_id, entry);
   }
 
-  const seedGames = allGames.map((game) =>
+  const seedGames = catalog.games.map((game) =>
     mapGameRowToSeedGame(
       game,
       platformsByGame.get(game.game_id) ?? [],
@@ -123,17 +140,15 @@ async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Pro
   if (debug) {
     console.log(
       JSON.stringify({
-        stage: "fetchAllGames.dbResult",
+        stage: "fetchAllGames.rpcResult",
         allGamesCount: seedGames.length,
         catalogCount: catalogSeedCount,
         finderCount: finderSeedCount,
-        totalDbRows: allGames.length,
       }),
     );
   }
 
-  // Best-effort cache storage
-  void setCache(CACHE_KEY, seedGames, CACHE_TTL, supabase);
+  void setCache(CATALOG_CACHE_KEY, seedGames, CATALOG_CACHE_TTL, supabase);
 
   return seedGames;
 }
@@ -145,12 +160,29 @@ export async function POST(request: Request) {
   const { profile, gameStates, onboarding } = body;
 
   const supabase = createAnonClient();
+
+  const recsCacheKey = computeRecsCacheKey(profile, gameStates, onboarding);
+
+  const cachedModel = await getCache<ProductTodayModel>(recsCacheKey, supabase);
+  if (cachedModel) {
+    if (debug) {
+      console.log(
+        JSON.stringify({
+          stage: "recommendations/today.recsCacheHit",
+          cacheKey: recsCacheKey,
+        }),
+      );
+    }
+    return Response.json(cachedModel);
+  }
+
   const allGames = await fetchAllGames(supabase);
 
   if (debug) {
     console.log(
       JSON.stringify({
-        stage: "recommendations/today",
+        stage: "recommendations/today.cacheMiss",
+        cacheKey: recsCacheKey,
         allGames: allGames.length,
         gamesWithTags: allGames.filter((g) => g.tags.length > 0).length,
         gamesWithoutTags: allGames.filter((g) => g.tags.length === 0).length,
@@ -175,6 +207,8 @@ export async function POST(request: Request) {
   };
 
   const model = buildTodayModel(allGames, state, profile);
+
+  void setCache(recsCacheKey, model, RECS_CACHE_TTL, supabase);
 
   return Response.json(model);
 }
