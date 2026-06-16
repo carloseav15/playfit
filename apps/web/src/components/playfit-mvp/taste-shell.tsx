@@ -3,10 +3,12 @@
 import { buildTasteModel, formatTasteTraitLabel } from "@playfit/core/domain";
 import type {
   ProductDecisionFeedback,
+  ProductGameState,
+  ProductRating,
   ProductState,
   ProductTasteDecision,
-  ProductTasteHistoryEntry,
   ProductTasteMapTrait,
+  ProductTasteSignalSource,
   SeedGame,
 } from "@playfit/core/types";
 import {
@@ -14,6 +16,7 @@ import {
   ChevronRight,
   Heart,
   Pencil,
+  Play,
   ThumbsDown,
   ThumbsUp,
   Trash2,
@@ -27,18 +30,33 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Container } from "@/components/ui/container";
+import { Dialog } from "@/components/ui/dialog";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Stack } from "@/components/ui/stack";
+import { Tab, TabGroup } from "@/components/ui/tabs";
 import { ensureGamesCached } from "@/lib/game-cache";
 import { CoverArt } from "../playfit/cover-art";
 import { usePlayfit } from "../playfit/playfit-context";
 import { StarRating } from "../playfit/star-rating";
 import { StatusToast } from "../playfit/status-toast";
 
-const decisionLabels: Record<ProductTasteDecision, string> = {
+interface HistoryOrActivityEntry {
+  gameId: string;
+  title: string;
+  decision: ProductTasteDecision | "playing" | "picks";
+  source: ProductTasteSignalSource | "active_state";
+  tone?: "positive" | "negative" | "mixed";
+  rating?: ProductRating;
+  status?: ProductGameState["status"];
+  updatedAt?: string;
+  traits: string[];
+}
+
+const decisionLabels: Record<ProductTasteDecision | "playing" | "picks", string> = {
   setup_favorite: "Setup favorite",
   setup_miss: "Setup miss",
   loved: "Loved",
@@ -46,6 +64,8 @@ const decisionLabels: Record<ProductTasteDecision, string> = {
   mixed: "Mixed",
   dropped: "Dropped",
   not_for_me: "Not for me",
+  playing: "Playing",
+  picks: "Saved pick",
 };
 
 const changeOptions: {
@@ -79,7 +99,9 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-function toneVariant(entry: ProductTasteHistoryEntry) {
+function toneVariant(entry: HistoryOrActivityEntry) {
+  if (entry.decision === "playing") return "info";
+  if (entry.decision === "picks") return "positive";
   if (entry.tone === "positive") return "positive";
   if (entry.tone === "negative") return "negative";
   return "warning";
@@ -209,18 +231,23 @@ function TasteHistoryRow({
   onToggleChange,
   onChange,
   onRemove,
+  onStart,
 }: {
-  entry: ProductTasteHistoryEntry;
+  entry: HistoryOrActivityEntry;
   changing: boolean;
   onToggleChange: () => void;
   onChange: (feedback: ProductDecisionFeedback) => void;
   onRemove: () => void;
+  onStart?: () => void;
 }) {
   const { getSeedGame } = usePlayfit();
   const game = getSeedGame(entry.gameId);
   const changePanelId = `change-signal-${entry.gameId}`;
 
   if (!game) return null;
+
+  const isPlaying = entry.decision === "playing";
+  const isPick = entry.decision === "picks";
 
   return (
     <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -246,21 +273,56 @@ function TasteHistoryRow({
           </Stack>
         </div>
         <Stack direction="row" wrap gap={2} className="md:justify-end">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-expanded={changing}
-            aria-controls={changePanelId}
-            onClick={onToggleChange}
-          >
-            <Pencil className="size-4" />
-            Change
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={onRemove}>
-            <Trash2 className="size-4" />
-            Remove signal
-          </Button>
+          {isPlaying ? (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-expanded={changing}
+                aria-controls={changePanelId}
+                onClick={onToggleChange}
+              >
+                <Pencil className="size-4" />
+                Complete
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+                <Trash2 className="size-4" />
+                Stop playing
+              </Button>
+            </>
+          ) : isPick ? (
+            <>
+              {onStart && (
+                <Button type="button" size="sm" onClick={onStart}>
+                  <Play className="size-4" />
+                  Started
+                </Button>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+                <Trash2 className="size-4" />
+                Remove
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-expanded={changing}
+                aria-controls={changePanelId}
+                onClick={onToggleChange}
+              >
+                <Pencil className="size-4" />
+                Change
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+                <Trash2 className="size-4" />
+                Remove signal
+              </Button>
+            </>
+          )}
           <Button type="button" variant="ghost" size="sm" asChild>
             <Link href={`/play/game/${entry.gameId}`}>
               Open dossier
@@ -280,26 +342,104 @@ function TasteHistory({
   onToggleChange,
   onChange,
   onRemove,
+  onStart,
 }: {
-  entries: ProductTasteHistoryEntry[];
+  entries: HistoryOrActivityEntry[];
   changingId: string | null;
   onToggleChange: (gameId: string) => void;
-  onChange: (entry: ProductTasteHistoryEntry, feedback: ProductDecisionFeedback) => void;
-  onRemove: (entry: ProductTasteHistoryEntry) => void;
+  onChange: (entry: HistoryOrActivityEntry, feedback: ProductDecisionFeedback) => void;
+  onRemove: (entry: HistoryOrActivityEntry) => void;
+  onStart: (gameId: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "taste">("all");
+  const [page, setPage] = useState(1);
+
+  const filteredEntries = useMemo(() => {
+    if (activeTab === "active") {
+      return entries.filter((entry) => entry.decision === "playing" || entry.decision === "picks");
+    }
+    if (activeTab === "taste") {
+      return entries.filter((entry) => entry.decision !== "playing" && entry.decision !== "picks");
+    }
+    return entries;
+  }, [entries, activeTab]);
+
+  const itemsPerPage = 5;
+  const totalItems = filteredEntries.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [totalPages, page]);
+
+  const paginatedEntries = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return filteredEntries.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredEntries, page]);
+
+  const allCount = entries.length;
+  const activeCount = entries.filter(
+    (entry) => entry.decision === "playing" || entry.decision === "picks",
+  ).length;
+  const tasteCount = entries.filter(
+    (entry) => entry.decision !== "playing" && entry.decision !== "picks",
+  ).length;
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Taste History</CardTitle>
-        <CardDescription>Only decisions Playfit uses as taste evidence.</CardDescription>
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-1.5">
+          <CardTitle>Decisions & Activity</CardTitle>
+          <CardDescription>
+            Manage your active games, saved picks, and historical taste signals.
+          </CardDescription>
+        </div>
+        <TabGroup>
+          <Tab
+            variant={activeTab === "all" ? "default" : "ghost"}
+            count={allCount}
+            onClick={() => {
+              setActiveTab("all");
+              setPage(1);
+            }}
+          >
+            All
+          </Tab>
+          <Tab
+            variant={activeTab === "active" ? "default" : "ghost"}
+            count={activeCount}
+            onClick={() => {
+              setActiveTab("active");
+              setPage(1);
+            }}
+          >
+            Active
+          </Tab>
+          <Tab
+            variant={activeTab === "taste" ? "default" : "ghost"}
+            count={tasteCount}
+            onClick={() => {
+              setActiveTab("taste");
+              setPage(1);
+            }}
+          >
+            Taste Signals
+          </Tab>
+        </TabGroup>
       </CardHeader>
       <CardContent className="grid gap-3">
-        {entries.length === 0 ? (
+        {paginatedEntries.length === 0 ? (
           <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            No taste signals yet. Start with onboarding or mark how a recommendation landed.
+            {activeTab === "active"
+              ? "No active games or saved picks yet. Save a recommendation or mark a game as started."
+              : activeTab === "taste"
+                ? "No taste signals yet. Start with onboarding or rate how a recommendation landed."
+                : "No decisions or activity yet. Start with onboarding or save recommendations."}
           </p>
         ) : (
-          entries.map((entry) => (
+          paginatedEntries.map((entry) => (
             <TasteHistoryRow
               key={`${entry.source}:${entry.gameId}`}
               entry={entry}
@@ -307,8 +447,36 @@ function TasteHistory({
               onToggleChange={() => onToggleChange(entry.gameId)}
               onChange={(feedback) => onChange(entry, feedback)}
               onRemove={() => onRemove(entry)}
+              onStart={() => onStart(entry.gameId)}
             />
           ))
+        )}
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -316,11 +484,22 @@ function TasteHistory({
 }
 
 export function TasteShell() {
-  const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal } = usePlayfit();
+  const {
+    state,
+    seedData,
+    updateState,
+    getSeedGame,
+    applyDecisionFeedback,
+    removeTasteSignal,
+    setPlayStatus,
+    setPlayfitPick,
+    startPlayfitPick,
+  } = usePlayfit();
   const [, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
   const [changingId, setChangingId] = useState<string | null>(null);
+  const [editPlatformsOpen, setEditPlatformsOpen] = useState(false);
   const profile = state.user.profile;
   const requiredIds = useMemo(() => getTasteGameIds(state), [state]);
   const gamesById = new Map<string, SeedGame>();
@@ -358,6 +537,73 @@ export function TasteShell() {
       cancelled = true;
     };
   }, [missingKey]);
+
+  const historyAndActivityEntries = useMemo(() => {
+    const activeEntries: HistoryOrActivityEntry[] = [];
+    for (const record of Object.values(state.user.gameStates)) {
+      if (record.status === "playing") {
+        const game = getSeedGame(record.gameId);
+        if (game) {
+          activeEntries.push({
+            gameId: record.gameId,
+            title: game.title,
+            decision: "playing",
+            source: "active_state",
+            rating: record.rating,
+            status: record.status,
+            updatedAt: record.updatedAt,
+            traits: [game.genreId ?? game.primaryGenre, ...game.tags].filter(Boolean).slice(0, 4),
+          });
+        }
+      } else if (
+        record.inPlayfitPicks &&
+        record.status !== "completed" &&
+        record.status !== "beaten" &&
+        record.status !== "abandoned" &&
+        !record.excluded
+      ) {
+        const game = getSeedGame(record.gameId);
+        if (game) {
+          activeEntries.push({
+            gameId: record.gameId,
+            title: game.title,
+            decision: "picks",
+            source: "active_state",
+            rating: record.rating,
+            status: record.status,
+            updatedAt: record.updatedAt,
+            traits: [game.genreId ?? game.primaryGenre, ...game.tags].filter(Boolean).slice(0, 4),
+          });
+        }
+      }
+    }
+
+    const historyMapped: HistoryOrActivityEntry[] = model.historyEntries.map((entry) => ({
+      gameId: entry.gameId,
+      title: entry.title,
+      decision: entry.decision,
+      source: entry.source,
+      tone: entry.tone,
+      rating: entry.rating,
+      status: entry.status,
+      updatedAt: entry.updatedAt,
+      traits: entry.traits,
+    }));
+
+    const combined = [...activeEntries];
+    const activeIds = new Set(activeEntries.map((e) => e.gameId));
+    for (const h of historyMapped) {
+      if (!activeIds.has(h.gameId)) {
+        combined.push(h);
+      }
+    }
+
+    return combined.sort((a, b) => {
+      const aTime = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+      const bTime = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+      return bTime - aTime || a.title.localeCompare(b.title);
+    });
+  }, [state.user.gameStates, model.historyEntries, getSeedGame]);
 
   if (!profile) {
     return (
@@ -455,10 +701,46 @@ export function TasteShell() {
               <strong className="mt-1 block font-mono text-2xl">{model.negativeCount}</strong>
             </div>
           </div>
+          <Card className="rounded-3xl shadow-sm">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="grid gap-1.5">
+                <CardTitle>Your Platforms</CardTitle>
+                <CardDescription>
+                  Recommendations are only shown for games available on your active platforms.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditPlatformsOpen(true)}
+              >
+                Edit Platforms
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {state.user.onboarding.platforms.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No platforms selected. Recommendations are currently disabled.
+                </p>
+              ) : (
+                <Stack direction="row" wrap gap={2}>
+                  {state.user.onboarding.platforms.map((sel) => {
+                    const plat = seedData.platforms.find((p) => p.platformId === sel.platformId);
+                    return (
+                      <Badge key={sel.platformId} variant="outline">
+                        {plat?.displayName ?? sel.platformId}
+                      </Badge>
+                    );
+                  })}
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
           <TasteMap traits={model.mapTraits} />
           <Separator />
           <TasteHistory
-            entries={model.historyEntries}
+            entries={historyAndActivityEntries}
             changingId={changingId}
             onToggleChange={(gameId) =>
               setChangingId((current) => (current === gameId ? null : gameId))
@@ -468,11 +750,66 @@ export function TasteShell() {
               setChangingId(null);
             }}
             onRemove={(entry) => {
-              removeTasteSignal(entry.gameId, entry.source);
+              if (entry.decision === "playing") {
+                setPlayStatus(entry.gameId, undefined);
+              } else if (entry.decision === "picks") {
+                setPlayfitPick(entry.gameId, false);
+              } else {
+                removeTasteSignal(entry.gameId, entry.source as ProductTasteSignalSource);
+              }
               setChangingId(null);
+            }}
+            onStart={(gameId) => {
+              startPlayfitPick(gameId);
             }}
           />
         </Container>
+        <Dialog
+          open={editPlatformsOpen}
+          onClose={() => setEditPlatformsOpen(false)}
+          title="Edit Platforms"
+          eyebrow="Calibration Settings"
+        >
+          <div className="grid gap-4">
+            <p className="text-sm text-muted-foreground">
+              Toggle platforms to filter recommendation results. Changes are saved automatically.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 max-h-[50vh] overflow-y-auto pr-1">
+              {seedData.platforms.map((platform) => {
+                const isChecked = state.user.onboarding.platforms.some(
+                  (p) => p.platformId === platform.platformId,
+                );
+                return (
+                  <Checkbox
+                    key={platform.platformId}
+                    id={`edit-plat-${platform.platformId}`}
+                    label={platform.displayName}
+                    checked={isChecked}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      updateState((next) => {
+                        next.user.onboarding.platforms = next.user.onboarding.platforms.filter(
+                          (p) => p.platformId !== platform.platformId,
+                        );
+                        if (checked) {
+                          next.user.onboarding.platforms.push({
+                            platformId: platform.platformId,
+                            status: "available",
+                          });
+                        }
+                      });
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="button" onClick={() => setEditPlatformsOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Dialog>
         <StatusToast />
       </div>
     </motion.div>
