@@ -39,26 +39,31 @@ interface TodayRequest {
 const DB_VERSION = 2;
 const CACHE_KEY = "catalog:games";
 const CACHE_TTL = 300;
+const debug = process.env.NODE_ENV === "development";
 
 async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Promise<SeedGame[]> {
   const cached = await getCache<SeedGame[]>(CACHE_KEY, supabase);
   if (cached) {
-    console.log(
-      JSON.stringify({
-        stage: "fetchAllGames.cacheHit",
-        cacheKey: CACHE_KEY,
-        cachedCount: cached.length,
-        sampleIds: cached.slice(0, 3).map((g) => ({ id: g.gameId, title: g.title })),
-      }),
-    );
+    if (debug) {
+      console.log(
+        JSON.stringify({
+          stage: "fetchAllGames.cacheHit",
+          cacheKey: CACHE_KEY,
+          cachedCount: cached.length,
+          sampleIds: cached.slice(0, 3).map((g) => ({ id: g.gameId, title: g.title })),
+        }),
+      );
+    }
     return cached;
   }
-  console.log(
-    JSON.stringify({
-      stage: "fetchAllGames.cacheMiss",
-      cacheKey: CACHE_KEY,
-    }),
-  );
+  if (debug) {
+    console.log(
+      JSON.stringify({
+        stage: "fetchAllGames.cacheMiss",
+        cacheKey: CACHE_KEY,
+      }),
+    );
+  }
 
   const pageSize = 1000;
   let from = 0;
@@ -115,15 +120,17 @@ async function fetchAllGames(supabase: ReturnType<typeof createAnonClient>): Pro
   const catalogSeedCount = seedGames.filter((g) => g.source === "catalog").length;
   const finderSeedCount = seedGames.filter((g) => g.source === "finder").length;
 
-  console.log(
-    JSON.stringify({
-      stage: "fetchAllGames.dbResult",
-      allGamesCount: seedGames.length,
-      catalogCount: catalogSeedCount,
-      finderCount: finderSeedCount,
-      totalDbRows: allGames.length,
-    }),
-  );
+  if (debug) {
+    console.log(
+      JSON.stringify({
+        stage: "fetchAllGames.dbResult",
+        allGamesCount: seedGames.length,
+        catalogCount: catalogSeedCount,
+        finderCount: finderSeedCount,
+        totalDbRows: allGames.length,
+      }),
+    );
+  }
 
   // Best-effort cache storage
   void setCache(CACHE_KEY, seedGames, CACHE_TTL, supabase);
@@ -140,19 +147,21 @@ export async function POST(request: Request) {
   const supabase = createAnonClient();
   const allGames = await fetchAllGames(supabase);
 
-  console.log(
-    JSON.stringify({
-      stage: "recommendations/today",
-      allGames: allGames.length,
-      gamesWithTags: allGames.filter((g) => g.tags.length > 0).length,
-      gamesWithoutTags: allGames.filter((g) => g.tags.length === 0).length,
-      hasProfile: !!profile,
-      onboardingPlatforms: onboarding?.platforms?.length ?? 0,
-      likedGames: onboarding?.likedGameIds?.length ?? 0,
-      dislikedGames: onboarding?.dislikedGameIds?.length ?? 0,
-      gameStatesCount: Object.keys(gameStates ?? {}).length,
-    }),
-  );
+  if (debug) {
+    console.log(
+      JSON.stringify({
+        stage: "recommendations/today",
+        allGames: allGames.length,
+        gamesWithTags: allGames.filter((g) => g.tags.length > 0).length,
+        gamesWithoutTags: allGames.filter((g) => g.tags.length === 0).length,
+        hasProfile: !!profile,
+        onboardingPlatforms: onboarding?.platforms?.length ?? 0,
+        likedGames: onboarding?.likedGameIds?.length ?? 0,
+        dislikedGames: onboarding?.dislikedGameIds?.length ?? 0,
+        gameStatesCount: Object.keys(gameStates ?? {}).length,
+      }),
+    );
+  }
 
   const state: ProductState = {
     version: DB_VERSION,
