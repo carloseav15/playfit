@@ -52,31 +52,23 @@ const MOCK_GAMES = [
 ];
 
 export function DecisionIntro({ onStart }: { onStart?: () => void }) {
-  const [mockIndex, setMockIndex] = useState(0);
   const [realGame, setRealGame] = useState<SeedGame | null>(null);
+  const mock = MOCK_GAMES[1]; // Use Hades deterministically to prevent hydration mismatch and visual flicker
 
-  // Pick a random game on mount to prevent SSR hydration mismatches
   useEffect(() => {
-    const idx = Math.floor(Math.random() * MOCK_GAMES.length);
-    setMockIndex(idx);
-    const selected = MOCK_GAMES[idx];
-
     // Fetch from backend search API to get the real cover path!
-    fetch(`/api/games?q=${encodeURIComponent(selected.title)}`)
+    fetch(`/api/games?q=${encodeURIComponent(mock.title)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data && Array.isArray(data.games) && data.games.length > 0) {
           const found =
-            data.games.find(
-              (g: SeedGame) => g.title.toLowerCase() === selected.title.toLowerCase(),
-            ) || data.games[0];
+            data.games.find((g: SeedGame) => g.title.toLowerCase() === mock.title.toLowerCase()) ||
+            data.games[0];
           setRealGame(found);
         }
       })
       .catch((err) => console.error("Mock fetch failed", err));
   }, []);
-
-  const mock = MOCK_GAMES[mockIndex];
 
   const mockGame = {
     gameId: `mock-${mock.title.toLowerCase().replace(/\s+/g, "-")}`,
@@ -113,7 +105,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
               />
             </div>
             <span className="text-xs font-black uppercase tracking-[0.2em] text-accent font-mono">
-              Playfit AI
+              Playfit
             </span>
           </div>
           <h1 className="max-w-xl font-display text-4xl sm:text-5xl md:text-6xl font-black leading-[0.95] tracking-tight text-foreground">
@@ -124,9 +116,9 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
           </h1>
           <p className="max-w-prose text-sm leading-relaxed text-muted-foreground sm:text-base">
             Select your platforms, three favorites, and one notable miss. Get one clear
-            recommendation with its complete decision dossier.
+            recommendation with its complete decision analysis.
           </p>
-          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground/60">
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
             Zero noise. Zero decision fatigue.
           </p>
         </div>
@@ -139,23 +131,23 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
             <Compass className="size-4 mr-2" />
             Begin Calibration
           </Button>
-          <Badge
-            variant="info"
-            className="w-fit border-indigo-500/30 bg-indigo-500/10 text-indigo-400 py-1 px-3"
-          >
-            Play Next Engine
-          </Badge>
         </div>
       </div>
 
-      <div className="relative z-10 rounded-3xl border border-white/10 bg-card/40 p-4 sm:p-6 backdrop-blur-md shadow-2xl flex flex-col justify-between overflow-hidden group">
+      <aside
+        aria-labelledby="preview-curation-title"
+        className="relative z-10 rounded-3xl border border-white/10 bg-card/40 p-4 sm:p-6 backdrop-blur-md shadow-2xl flex flex-col justify-between overflow-hidden group"
+      >
         {/* Glowing aura inside card */}
         <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-accent/20 blur-2xl group-hover:scale-110 transition-transform duration-500" />
 
         <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-3">
-          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-accent flex items-center gap-1.5">
+          <span
+            id="preview-curation-title"
+            className="text-[10px] font-black uppercase tracking-[0.15em] text-accent flex items-center gap-1.5"
+          >
             <Sparkles className="size-3.5 animate-pulse" />
-            Live Preview Mock
+            Playfit Curation
           </span>
           <Badge
             variant="outline"
@@ -168,15 +160,18 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
         <div className="grid grid-cols-[72px_1fr] gap-4 py-5">
           <CoverArt
             game={realGame || mockGame}
-            className="aspect-[2/3] w-18 rounded-xl shadow-md border border-white/5 bg-secondary/35 shrink-0"
+            className="aspect-[2/3] w-18 rounded-sm shadow-md border border-white/5 bg-secondary/35 shrink-0"
           />
           <div className="flex flex-col justify-center min-w-0">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {mock.primaryGenre}
             </span>
-            <h3 className="font-display text-lg font-black text-foreground mt-0.5 truncate">
+            <h2
+              id="mock-game-title"
+              className="font-display text-lg font-black text-foreground mt-0.5 truncate"
+            >
               {mock.title}
-            </h3>
+            </h2>
             <p className="text-xs text-muted-foreground leading-relaxed mt-1.5 line-clamp-2">
               {mock.description}
             </p>
@@ -212,17 +207,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
             </Badge>
           </div>
         </div>
-
-        <div className="mt-4 pt-2">
-          <Button
-            type="button"
-            disabled
-            className="w-full text-xs font-extrabold bg-accent/15 text-accent border border-accent/20 h-9 rounded-xl cursor-default opacity-80"
-          >
-            Configure profile to activate
-          </Button>
-        </div>
-      </div>
+      </aside>
     </section>
   );
 }

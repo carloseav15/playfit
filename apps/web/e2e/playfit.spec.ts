@@ -480,7 +480,7 @@ test("taste route explains onboarding signals and lets users remove one", async 
 
   await Promise.all([
     page.waitForURL(/\/play\/game\//, { timeout: 15_000 }),
-    page.getByRole("link", { name: /Open dossier/ }).first().click(),
+    page.getByRole("link", { name: /Details/ }).first().click(),
   ]);
   await Promise.all([
     page.waitForURL(/\/play\/taste$/, { timeout: 15_000 }),
@@ -491,7 +491,7 @@ test("taste route explains onboarding signals and lets users remove one", async 
   await expect(page.getByText("Taste is below calibration strength")).toBeVisible();
 });
 
-test("playfit picks saves a recommendation and moves it to started", async ({ page }) => {
+test("playfit picks saves a recommendation and removes it from queue", async ({ page }) => {
   const savedProfiles = await mockSupabase(page);
 
   await page.goto("/play");
@@ -521,7 +521,7 @@ test("playfit picks saves a recommendation and moves it to started", async ({ pa
             gameStates?: Record<string, { inPlayfitPicks?: boolean; status?: string }>;
           }
         ).gameStates?.final_fantasy_vi;
-        return gameState?.inPlayfitPicks === true && !gameState.status;
+        return gameState?.inPlayfitPicks === true;
       }),
     )
     .toBe(true);
@@ -531,23 +531,11 @@ test("playfit picks saves a recommendation and moves it to started", async ({ pa
     page.getByRole("link", { name: /Picks/ }).click(),
   ]);
 
-  await expect(page.getByRole("heading", { name: "Playfit Picks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved Recommendations" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
-  await page.getByRole("button", { name: "Started" }).click();
+  await page.getByRole("button", { name: "Remove recommendation" }).click();
 
-  await expect
-    .poll(() =>
-      savedProfiles.some((profile) => {
-        const gameState = (
-          profile as {
-            gameStates?: Record<string, { inPlayfitPicks?: boolean; status?: string }>;
-          }
-        ).gameStates?.final_fantasy_vi;
-        return gameState?.status === "playing" && gameState.inPlayfitPicks === false;
-      }),
-    )
-    .toBe(true);
-  await expect(page.getByText("No Playfit Picks yet")).toBeVisible();
+  await expect(page.getByText("No saved recommendations yet")).toBeVisible();
 });
 
 test("play next feedback excludes a bad fit", async ({ page }) => {

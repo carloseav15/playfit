@@ -21,7 +21,7 @@ export function Toast({
   onDismiss,
   onRetry,
   variant = "default",
-  duration = 5000,
+  duration = 3000,
 }: ToastProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pausedRef = useRef(false);

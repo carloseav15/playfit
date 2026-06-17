@@ -45,6 +45,9 @@ export const metadata: Metadata = {
   },
   description:
     "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
+  icons: {
+    icon: "/playfit_logo.png",
+  },
   openGraph: {
     title: "Playfit | Game decisions you can trust",
     description:

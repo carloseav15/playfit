@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "How It Works",
+  title: "How It Works — Gaming Calibration Explained",
   description:
-    "How Playfit turns ratings, library state, and platform access into calm, honest reads.",
+    "Learn how Playfit aggregates your platform preferences and game feedback to provide calm, honest recommendations.",
 };
 
 const steps = [
@@ -88,8 +88,8 @@ export default function HowItWorksPage() {
             </h2>
             <p>
               Search the catalog, track upcoming releases, check your evolving taste signals, and
-              open a dossier before saving a game. Every rating or status change improves the next
-              read.
+              inspect recommendation details before saving it. Every rating or status change
+              improves the next read.
             </p>
           </section>
           <section className="grid gap-3">

@@ -62,7 +62,7 @@ export function UpcomingSection() {
       .filter(
         (game) =>
           ui.upcomingPlatformFilters.size === 0 ||
-          game.availablePlatformIds.some((id) => ui.upcomingPlatformFilters.has(id)),
+          game.availablePlatformIds?.some((id) => ui.upcomingPlatformFilters.has(id)),
       )
       .map((game) => (state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null))
       .filter((entry): entry is RankedSeedGame => Boolean(entry))

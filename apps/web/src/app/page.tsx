@@ -62,8 +62,8 @@ const screenshots = [
   },
   {
     src: "/screenshots/dossier.jpg",
-    alt: "Playfit game dossier with match and watch-out signals",
-    title: "Inspectable dossier",
+    alt: "Playfit game analysis details with match and watch-out signals",
+    title: "Deep analysis",
   },
 ];
 

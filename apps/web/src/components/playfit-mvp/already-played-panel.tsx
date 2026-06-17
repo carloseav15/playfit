@@ -4,6 +4,7 @@ import type { ProductDecisionFeedback } from "@playfit/core/types";
 import { Heart, ThumbsDown, ThumbsUp, Waves } from "lucide-react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Stack } from "@/components/ui/stack";
 
 export type AlreadyPlayedFeedback = Extract<
@@ -24,30 +25,46 @@ const options: {
 
 export function AlreadyPlayedPanel({
   id,
+  open,
+  onClose,
   onSelect,
 }: {
   id?: string;
+  open: boolean;
+  onClose: () => void;
   onSelect: (feedback: AlreadyPlayedFeedback) => void;
 }) {
   return (
-    <div id={id} className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-        How did it land?
-      </p>
-      <Stack direction="row" wrap gap={2}>
-        {options.map(({ feedback, label, Icon }) => (
-          <Button
-            key={feedback}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onSelect(feedback)}
-          >
-            <Icon className="size-4" />
-            {label}
-          </Button>
-        ))}
-      </Stack>
-    </div>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="How did it land?"
+      eyebrow="Already Played"
+      className="max-w-md"
+    >
+      <div id={id} className="grid gap-4">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Let Playfit know how your experience with this game was. This feedback will calibrate and
+          refine your future recommendations.
+        </p>
+        <Stack direction="row" wrap gap={3} className="justify-between pt-2">
+          {options.map(({ feedback, label, Icon }) => (
+            <Button
+              key={feedback}
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onSelect(feedback);
+                onClose();
+              }}
+              className="flex-1 flex flex-col items-center justify-center gap-2.5 p-5 h-24 rounded-2xl bg-secondary/15 hover:bg-accent/10 border-white/5 hover:border-accent/20 text-foreground transition-all duration-300 active:scale-[0.97]"
+            >
+              <Icon className="size-6 text-accent" />
+              <span className="text-[11px] font-black uppercase tracking-wider">{label}</span>
+            </Button>
+          ))}
+        </Stack>
+      </div>
+    </Dialog>
   );
 }

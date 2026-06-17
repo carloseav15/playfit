@@ -459,7 +459,7 @@ export function ProfileSection() {
                       <button
                         key={entry.gameId}
                         type="button"
-                        aria-label={`Open ${game.title} dossier`}
+                        aria-label={`Open ${game.title} analysis`}
                         className="grid grid-cols-[2.75rem_1fr_auto] items-center gap-3 rounded-md border border-border bg-secondary p-2 text-left transition-all duration-150 hover:bg-secondary/70 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => openDossier(entry.gameId)}
                       >

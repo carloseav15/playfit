@@ -98,7 +98,16 @@ export function PlayNextCard({
   const tone = decisionTone(entry);
   const label = decisionLabel(entry);
   const bestReason = primaryReason(entry);
-  const firstWatchOut = entry.cautionReasons[0] ?? "No major watch-out yet.";
+  const validCautions = (entry.cautionReasons ?? []).filter(
+    (r) =>
+      r &&
+      r.trim() !== "" &&
+      r !== "No reliable call yet." &&
+      r !== "No major watch-out yet." &&
+      r !== "No major caveat yet.",
+  );
+  const hasCautions = validCautions.length > 0;
+  const firstWatchOut = validCautions[0] ?? "";
   const matchLabel = matchQualityLabel(entry.affinityScore);
   const watchLabel = watchOutLabel(entry.riskScore);
   const confidence = confidenceLabel(entry.confidence);
@@ -121,7 +130,7 @@ export function PlayNextCard({
         <CardContent className="grid gap-4 p-5 md:grid-cols-[6rem_minmax(0,1fr)_auto] md:items-center">
           <CoverArt
             game={entry.game}
-            className="aspect-[2/3] w-24 justify-self-center rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+            className="aspect-[2/3] w-24 justify-self-center rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
           />
           <div className="grid min-w-0 gap-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -216,11 +225,12 @@ export function PlayNextCard({
               </Button>
             </div>
           </div>
-          {showAlreadyPlayed ? (
-            <div className="md:col-span-3 mt-2">
-              <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={chooseAlreadyPlayed} />
-            </div>
-          ) : null}
+          <AlreadyPlayedPanel
+            id={alreadyPlayedPanelId}
+            open={showAlreadyPlayed}
+            onClose={() => setShowAlreadyPlayed(false)}
+            onSelect={chooseAlreadyPlayed}
+          />
           {showReasonPicker ? (
             <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/30 p-4 md:col-span-3 mt-2">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -265,7 +275,7 @@ export function PlayNextCard({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Badge
             variant={tone}
-            className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest bg-accent text-accent-foreground shadow-sm"
+            className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-sm"
           >
             {primary ? "Play this next" : "Worth checking"}
           </Badge>
@@ -287,7 +297,7 @@ export function PlayNextCard({
           <div className="relative group/cover justify-self-center w-full max-w-44 md:max-w-none">
             <CoverArt
               game={entry.game}
-              className="aspect-[2/3] w-full rounded-2xl shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-white/5"
+              className="aspect-[2/3] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-white/5"
               priority={primary}
             />
           </div>
@@ -322,21 +332,23 @@ export function PlayNextCard({
               />
               <DecisionMetric label="Confidence" value={confidence} colorClass="bg-accent/70" />
             </div>
-            <div className="grid gap-3.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className={cn("grid gap-3.5", hasCautions ? "md:grid-cols-2" : "grid-cols-1")}>
               <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                   Why this fits
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{bestReason}</p>
               </div>
-              <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
-                  Watch-outs
-                </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  {firstWatchOut}
-                </p>
-              </div>
+              {hasCautions ? (
+                <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
+                    Watch-outs
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                    {firstWatchOut}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -412,15 +424,16 @@ export function PlayNextCard({
           >
             <Link href={`/play/game/${entry.game.gameId}`}>
               <Eye className="size-4 mr-1.5" />
-              See full dossier & explainability
+              Why this fits & analysis
             </Link>
           </Button>
         </div>
-        {showAlreadyPlayed ? (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-            <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={chooseAlreadyPlayed} />
-          </div>
-        ) : null}
+        <AlreadyPlayedPanel
+          id={alreadyPlayedPanelId}
+          open={showAlreadyPlayed}
+          onClose={() => setShowAlreadyPlayed(false)}
+          onSelect={chooseAlreadyPlayed}
+        />
         {showReasonPicker ? (
           <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/35 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">

@@ -3,8 +3,8 @@ import { DecisionShell } from "@/components/playfit-mvp/decision-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
-  title: "Play Next",
-  description: "Find what to play next with Playfit.",
+  title: "Playfit — Game Recommendations",
+  description: "Discover what to play next with Playfit's custom gaming decision engine.",
 };
 
 export default async function PlayPage() {

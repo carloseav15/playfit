@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductTodayModel, RankedSeedGame } from "@playfit/core/types";
-import { ArrowLeft, CheckCircle2, Eye, Play, Sparkles, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, Sparkles, Trash2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,32 +41,60 @@ function PickCard({
   entry,
   expandedId,
   onToggleAlreadyPlayed,
+  onCloseAlreadyPlayed,
   onAlreadyPlayed,
   onNotForMe,
   onRemove,
-  onStarted,
 }: {
   entry: RankedSeedGame;
   expandedId: string | null;
-  onToggleAlreadyPlayed: (gameId: string) => void;
+  onToggleAlreadyPlayed: () => void;
+  onCloseAlreadyPlayed: () => void;
   onAlreadyPlayed: (gameId: string, feedback: AlreadyPlayedFeedback) => void;
   onNotForMe: (gameId: string) => void;
   onRemove: (gameId: string) => void;
-  onStarted: (gameId: string) => void;
 }) {
   const gameId = entry.game.gameId;
   const alreadyPlayedPanelId = `pick-already-played-${gameId}`;
 
   return (
     <Card className="group relative overflow-hidden rounded-3xl border border-white/5 bg-card/40 backdrop-blur-md shadow-lg transition-all duration-300 hover:border-white/10 hover:shadow-xl">
+      {/* Floating Remove Button */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => onRemove(gameId)}
+        className="absolute right-4 top-4 z-20 size-8 rounded-full border border-white/5 bg-secondary/30 text-muted-foreground hover:bg-destructive/15 hover:text-destructive transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
+        aria-label="Remove recommendation"
+      >
+        <Trash2 className="size-4" />
+      </Button>
+
       <CardContent className="grid gap-5 p-5 md:grid-cols-[100px_minmax(0,1fr)] md:p-6">
-        <CoverArt
-          game={entry.game}
-          className="aspect-[2/3] w-24 justify-self-center rounded-xl shadow-md transition-transform duration-300 group-hover:scale-[1.02] border border-white/5"
-        />
+        {/* Cover Art and Details Link Column */}
+        <div className="flex flex-col items-center gap-2">
+          <CoverArt
+            game={entry.game}
+            className="aspect-[2/3] w-24 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.02] border border-white/5"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-xs text-accent hover:text-accent/80 hover:bg-transparent h-auto p-0 mt-0.5"
+          >
+            <Link href={`/play/game/${gameId}`} className="flex items-center">
+              <Eye className="size-3.5 mr-1" />
+              See details
+            </Link>
+          </Button>
+        </div>
+
         <div className="grid min-w-0 gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 pr-8">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                 {formatGameDescriptor(entry.game)}
               </p>
@@ -74,12 +102,6 @@ function PickCard({
                 {entry.game.title}
               </h2>
             </div>
-            <Badge
-              variant="positive"
-              className="bg-positive-bg text-positive border border-positive/20 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5"
-            >
-              Saved Pick
-            </Badge>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-xl border border-white/5 bg-secondary/20 py-2">
@@ -113,66 +135,32 @@ function PickCard({
             <div className="flex flex-wrap gap-2 items-center">
               <Button
                 type="button"
-                onClick={() => onStarted(gameId)}
-                className="flex-1 bg-accent text-accent-foreground font-extrabold hover:bg-accent/90 shadow-md h-10 rounded-xl"
-              >
-                <Play className="size-4 mr-1.5" />
-                Started Play
-              </Button>
-              <Button
-                type="button"
                 variant="secondary"
                 aria-expanded={expandedId === gameId}
                 aria-controls={alreadyPlayedPanelId}
-                onClick={() => onToggleAlreadyPlayed(gameId)}
-                className="flex-1 border-white/5 bg-secondary/30 hover:bg-secondary/70 h-10 rounded-xl text-xs"
+                onClick={onToggleAlreadyPlayed}
+                className="flex-1 border-white/5 bg-secondary/30 hover:bg-secondary/70 h-10 rounded-xl text-xs font-bold"
               >
-                <CheckCircle2 className="size-4 mr-1.5" />
+                <CheckCircle2 className="size-4 mr-1.5 text-positive" />
                 Already Played
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => onNotForMe(gameId)}
-                className="flex-1 border-white/5 bg-secondary/30 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs"
+                className="flex-1 border-white/5 bg-secondary/30 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
               >
-                <XCircle className="size-4 mr-1.5" />
+                <XCircle className="size-4 mr-1.5 text-destructive" />
                 Not for me
               </Button>
             </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onRemove(gameId)}
-                className="text-xs text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="size-3.5 mr-1" />
-                Remove Pick
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                asChild
-                className="text-xs text-accent hover:text-accent/80"
-              >
-                <Link href={`/play/game/${gameId}`}>
-                  <Eye className="size-3.5 mr-1" />
-                  See explainability dossier
-                </Link>
-              </Button>
-            </div>
           </div>
-          {expandedId === gameId ? (
-            <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
-              <AlreadyPlayedPanel
-                id={alreadyPlayedPanelId}
-                onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
-              />
-            </div>
-          ) : null}
+          <AlreadyPlayedPanel
+            id={alreadyPlayedPanelId}
+            open={expandedId === gameId}
+            onClose={onCloseAlreadyPlayed}
+            onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+          />
         </div>
       </CardContent>
     </Card>
@@ -197,7 +185,7 @@ function PlayingCard({
       <CardContent className="grid gap-4 p-5 md:grid-cols-[80px_minmax(0,1fr)] md:p-6">
         <CoverArt
           game={entry.game}
-          className="aspect-[2/3] w-20 justify-self-center rounded-xl shadow-md border border-white/5"
+          className="aspect-[2/3] w-20 justify-self-center rounded-sm shadow-md border border-white/5"
         />
         <div className="grid min-w-0 gap-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -243,14 +231,12 @@ function PlayingCard({
                 Stop Playing
               </Button>
             </Stack>
-            {showRating ? (
-              <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <AlreadyPlayedPanel
-                  id={`playing-rate-${gameId}`}
-                  onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
-                />
-              </div>
-            ) : null}
+            <AlreadyPlayedPanel
+              id={`playing-rate-${gameId}`}
+              open={showRating}
+              onClose={() => setShowRating(false)}
+              onSelect={(feedback) => onAlreadyPlayed(gameId, feedback)}
+            />
           </div>
         </div>
       </CardContent>
@@ -259,8 +245,7 @@ function PlayingCard({
 }
 
 export function PicksShell() {
-  const { applyDecisionFeedback, setPlayfitPick, startPlayfitPick, setPlayStatus, state } =
-    usePlayfit();
+  const { applyDecisionFeedback, setPlayfitPick, setPlayStatus, state } = usePlayfit();
   const pathname = usePathname();
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -361,13 +346,13 @@ export function PicksShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="lg:h-screen lg:overflow-hidden relative"
+      className="lg:h-[calc(100vh-4rem)] lg:overflow-hidden relative"
     >
       {/* Background glow effects */}
       <div className="pointer-events-none absolute left-1/4 top-1/4 size-[400px] rounded-full bg-accent/5 blur-[100px]" />
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[350px] rounded-full bg-indigo-500/5 blur-[90px]" />
 
-      <div className="min-h-screen text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+      <div className="min-h-[calc(100vh-4rem)] text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
         <Container
           as="main"
           size="md"
@@ -405,25 +390,20 @@ export function PicksShell() {
             </div>
           </div>
 
-          <section className="relative overflow-hidden grid gap-4 rounded-3xl border border-white/10 bg-gradient-to-br from-card/85 to-card/60 p-6 shadow-xl backdrop-blur-md md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end shrink-0">
+          <section className="relative overflow-hidden grid gap-4 rounded-3xl border border-white/10 bg-gradient-to-br from-card/85 to-card/60 p-6 shadow-xl backdrop-blur-md shrink-0">
             <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-accent/10 blur-xl" />
             <div className="grid gap-2 relative z-10">
               <div className="flex items-center gap-2 text-accent">
                 <Sparkles className="size-4" />
                 <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                  Playfit Curated Dashboard
+                  Saved Queue
                 </span>
               </div>
               <h1 className="font-display text-4xl font-black tracking-tight text-foreground mt-1">
-                Playfit Picks
+                Saved Recommendations
               </h1>
               <p className="max-w-2xl text-xs text-muted-foreground leading-relaxed mt-0.5">
-                Games Playfit recommends specifically for your active calibration signals.
-              </p>
-            </div>
-            <div className="flex justify-start md:justify-end relative z-10">
-              <p className="max-w-xs text-[10px] font-bold uppercase tracking-[0.12em] text-accent text-left md:text-right">
-                Sorted dynamically by current fit score, not save date.
+                Your personal queue of saved game recommendations.
               </p>
             </div>
           </section>
@@ -456,7 +436,7 @@ export function PicksShell() {
             {picks.length === 0 ? (
               <Card className="rounded-3xl border border-white/5 bg-card/45 backdrop-blur-sm p-6 text-center">
                 <CardHeader className="px-0 pt-0">
-                  <CardTitle className="text-xl font-bold">No Playfit Picks yet</CardTitle>
+                  <CardTitle className="text-xl font-bold">No saved recommendations yet</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1">
                     Add a recommendation from Play Next when it matches your gaming criteria.
                   </CardDescription>
@@ -478,16 +458,18 @@ export function PicksShell() {
                     key={entry.game.gameId}
                     entry={entry}
                     expandedId={expandedId}
-                    onToggleAlreadyPlayed={(gameId) =>
-                      setExpandedId((current) => (current === gameId ? null : gameId))
+                    onToggleAlreadyPlayed={() =>
+                      setExpandedId((current) =>
+                        current === entry.game.gameId ? null : entry.game.gameId,
+                      )
                     }
+                    onCloseAlreadyPlayed={() => setExpandedId(null)}
                     onAlreadyPlayed={(gameId, feedback) => {
                       applyDecisionFeedback(gameId, feedback);
                       setExpandedId(null);
                     }}
                     onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
                     onRemove={(gameId) => setPlayfitPick(gameId, false)}
-                    onStarted={(gameId) => startPlayfitPick(gameId)}
                   />
                 ))}
               </section>
