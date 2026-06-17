@@ -164,9 +164,12 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
           Not for me
         </Button>
       </Stack>
-      {showAlreadyPlayed ? (
-        <AlreadyPlayedPanel id={alreadyPlayedPanelId} onSelect={markAlreadyPlayed} />
-      ) : null}
+      <AlreadyPlayedPanel
+        id={alreadyPlayedPanelId}
+        open={showAlreadyPlayed}
+        onClose={() => setShowAlreadyPlayed(false)}
+        onSelect={markAlreadyPlayed}
+      />
       {showReasonPicker ? (
         <div className="grid gap-2 rounded-2xl border border-border bg-secondary p-4">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -298,6 +301,16 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
     );
   }
 
+  const validCautions = (entry.cautionReasons ?? []).filter(
+    (r) =>
+      r &&
+      r.trim() !== "" &&
+      r !== "No reliable call yet." &&
+      r !== "No major watch-out yet." &&
+      r !== "No major caveat yet.",
+  );
+  const hasCautions = validCautions.length > 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -356,7 +369,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
           <div className="grid min-w-0 gap-6 rounded-3xl border border-white/10 bg-card/45 p-5 shadow-2xl backdrop-blur-md lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)] lg:p-7">
             <CoverArt
               game={game}
-              className="aspect-[2/3] w-full max-w-72 justify-self-center rounded-2xl shadow-xl border border-white/5 shrink-0"
+              className="aspect-[2/3] w-full max-w-72 justify-self-center rounded-sm shadow-xl border border-white/5 shrink-0"
             />
             <div className="grid min-w-0 content-start gap-5">
               <div className="grid gap-3">
@@ -436,7 +449,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                 </div>
               </div>
 
-              <div className="grid gap-3.5 md:grid-cols-2">
+              <div className={cn("grid gap-3.5", hasCautions ? "md:grid-cols-2" : "grid-cols-1")}>
                 <div className="rounded-2xl border border-white/5 bg-secondary/20 p-4">
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                     Why this could work
@@ -455,24 +468,21 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                       ))}
                   </ul>
                 </div>
-                <div className="rounded-2xl border border-white/5 bg-secondary/20 p-4">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
-                    Watch-outs
-                  </p>
-                  <ul className="grid gap-2 text-xs text-muted-foreground/80">
-                    {(entry.cautionReasons.length
-                      ? entry.cautionReasons
-                      : ["No major watch-out yet."]
-                    )
-                      .slice(0, 4)
-                      .map((reason) => (
+                {hasCautions ? (
+                  <div className="rounded-2xl border border-white/5 bg-secondary/20 p-4">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
+                      Watch-outs
+                    </p>
+                    <ul className="grid gap-2 text-xs text-muted-foreground/80">
+                      {validCautions.slice(0, 4).map((reason) => (
                         <li key={reason} className="flex gap-2 items-start">
                           <span className="mt-1 size-1.5 shrink-0 rounded-full bg-warning animate-pulse" />
                           <span>{reason}</span>
                         </li>
                       ))}
-                  </ul>
-                </div>
+                    </ul>
+                  </div>
+                ) : null}
               </div>
               <DossierActions entry={entry} />
             </div>
@@ -503,7 +513,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                       <div className="flex items-center gap-3 min-w-0">
                         <CoverArt
                           game={simGame}
-                          className="aspect-[2/3] w-10 shrink-0 rounded-lg shadow-md border border-white/5 transition-transform group-hover:scale-[1.03]"
+                          className="aspect-[2/3] w-10 shrink-0 rounded-sm shadow-md border border-white/5 transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="truncate text-xs font-bold text-foreground group-hover:text-accent transition-colors">
                           {simGame.title}
@@ -550,7 +560,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                       <div className="flex items-center gap-3 min-w-0">
                         <CoverArt
                           game={serGame}
-                          className="aspect-[2/3] w-10 shrink-0 rounded-lg shadow-md border border-white/5 transition-transform group-hover:scale-[1.03]"
+                          className="aspect-[2/3] w-10 shrink-0 rounded-sm shadow-md border border-white/5 transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="truncate text-xs font-bold text-foreground group-hover:text-accent transition-colors">
                           {serGame.title}

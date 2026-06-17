@@ -180,9 +180,9 @@ export function LibrarySection() {
               <motion.div key={entry.gameId} variants={cardItemVariants}>
                 <button
                   type="button"
-                  aria-label={`Open ${game.title} dossier`}
+                  aria-label={`Open ${game.title} analysis`}
                   onClick={() => openDossier(entry.gameId)}
-                  className="w-full overflow-hidden rounded-md border border-border transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full overflow-hidden rounded-sm border border-border transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <CoverArt game={game} className="aspect-[2/3] w-full" />
                   <div className="flex min-h-[18px] items-center justify-center px-1.5 pt-1">

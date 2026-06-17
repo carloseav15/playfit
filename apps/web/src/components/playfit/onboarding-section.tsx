@@ -719,7 +719,7 @@ export function OnboardingSection() {
                       >
                         <CoverArt
                           game={game}
-                          className="aspect-[2/3] w-12 shrink-0 rounded-xl shadow-md transition-transform group-hover:scale-[1.03]"
+                          className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="min-w-0 flex-1">
                           <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-accent transition-colors">
@@ -874,7 +874,7 @@ export function OnboardingSection() {
                       >
                         <CoverArt
                           game={game}
-                          className="aspect-[2/3] w-12 shrink-0 rounded-xl shadow-md transition-transform group-hover:scale-[1.03]"
+                          className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="min-w-0 flex-1">
                           <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-negative transition-colors">

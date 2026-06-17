@@ -421,6 +421,84 @@ function PlatformsTabContent() {
 function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
   const maxStrength = Math.max(...traits.map((trait) => trait.strength), 1);
 
+  const genres = traits.filter((t) => t.kind === "genre");
+  const tags = traits.filter((t) => t.kind === "tag");
+
+  const renderTraitSection = (title: string, sectionTraits: ProductTasteMapTrait[]) => {
+    if (sectionTraits.length === 0) return null;
+    return (
+      <div className="grid gap-3">
+        <h3 className="text-xs font-black uppercase tracking-wider text-accent border-b border-white/5 pb-1 mt-1">
+          {title}
+        </h3>
+        <div className="grid gap-3.5">
+          {sectionTraits.map((trait) => {
+            const negativeWidth = `${(trait.negativeCount / maxStrength) * 100}%`;
+            const positiveWidth = `${(trait.positiveCount / maxStrength) * 100}%`;
+            return (
+              <div
+                key={`${trait.kind}:${trait.id}`}
+                className="grid gap-2 p-3.5 rounded-2xl bg-secondary/15 border border-white/5 transition-all duration-300 hover:bg-secondary/25 hover:border-white/10"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-sm font-extrabold text-foreground">{trait.label}</strong>
+                  <Badge
+                    variant={
+                      trait.direction === "positive"
+                        ? "positive"
+                        : trait.direction === "negative"
+                          ? "negative"
+                          : "secondary"
+                    }
+                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5"
+                  >
+                    {trait.confidence}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 mt-1">
+                  <div
+                    className="h-4 overflow-hidden rounded-full bg-secondary/60 relative"
+                    role="progressbar"
+                    aria-valuenow={trait.negativeCount}
+                    aria-valuemin={0}
+                    aria-valuemax={maxStrength}
+                    aria-label={`${trait.label} steer away: ${trait.negativeCount}`}
+                  >
+                    <div
+                      className="ml-auto h-full rounded-full bg-gradient-to-l from-negative to-negative/60 transition-all duration-500 ease-out"
+                      style={{ width: negativeWidth }}
+                    />
+                  </div>
+                  <span className="h-6 w-px bg-white/10" />
+                  <div
+                    className="h-4 overflow-hidden rounded-full bg-secondary/60 relative"
+                    role="progressbar"
+                    aria-valuenow={trait.positiveCount}
+                    aria-valuemin={0}
+                    aria-valuemax={maxStrength}
+                    aria-label={`${trait.label} lean toward: ${trait.positiveCount}`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-positive to-positive/60 transition-all duration-500 ease-out"
+                      style={{ width: positiveWidth }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-4 text-[10px] font-mono text-muted-foreground">
+                  <span className="text-right font-extrabold text-negative/90">
+                    {trait.negativeCount}
+                  </span>
+                  <span className="text-muted-foreground/60 text-center">signals</span>
+                  <span className="font-extrabold text-positive/90">{trait.positiveCount}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card className="rounded-3xl border border-white/5 bg-card/45 backdrop-blur-sm shadow-xl overflow-hidden">
       <CardHeader>
@@ -431,9 +509,9 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="hidden sm:grid sm:grid-cols-[1fr_auto_1fr] gap-4 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground border-b border-white/5 pb-2">
-          <span className="text-right text-negative">Steer away from</span>
-          <span className="opacity-40">Neutral</span>
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-4 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.15em] text-muted-foreground border-b border-white/5 pb-2">
+          <span className="text-right text-negative">Steer away</span>
+          <span className="opacity-40 px-1">Neutral</span>
           <span className="text-positive">Lean toward</span>
         </div>
         {traits.length === 0 ? (
@@ -441,77 +519,9 @@ function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
             Add more taste decisions to draw a useful map.
           </p>
         ) : (
-          <div className="grid gap-5">
-            {traits.map((trait) => {
-              const negativeWidth = `${(trait.negativeCount / maxStrength) * 100}%`;
-              const positiveWidth = `${(trait.positiveCount / maxStrength) * 100}%`;
-              return (
-                <div
-                  key={`${trait.kind}:${trait.id}`}
-                  className="grid gap-2 p-3 rounded-2xl bg-secondary/15 border border-white/5 transition-all duration-300 hover:bg-secondary/25 hover:border-white/10"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <strong className="text-sm font-extrabold text-foreground">
-                        {trait.label}
-                      </strong>
-                      <Badge
-                        variant="outline"
-                        className="border-accent/20 bg-accent/5 text-[10px] font-bold text-accent py-0 px-2"
-                      >
-                        {trait.kind}
-                      </Badge>
-                    </div>
-                    <Badge
-                      variant={
-                        trait.direction === "positive"
-                          ? "positive"
-                          : trait.direction === "negative"
-                            ? "negative"
-                            : "secondary"
-                      }
-                      className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5"
-                    >
-                      {trait.confidence}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 mt-1">
-                    <div
-                      className="h-2.5 overflow-hidden rounded-full bg-secondary/60 relative"
-                      role="progressbar"
-                      aria-valuenow={trait.negativeCount}
-                      aria-valuemin={0}
-                      aria-valuemax={maxStrength}
-                      aria-label={`${trait.label} steer away: ${trait.negativeCount}`}
-                    >
-                      <div
-                        className="ml-auto h-full rounded-full bg-gradient-to-l from-negative to-negative/60"
-                        style={{ width: negativeWidth }}
-                      />
-                    </div>
-                    <span className="h-5 w-px bg-white/10" />
-                    <div
-                      className="h-2.5 overflow-hidden rounded-full bg-secondary/60 relative"
-                      role="progressbar"
-                      aria-valuenow={trait.positiveCount}
-                      aria-valuemin={0}
-                      aria-valuemax={maxStrength}
-                      aria-label={`${trait.label} lean toward: ${trait.positiveCount}`}
-                    >
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-positive to-positive/60"
-                        style={{ width: positiveWidth }}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-4 text-[10px] font-mono text-muted-foreground/80">
-                    <span className="text-right font-extrabold">{trait.negativeCount}</span>
-                    <span className="opacity-40">signals</span>
-                    <span className="font-extrabold">{trait.positiveCount}</span>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid gap-6">
+            {renderTraitSection("Genres", genres)}
+            {renderTraitSection("Tags", tags)}
           </div>
         )}
       </CardContent>
@@ -582,7 +592,7 @@ function TasteHistoryRow({
       <div className="grid grid-cols-[3.25rem_1fr] gap-3.5 md:grid-cols-[3.25rem_1fr_auto] md:items-center">
         <CoverArt
           game={game}
-          className="aspect-[2/3] w-12 rounded-lg shadow-md border border-white/5 shrink-0"
+          className="aspect-[2/3] w-12 rounded-sm shadow-md border border-white/5 shrink-0"
         />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -703,7 +713,7 @@ function TasteHistoryRow({
             className="h-8 text-xs hover:text-accent rounded-xl"
           >
             <Link href={`/play/game/${entry.gameId}`}>
-              Dossier
+              Details
               <ChevronRight className="size-3.5 ml-0.5" />
             </Link>
           </Button>
@@ -1041,18 +1051,14 @@ export function TasteShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="lg:h-screen lg:overflow-hidden relative"
+      className="relative min-h-screen text-foreground w-full"
     >
       {/* Background glow effects */}
       <div className="pointer-events-none absolute left-1/4 top-1/4 size-[400px] rounded-full bg-accent/5 blur-[100px]" />
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[350px] rounded-full bg-indigo-500/5 blur-[90px]" />
 
-      <div className="min-h-screen text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
-        <Container
-          as="main"
-          size="md"
-          className="flex flex-col gap-6 py-6 lg:h-full lg:max-h-full lg:py-8 lg:overflow-hidden"
-        >
+      <div className="w-full">
+        <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
           <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
             <Button
               type="button"
@@ -1094,7 +1100,7 @@ export function TasteShell() {
             <div className="rounded-2xl border border-white/5 bg-secondary/30 p-4 relative z-10">
               <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-accent flex items-center gap-1.5">
                 <ShieldCheck className="size-3.5" />
-                Dossier Summary
+                Profile Summary
               </p>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {model.positiveCount > model.negativeCount
@@ -1150,7 +1156,7 @@ export function TasteShell() {
           </div>
 
           {/* Tab Content */}
-          <div className="flex flex-col gap-6 lg:flex-1 lg:overflow-y-auto lg:pr-2 pb-4">
+          <div className="flex flex-col gap-6 pb-4">
             {activeMainTab === "taste" && (
               <>
                 <div className="grid grid-cols-3 gap-3.5">

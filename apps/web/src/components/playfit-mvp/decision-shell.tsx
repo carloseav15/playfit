@@ -146,7 +146,7 @@ export function DecisionShell() {
 
   if (!profileReady) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+      <div className="min-h-[calc(100vh-4rem)] bg-background text-foreground flex items-center justify-center p-4">
         <Container as="main" size="md" className="grid gap-6 py-4 md:py-8 w-full">
           {!startedCalibration ? (
             <DecisionIntro onStart={() => setStartedCalibration(true)} />
@@ -163,23 +163,121 @@ export function DecisionShell() {
 
   if (loading) {
     return (
-      <Container as="main" size="sm" className="grid gap-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Building your Play Next</CardTitle>
-            <CardDescription>
-              Checking your platforms, taste signals, and already-resolved games.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        {slowLoading ? (
-          <Alert variant="info" aria-live="polite">
-            Still working through the catalog. Your current signals are safe.
-          </Alert>
-        ) : null}
-        <Skeleton className="h-56 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </Container>
+      <div className="relative text-foreground animate-pulse">
+        {/* Background glow effects */}
+        <div className="pointer-events-none absolute left-1/4 top-1/4 size-[500px] rounded-full bg-accent/5 blur-[120px]" />
+        <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[400px] rounded-full bg-indigo-500/5 blur-[100px]" />
+
+        <Container
+          as="main"
+          size="lg"
+          className="grid gap-8 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:py-8"
+        >
+          {/* LEFT COLUMN: Primary Card Skeleton */}
+          <div className="flex flex-col justify-start min-w-0">
+            <div className="rounded-3xl border border-white/10 bg-card/45 p-6 shadow-2xl backdrop-blur-md">
+              {/* Header Badge Skeleton */}
+              <div className="flex justify-between items-center pb-6">
+                <Skeleton className="h-6 w-32 rounded-full" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]">
+                {/* Cover Art Skeleton */}
+                <Skeleton className="aspect-[2/3] w-full rounded-sm shadow-xl" />
+
+                {/* Text Skeletons */}
+                <div className="grid content-start gap-4">
+                  <div>
+                    <Skeleton className="h-3 w-24 mb-2" />
+                    <Skeleton className="h-9 w-3/4" />
+                  </div>
+
+                  {/* Metrics Skeletons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                  </div>
+
+                  {/* Explanations Skeletons */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Skeletons */}
+              <div className="grid gap-4 pt-6 mt-6 border-t border-white/5">
+                <Skeleton className="h-12 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Info and Alternatives Skeleton */}
+          <div className="flex flex-col gap-6 min-w-0">
+            {/* Status / Loading Section */}
+            <section className="grid gap-4 bg-secondary/10 border border-white/5 rounded-3xl p-5 backdrop-blur-sm shadow-md">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="grid gap-1">
+                  <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+                    <span className="inline-block size-2 rounded-full bg-accent animate-ping" />
+                    Building your Playfit
+                  </h2>
+                </div>
+                <div className="flex gap-1.5 bg-secondary/40 p-1 rounded-2xl border border-white/5">
+                  <Skeleton className="h-8 w-16 rounded-xl" />
+                  <Skeleton className="h-8 w-16 rounded-xl" />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed">
+                  Checking your platforms, taste signals, and already-resolved games.
+                </CardDescription>
+              </div>
+
+              {slowLoading ? (
+                <div className="rounded-xl border border-warning/20 bg-warning/5 p-3.5 text-xs text-warning leading-relaxed animate-pulse">
+                  Still working through the catalog. Your current signals are safe.
+                </div>
+              ) : (
+                <Skeleton className="h-10 w-full rounded-xl" />
+              )}
+            </section>
+
+            {/* Alternatives / Also Worth Considering Skeleton */}
+            <section className="grid gap-3">
+              <div className="px-1">
+                <CardTitle as="h3" className="text-sm font-extrabold text-foreground">
+                  Also worth considering
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  Other potential candidates matching your active taste signals.
+                </CardDescription>
+              </div>
+              <div className="rounded-3xl border border-white/5 bg-card/45 p-5 shadow-xl backdrop-blur-sm grid gap-3">
+                <div className="flex gap-3 items-center">
+                  <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
+                  <div className="grid gap-2 flex-1">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <div className="flex gap-3 items-center">
+                  <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
+                  <div className="grid gap-2 flex-1">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </Container>
+      </div>
     );
   }
 
@@ -227,20 +325,20 @@ export function DecisionShell() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="lg:h-screen lg:overflow-hidden relative"
+      className="relative"
     >
       {/* Background glow effects */}
       <div className="pointer-events-none absolute left-1/4 top-1/4 size-[500px] rounded-full bg-accent/5 blur-[120px]" />
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[400px] rounded-full bg-indigo-500/5 blur-[100px]" />
 
-      <div className="min-h-screen text-foreground lg:h-full lg:min-h-0 lg:overflow-hidden">
+      <div className="text-foreground">
         <Container
           as="main"
           size="lg"
-          className="grid gap-8 py-6 lg:h-full lg:max-h-full lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:py-8 lg:overflow-hidden"
+          className="grid gap-8 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:py-8"
         >
-          {/* LEFT COLUMN: Primary Card (Centered, Fixed) */}
-          <div className="flex flex-col justify-center min-w-0 lg:h-full lg:overflow-hidden">
+          {/* LEFT COLUMN: Primary Card (Aligned to top) */}
+          <div className="flex flex-col justify-start min-w-0">
             <motion.div
               initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -260,13 +358,13 @@ export function DecisionShell() {
             </motion.div>
           </div>
 
-          {/* RIGHT COLUMN: Nav, Signals, and Scrollable Alternatives */}
-          <div className="flex flex-col gap-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2">
+          {/* RIGHT COLUMN: Nav, Signals, and Alternatives */}
+          <div className="flex flex-col gap-6 min-w-0">
             <section className="grid gap-4 bg-secondary/10 border border-white/5 rounded-3xl p-5 backdrop-blur-sm shadow-md">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-accent">
-                  Play Next Engine
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle as="h2" className="text-xl font-black tracking-tight text-foreground">
+                  {recommendationGroupTitle(model?.nextUp ?? [])}
+                </CardTitle>
                 <div className="flex gap-1.5 bg-secondary/40 p-1 rounded-2xl border border-white/5">
                   <Button
                     type="button"
@@ -304,9 +402,6 @@ export function DecisionShell() {
               </div>
 
               <div className="grid gap-1">
-                <CardTitle as="h2" className="text-xl font-black tracking-tight text-foreground">
-                  {recommendationGroupTitle(model?.nextUp ?? [])}
-                </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground leading-relaxed">
                   Find what to play next, save promising picks, and keep the reasons visible. Only
                   active platform games are suggested.
@@ -346,7 +441,7 @@ export function DecisionShell() {
                         <div className="flex items-center gap-3.5 min-w-0">
                           <CoverArt
                             game={entry.game}
-                            className="aspect-[2/3] w-11 shrink-0 rounded-xl shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+                            className="aspect-[2/3] w-11 shrink-0 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
                           />
                           <div className="min-w-0">
                             <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-accent truncate">

@@ -35,20 +35,32 @@ export function CoverArt({
   const src = normalizeCoverSrc(game);
   const hue = hashToHue(game.gameId);
   const alt = decorative ? "" : `${game.title} cover art`;
-  const placeholder = game.title
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("");
+
+  // Safe initials generation stripping symbols like trademarks, parenthesis, etc.
+  const placeholder =
+    (game.title || "")
+      .replace(/[^\w\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "?";
+
   const placeholderClassName =
-    "grid h-full min-h-32 place-items-center p-4 text-center text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground";
+    "grid h-full w-full place-items-center p-2 text-center text-[10px] sm:text-xs font-black uppercase tracking-[0.15em] text-white/80";
   const placeholderStyle = {
-    background: `linear-gradient(135deg, hsl(${hue}, 40%, 20%), hsl(${(hue + 60) % 360}, 30%, 30%))`,
+    background: `linear-gradient(135deg, hsl(${hue}, 40%, 18%), hsl(${(hue + 50) % 360}, 30%, 26%))`,
   };
 
   return (
-    <div className={cn("overflow-hidden rounded-md border border-border bg-black/40", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-sm border border-border bg-black/40 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.5),0_4px_6px_-2px_rgba(0,0,0,0.3)] after:content-[''] after:absolute after:inset-y-0 after:left-0 after:w-[1.5px] after:bg-white/20 after:pointer-events-none",
+        className,
+      )}
+    >
       {src ? (
         src.startsWith("http") ? (
           <Image

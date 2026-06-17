@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect } from "react";
 import { usePlayfit } from "./playfit-context";
 
 const dotVariants = {
@@ -23,9 +24,18 @@ const dotLabels: Record<string, string> = {
 };
 
 export function SaveIndicator() {
-  const { ui } = usePlayfit();
+  const { ui, setUi } = usePlayfit();
   const status = ui.saveStatus;
   const show = status === "saving" || status === "saved" || status === "error";
+
+  useEffect(() => {
+    if (status === "saved") {
+      const timer = setTimeout(() => {
+        setUi((prev) => ({ ...prev, saveStatus: "idle" }));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, setUi]);
 
   return (
     <AnimatePresence>

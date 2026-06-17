@@ -87,7 +87,7 @@ export function FinderSection() {
               <motion.div key={game.gameId} variants={cardItemVariants}>
                 <button
                   type="button"
-                  aria-label={`Open ${game.title} dossier`}
+                  aria-label={`Open ${game.title} analysis`}
                   className="grid w-full grid-cols-[56px_1fr_auto] items-center gap-4 rounded-md border border-border bg-card p-3 text-left transition-all duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
                   onClick={() => openDossier(game.gameId)}
                 >
