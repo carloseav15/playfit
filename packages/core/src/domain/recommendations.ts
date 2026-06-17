@@ -221,7 +221,7 @@ function getPlatformAvailability(
   game: SeedGame,
   accessiblePlatformIds: Set<string>,
 ): PlatformAvailability {
-  if (game.availablePlatformIds.length === 0) {
+  if (!game.availablePlatformIds || game.availablePlatformIds.length === 0) {
     return "unknown";
   }
 
@@ -234,7 +234,7 @@ export function getTagWeight(tag: string): number {
   return TAG_WEIGHTS[tag] ?? 2;
 }
 
-function buildLikedTagsFromProfile(profile: ProductProfile) {
+export function buildLikedTagsFromProfile(profile: ProductProfile) {
   return Object.fromEntries(
     Object.entries(profile.likedTags).filter(
       ([tag, count]) => count > (profile.dislikedTags[tag] ?? 0),
@@ -242,7 +242,7 @@ function buildLikedTagsFromProfile(profile: ProductProfile) {
   );
 }
 
-function buildDislikedTagsFromProfile(profile: ProductProfile) {
+export function buildDislikedTagsFromProfile(profile: ProductProfile) {
   return Object.fromEntries(
     Object.entries(profile.dislikedTags).filter(
       ([tag, count]) => count > (profile.likedTags[tag] ?? 0),
