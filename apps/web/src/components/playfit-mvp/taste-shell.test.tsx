@@ -24,6 +24,10 @@ vi.mock("../playfit/playfit-context", () => ({
   usePlayfit: mocks.usePlayfit,
 }));
 
+vi.mock("../playfit/header-context", () => ({
+  useHeader: vi.fn(),
+}));
+
 function createGame(gameId: string, title: string, overrides: Partial<SeedGame> = {}): SeedGame {
   return {
     gameId,
@@ -126,7 +130,7 @@ describe("TasteShell", () => {
     const html = renderToStaticMarkup(<TasteShell />);
 
     expect(html).toContain("Your Taste");
-    expect(html).toContain("Taste Map");
+    expect(html).toContain("Interactive Affinity Map");
     expect(html).toContain("Activity");
     expect(html).toContain("Liked");
     expect(html).toContain("Avoided");

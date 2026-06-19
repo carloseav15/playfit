@@ -279,3 +279,38 @@ dialog[open]::backdrop {
     -webkit-mask-image: none;
   }
 }
+
+/* ── Premium Background Glow Animations ──────────────── */
+@keyframes pulse-slow {
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08) translate(15px, -20px);
+    opacity: 0.95;
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 12s ease-in-out infinite;
+}
+
+.animate-pulse-slower {
+  animation: pulse-slow 18s ease-in-out infinite alternate;
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}

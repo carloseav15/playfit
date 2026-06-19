@@ -283,7 +283,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       <div className="flex-1 w-full flex flex-col">{children}</div>
 
-      {profileReady && (
+      {profileReady && !pathname?.startsWith("/play/game/") && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/90 backdrop-blur-xl md:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
           <div className="flex h-16 items-center justify-around px-4">
             <Link

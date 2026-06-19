@@ -33,7 +33,7 @@ function uniqueEntries(list: RankedSeedGame[]) {
 }
 
 export function DecisionShell() {
-  const { setStatusMessage, state, applyDecisionFeedback, setPlayfitPick } = usePlayfit();
+  const { dataLost, setStatusMessage, state, applyDecisionFeedback, setPlayfitPick } = usePlayfit();
   const pathname = usePathname();
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [slowLoading, setSlowLoading] = useState(false);
@@ -104,6 +104,38 @@ export function DecisionShell() {
   const positiveSignalCount = state.user.onboarding.likedGameIds.length;
   const negativeSignalCount = state.user.onboarding.dislikedGameIds.length;
   const tasteSignalCount = positiveSignalCount + negativeSignalCount;
+  const ratedCount = state.user.profile?.ratedCount ?? 0;
+
+  if (dataLost) {
+    return (
+      <Container as="main" size="sm" className="grid gap-4 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Session reset</CardTitle>
+            <CardDescription>
+              Your profile data is no longer available. This can happen after a database reset or
+              session expiry.
+            </CardDescription>
+          </CardHeader>
+          <div className="flex gap-3 p-6 pt-0">
+            <Button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem("playfit_had_data");
+                window.location.reload();
+              }}
+            >
+              Start fresh
+            </Button>
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/">Go home</Link>
+            </Button>
+          </div>
+        </Card>
+        <StatusToast />
+      </Container>
+    );
+  }
 
   if (!profileReady) {
     return (
@@ -111,7 +143,7 @@ export function DecisionShell() {
         className={cn(
           "bg-background text-foreground flex flex-col w-full justify-start",
           startedCalibration
-            ? "h-[100dvh] overflow-hidden md:h-auto md:min-h-[calc(100vh-4rem)] md:items-center md:justify-center md:p-4"
+            ? "min-h-[100dvh] md:h-auto md:min-h-[calc(100vh-4rem)] md:items-center md:justify-center md:p-4"
             : "min-h-[calc(100vh-4rem)] items-center justify-center p-4",
         )}
       >
@@ -121,7 +153,7 @@ export function DecisionShell() {
           className={cn(
             "w-full flex flex-col min-h-0",
             startedCalibration
-              ? "h-full p-0 py-0 md:h-auto md:max-w-5xl md:px-6 md:py-8 md:gap-6"
+              ? "min-h-0 p-0 py-0 md:h-auto md:max-w-5xl md:px-6 md:py-8 md:gap-6"
               : "grid gap-6 py-4 md:py-8",
           )}
         >
@@ -340,9 +372,15 @@ export function DecisionShell() {
                   Find what to play next, save promising picks, and keep the reasons visible. Only
                   games available on your selected platforms are suggested.
                 </CardDescription>
+                {ratedCount < 3 && (
+                  <p className="text-[11px] text-accent mt-0.5 font-semibold">
+                    ✨ Rate {3 - ratedCount} more game{3 - ratedCount === 1 ? "" : "s"} to unlock
+                    detailed match reasons.
+                  </p>
+                )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-accent/5 border border-accent/20 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1 rounded-xl bg-accent/5 border border-accent/20 px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                 <span>{tasteSignalCount} preferences</span>
                 <span aria-hidden="true" className="opacity-40">
                   /

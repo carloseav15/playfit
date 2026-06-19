@@ -86,8 +86,13 @@ export function Dialog({ open, onClose, title, eyebrow, children, className }: D
       onKeyDown={handleKeyDown}
       onCancel={handleCancel}
     >
+      {/* Mobile Drag Handle */}
+      <div className="flex justify-center pt-3 pb-1 md:hidden shrink-0">
+        <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
+      </div>
+
       {(title || eyebrow) && (
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-background/94 p-4 backdrop-blur-xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-background/94 p-4 md:pt-4 pt-1 backdrop-blur-xl">
           <div>
             {eyebrow && (
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">

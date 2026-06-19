@@ -380,6 +380,18 @@ export function TasteMapVisualizer({
                     }
                   }}
                 >
+                  {/* Invisible touch target expansion (WCAG 2.2) */}
+                  <circle cx={cx} cy={cy} r={18} fill="transparent" className="cursor-pointer" />
+                  {/* Focus indicator ring (accessible keyboard nav) */}
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={isActive ? 15 : 12}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-accent opacity-0 group-focus-visible:opacity-100 transition-opacity duration-200"
+                  />
                   {/* Outer glow circle */}
                   <circle
                     cx={cx}
