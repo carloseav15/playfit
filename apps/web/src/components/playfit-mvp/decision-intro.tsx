@@ -88,7 +88,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
   } as unknown as SeedGame;
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-card to-background p-5 sm:p-8 md:p-12 text-card-foreground shadow-2xl backdrop-blur-md grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)] md:gap-10">
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 sm:p-8 md:p-12 text-card-foreground shadow-lg grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)] md:gap-10">
       {/* Decorative Glow Elements */}
       <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-accent/20 blur-[120px]" />
       <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-positive/10 blur-[100px]" />
@@ -96,12 +96,20 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
       <div className="relative z-10 flex flex-col justify-between gap-6">
         <div className="grid gap-5">
           <div className="flex items-center gap-3">
-            <div className="relative size-12 rounded-2xl overflow-hidden shadow-lg border border-white/10 shrink-0 bg-secondary/30">
+            <div className="relative size-12 rounded-2xl overflow-hidden shadow-md border border-border/50 shrink-0 bg-secondary/50">
               <Image
-                src="/playfit_logo.png"
+                src="/playfit_logo_light.png"
                 alt="Playfit Brand Logo"
                 fill
-                className="object-cover"
+                sizes="48px"
+                className="object-cover dark:hidden"
+              />
+              <Image
+                src="/playfit_logo_dark.png"
+                alt="Playfit Brand Logo"
+                fill
+                sizes="48px"
+                className="hidden object-cover dark:block"
               />
             </div>
             <span className="text-xs font-black uppercase tracking-[0.2em] text-accent font-mono">
@@ -122,26 +130,26 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
             Zero noise. Zero decision fatigue.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4 w-full">
           <Button
             type="button"
-            className="w-fit bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-fit bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 font-extrabold shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
             onClick={onStart}
           >
             <Compass className="size-4 mr-2" />
-            Begin Calibration
+            Find What to Play
           </Button>
         </div>
       </div>
 
       <aside
         aria-labelledby="preview-curation-title"
-        className="relative z-10 rounded-3xl border border-white/10 bg-card/40 p-4 sm:p-6 backdrop-blur-md shadow-2xl flex flex-col justify-between overflow-hidden group"
+        className="relative z-10 rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-lg flex flex-col justify-between overflow-hidden group"
       >
         {/* Glowing aura inside card */}
         <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-accent/20 blur-2xl group-hover:scale-110 transition-transform duration-500" />
 
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-3">
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
           <span
             id="preview-curation-title"
             className="text-[10px] font-black uppercase tracking-[0.15em] text-accent flex items-center gap-1.5"
@@ -160,7 +168,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
         <div className="grid grid-cols-[72px_1fr] gap-4 py-5">
           <CoverArt
             game={realGame || mockGame}
-            className="aspect-[2/3] w-18 rounded-sm shadow-md border border-white/5 bg-secondary/35 shrink-0"
+            className="aspect-[2/3] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30 shrink-0"
           />
           <div className="flex flex-col justify-center min-w-0">
             <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
@@ -178,7 +186,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
           </div>
         </div>
 
-        <div className="grid gap-2.5 pt-3 border-t border-white/5 text-[11px]">
+        <div className="grid gap-2.5 pt-3 border-t border-border/60 text-[11px]">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-positive" />

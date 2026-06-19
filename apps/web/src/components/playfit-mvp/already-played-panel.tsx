@@ -44,8 +44,7 @@ export function AlreadyPlayedPanel({
     >
       <div id={id} className="grid gap-4">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Let Playfit know how your experience with this game was. This feedback will calibrate and
-          refine your future recommendations.
+          Let us know how your experience was. This helps refine your future recommendations.
         </p>
         <Stack direction="row" wrap gap={3} className="justify-between pt-2">
           {options.map(({ feedback, label, Icon }) => (
@@ -57,7 +56,7 @@ export function AlreadyPlayedPanel({
                 onSelect(feedback);
                 onClose();
               }}
-              className="flex-1 flex flex-col items-center justify-center gap-2.5 p-5 h-24 rounded-2xl bg-secondary/15 hover:bg-accent/10 border-white/5 hover:border-accent/20 text-foreground transition-all duration-300 active:scale-[0.97]"
+              className="flex-1 flex flex-col items-center justify-center gap-2.5 p-5 h-24 rounded-2xl border border-border/50 bg-secondary/30 hover:bg-accent/10 hover:border-accent/20 text-foreground transition-all duration-300 active:scale-[0.97]"
             >
               <Icon className="size-6 text-accent" />
               <span className="text-[11px] font-black uppercase tracking-wider">{label}</span>
