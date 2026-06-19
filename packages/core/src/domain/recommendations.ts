@@ -402,7 +402,7 @@ function scoreSeedGameWithContext(
   };
 }
 
-export function findSeriesGames(game: SeedGame, allGames: SeedGame[], limit = 10): SeedGame[] {
+export function findSeriesGames(game: SeedGame, allGames: SeedGame[], limit = 20): SeedGame[] {
   const seriesKey = game.seriesId ?? game.series;
   if (!seriesKey) return [];
   return allGames
@@ -410,7 +410,7 @@ export function findSeriesGames(game: SeedGame, allGames: SeedGame[], limit = 10
     .slice(0, limit);
 }
 
-export function findSimilarGames(game: SeedGame, allGames: SeedGame[], limit = 5): SeedGame[] {
+export function findSimilarGames(game: SeedGame, allGames: SeedGame[], limit = 20): SeedGame[] {
   return allGames
     .filter((g) => g.gameId !== game.gameId && isScoredGame(g))
     .map((g) => ({
@@ -511,7 +511,7 @@ export function buildTodayModel(
         entry.accessStatus === "playable",
     )
     .sort((left, right) => right.affinityScore - left.affinityScore)
-    .slice(0, 10);
+    .slice(0, 100);
 
   const picks = rankedFiltered
     .filter((entry) => entry.inPlayfitPicks && isPlayableNow(entry))
@@ -521,7 +521,7 @@ export function buildTodayModel(
         left.riskScore - right.riskScore ||
         CONFIDENCE_RANK[right.confidence] - CONFIDENCE_RANK[left.confidence],
     )
-    .slice(0, 20);
+    .slice(0, 100);
 
   const playableCandidates = rankedFiltered.filter((entry) => {
     const stateEntry = state.user.gameStates[entry.game.gameId];
@@ -569,7 +569,7 @@ export function buildTodayModel(
         currentRun: currentRun.length,
         resume: resume.length,
         picks: picks.length,
-        nextUp: playableCandidates.slice(0, 10).length,
+        nextUp: playableCandidates.slice(0, 100).length,
       }),
     );
   }
@@ -578,7 +578,7 @@ export function buildTodayModel(
     return right.affinityScore - left.affinityScore || left.riskScore - right.riskScore;
   });
 
-  const nextUp = sortedPlayable.slice(0, 10);
+  const nextUp = sortedPlayable.slice(0, 100);
 
   return { currentRun, nextUp, resume, picks };
 }
