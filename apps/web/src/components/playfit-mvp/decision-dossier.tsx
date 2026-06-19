@@ -79,7 +79,7 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
   }
 
   return (
-    <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur-xl p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[max(1rem,env(safe-area-inset-bottom))] md:relative md:bottom-auto md:z-auto md:p-0 md:bg-transparent md:border-0 md:shadow-none md:pb-0">
+    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur-xl p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[max(1rem,env(safe-area-inset-bottom))] md:relative md:bottom-auto md:z-auto md:p-0 md:bg-transparent md:border-0 md:shadow-none md:pb-0">
       <div className="mx-auto max-w-md md:max-w-none flex flex-col sm:flex-row gap-2.5">
         {isPicked ? (
           <Button
@@ -298,7 +298,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
                   </Badge>
                 </Stack>
                 <div>
-                  <h1 className="font-display text-4xl font-black leading-tight text-foreground">
+                  <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-black leading-tight text-foreground">
                     {game.title}
                   </h1>
                   <div className="flex flex-wrap items-center gap-2 mt-1.5">

@@ -88,7 +88,9 @@ export function PlayNextCard({
                 {entry.game.title}
               </h3>
             </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">{bestReason}</p>
+            {entry.fitReasons.length > 0 || hasCautions ? (
+              <p className="text-sm leading-relaxed text-muted-foreground">{bestReason}</p>
+            ) : null}
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="secondary" className="bg-secondary/40">
                 {matchLabel}
@@ -196,7 +198,7 @@ export function PlayNextCard({
       <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-accent/10 blur-3xl" />
       <div className="pointer-events-none absolute -left-16 -bottom-16 size-44 rounded-full bg-indigo-500/10 blur-3xl" />
 
-      <CardHeader className="pb-2 relative z-10">
+      <CardHeader className="pb-2 relative z-10 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Badge
             variant={tone}
@@ -212,32 +214,32 @@ export function PlayNextCard({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-6 relative z-10">
+      <CardContent className="grid gap-4 sm:gap-6 relative z-10 p-4 sm:p-6 pt-0 sm:pt-0">
         <div
           className={cn(
-            "grid gap-5",
+            "grid gap-4 sm:gap-5",
             primary && "md:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]",
           )}
         >
-          <div className="relative group/cover justify-self-center w-full max-w-44 md:max-w-none">
+          <div className="relative group/cover justify-self-center w-full max-w-[130px] sm:max-w-[176px] md:max-w-none">
             <CoverArt
               game={entry.game}
               className="aspect-[2/3] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-border/40"
               priority={primary}
             />
           </div>
-          <div className="grid min-w-0 content-start gap-4">
+          <div className="grid min-w-0 content-start gap-3 sm:gap-4">
             <div>
               <h2
                 className={cn(
                   "font-display font-black leading-[0.95] tracking-tight text-foreground",
-                  primary ? "text-4xl md:text-5xl" : "text-2xl",
+                  primary ? "text-2xl sm:text-4xl md:text-5xl" : "text-xl sm:text-2xl",
                 )}
               >
                 {entry.game.title}
               </h2>
             </div>
-            <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-xs">
               <RecommendationMetric
                 label="Match"
                 value={matchLabel}
@@ -245,6 +247,9 @@ export function PlayNextCard({
                 numericValue={entry.affinityScore}
                 colorClass="bg-gradient-to-r from-accent to-indigo-600"
                 interactive
+                className="p-2.5 sm:p-4"
+                labelClassName="text-[8px] sm:text-[10px]"
+                valueClassName="text-sm sm:text-base"
               />
               <RecommendationMetric
                 label="Watch-outs"
@@ -253,59 +258,74 @@ export function PlayNextCard({
                 numericValue={entry.riskScore}
                 colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
                 interactive
+                className="p-2.5 sm:p-4"
+                labelClassName="text-[8px] sm:text-[10px]"
+                valueClassName="text-sm sm:text-base"
               />
               <RecommendationMetric
                 label="Confidence"
                 value={confidence}
                 colorClass="bg-accent/70"
                 interactive
+                className="p-2.5 sm:p-4"
+                labelClassName="text-[8px] sm:text-[10px]"
+                valueClassName="text-sm sm:text-base"
               />
             </div>
-            <div className={cn("grid gap-3.5", hasCautions ? "md:grid-cols-2" : "grid-cols-1")}>
-              <RecommendationReasons
-                title="Why this fits"
-                reasons={[bestReason]}
-                fallback={bestReason}
-                variant="paragraph"
-                className="bg-secondary/25 hover:bg-secondary/40 transition-colors duration-200"
-                titleClassName="mb-0"
-              />
-              {hasCautions ? (
-                <RecommendationReasons
-                  title="Watch-outs"
-                  reasons={[firstWatchOut]}
-                  fallback={firstWatchOut}
-                  tone="warning"
-                  variant="paragraph"
-                  className="bg-secondary/25 hover:bg-secondary/40 transition-colors duration-200"
-                  titleClassName="mb-0"
-                />
-              ) : null}
-            </div>
+            {entry.fitReasons.length > 0 || hasCautions ? (
+              <div
+                className={cn(
+                  "grid gap-2.5 sm:gap-3.5",
+                  entry.fitReasons.length > 0 && hasCautions ? "md:grid-cols-2" : "grid-cols-1",
+                )}
+              >
+                {entry.fitReasons.length > 0 ? (
+                  <RecommendationReasons
+                    title="Why this fits"
+                    reasons={entry.fitReasons}
+                    fallback={entry.fitReasons[0]}
+                    variant="paragraph"
+                    className="bg-secondary/25 p-3 sm:p-4 hover:bg-secondary/40 transition-colors duration-200"
+                    titleClassName="mb-0"
+                  />
+                ) : null}
+                {hasCautions ? (
+                  <RecommendationReasons
+                    title="Watch-outs"
+                    reasons={[firstWatchOut]}
+                    fallback={firstWatchOut}
+                    tone="warning"
+                    variant="paragraph"
+                    className="bg-secondary/25 p-3 sm:p-4 hover:bg-secondary/40 transition-colors duration-200"
+                    titleClassName="mb-0"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="grid gap-4 pt-2 border-t border-border/60">
+        <div className="grid gap-3 pt-2 border-t border-border/60">
           <Button
             type="button"
             onClick={onAddPick}
             disabled={inPlayfitPicks}
             className={cn(
-              "w-full h-12 font-extrabold text-sm rounded-2xl transition-all duration-300 active:scale-[0.99]",
+              "w-full h-11 sm:h-12 font-extrabold text-sm rounded-2xl transition-all duration-300 active:scale-[0.99]",
               inPlayfitPicks
                 ? "bg-secondary text-muted-foreground cursor-not-allowed"
-                : "bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.2)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.35)] scale-100 hover:scale-[1.01]",
+                : "bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] scale-100 hover:scale-[1.01]",
             )}
           >
             <ListPlus className="size-4 mr-2" />
             {inPlayfitPicks ? "Saved in Playfit Picks" : "Add to Playfit Picks"}
           </Button>
 
-          <div className="flex flex-col gap-3 p-3 rounded-2xl bg-secondary/50 border border-border/50">
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/80 px-1">
+          <div className="flex flex-col gap-2 p-2.5 sm:p-3 rounded-2xl bg-secondary/50 border border-border/50">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/80 px-1">
               What's your verdict?
             </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant="secondary"
@@ -315,18 +335,18 @@ export function PlayNextCard({
                   setShowAlreadyPlayed((current) => !current);
                   setShowReasonPicker(false);
                 }}
-                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-secondary h-11 md:h-10 rounded-xl text-xs font-bold"
+                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-secondary h-10 sm:h-11 rounded-xl text-xs font-bold"
               >
-                <CheckCircle2 className="size-4" />
-                Already Played It
+                <CheckCircle2 className="size-4 mr-1.5 text-positive" />
+                Already Played
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={markNotForMe}
-                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive"
+                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 sm:h-11 rounded-xl text-xs font-bold"
               >
-                <XCircle className="size-4" />
+                <XCircle className="size-4 mr-1.5 text-destructive" />
                 No, skip this
               </Button>
             </div>

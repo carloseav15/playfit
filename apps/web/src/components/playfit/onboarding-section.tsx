@@ -3,7 +3,7 @@
 import { buildAdaptiveProfile, canAdvanceOnboarding } from "@playfit/core/domain";
 import type { ProductPlatformOption, SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
-import { Check, ChevronRight, Gamepad2, Laptop, Tv } from "lucide-react";
+import { Check, ChevronRight, Gamepad2, Laptop, Tv, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -15,10 +15,10 @@ import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Stack } from "@/components/ui/stack";
-import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "./cover-art";
 import { usePlayfit } from "./playfit-context";
+import { formatDisplayGenre, isValidReleaseYear } from "./product-utils";
 import { SectionHead } from "./section-head";
 
 const preferredPlatformFamilies = ["nintendo", "playstation", "xbox", "sega", "pc", "other"];
@@ -380,7 +380,7 @@ export function OnboardingSection() {
                     <div className="flex flex-col text-center sm:text-left sm:flex-row sm:justify-between gap-0.5 px-0.5">
                       <span
                         className={cn(
-                          "text-[9px] font-black uppercase tracking-wider transition-colors",
+                          "text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors",
                           isActive
                             ? "text-accent"
                             : isCompleted
@@ -390,7 +390,7 @@ export function OnboardingSection() {
                       >
                         {s.label}
                       </span>
-                      <span className="text-[8px] font-mono text-muted-foreground/60">
+                      <span className="text-[10px] sm:text-xs font-mono text-muted-foreground/60">
                         {s.count}
                       </span>
                     </div>
@@ -684,18 +684,43 @@ export function OnboardingSection() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                       Selected Loved Games
                     </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {draft.likedGameIds.map((gameId) => {
                         const game = getSeedGame(gameId);
                         if (!game) return null;
                         return (
-                          <div key={gameId} className="shrink-0">
-                            <Tag
-                              onRemove={() => removeAnchor(gameId)}
-                              className="border-accent/30 bg-accent/5 text-foreground font-bold"
+                          <div
+                            key={gameId}
+                            className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-secondary/20 p-2 min-w-0"
+                          >
+                            <CoverArt
+                              game={game}
+                              className="aspect-[2/3] w-8 shrink-0 rounded-sm shadow-sm"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-xs font-extrabold text-foreground leading-tight">
+                                {game.title}
+                              </h4>
+                              <p className="truncate text-[10px] text-muted-foreground mt-0.5">
+                                {[
+                                  isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
+                                  game.availablePlatformNames &&
+                                  game.availablePlatformNames.length > 0
+                                    ? game.availablePlatformNames[0]
+                                    : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" • ")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeAnchor(gameId)}
+                              className="size-6 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              aria-label={`Remove ${game.title}`}
                             >
-                              {game.title}
-                            </Tag>
+                              <X className="size-3.5" />
+                            </button>
                           </div>
                         );
                       })}
@@ -733,6 +758,18 @@ export function OnboardingSection() {
                           <strong className="block text-base font-black truncate text-foreground group-hover:text-accent transition-colors">
                             {game.title}
                           </strong>
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
+                            {[
+                              formatDisplayGenre(game.primaryGenre),
+                              isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
+                              game.availablePlatformNames && game.availablePlatformNames.length > 0
+                                ? game.availablePlatformNames.slice(0, 3).join(", ") +
+                                  (game.availablePlatformNames.length > 3 ? "..." : "")
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          </span>
                         </span>
                         {selected ? (
                           <div className="size-6 shrink-0 grid place-items-center rounded-full bg-positive-bg text-positive border border-positive/30">
@@ -844,19 +881,43 @@ export function OnboardingSection() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-negative">
                       Selected Missed Game
                     </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {draft.dislikedGameIds.map((gameId) => {
                         const game = getSeedGame(gameId);
                         if (!game) return null;
                         return (
-                          <div key={gameId} className="shrink-0">
-                            <Tag
-                              variant="default"
-                              onRemove={() => removeDislikedAnchor(gameId)}
-                              className="border-negative/30 bg-negative/5 text-foreground font-bold"
+                          <div
+                            key={gameId}
+                            className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-secondary/20 p-2 min-w-0"
+                          >
+                            <CoverArt
+                              game={game}
+                              className="aspect-[2/3] w-8 shrink-0 rounded-sm shadow-sm"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-xs font-extrabold text-foreground leading-tight">
+                                {game.title}
+                              </h4>
+                              <p className="truncate text-[10px] text-muted-foreground mt-0.5">
+                                {[
+                                  isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
+                                  game.availablePlatformNames &&
+                                  game.availablePlatformNames.length > 0
+                                    ? game.availablePlatformNames[0]
+                                    : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" • ")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeDislikedAnchor(gameId)}
+                              className="size-6 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              aria-label={`Remove ${game.title}`}
                             >
-                              {game.title}
-                            </Tag>
+                              <X className="size-3.5" />
+                            </button>
                           </div>
                         );
                       })}
@@ -894,9 +955,23 @@ export function OnboardingSection() {
                           <strong className="block text-base font-black truncate text-foreground group-hover:text-negative transition-colors">
                             {game.title}
                           </strong>
-                          {loved && (
+                          {loved ? (
                             <span className="block text-xs text-muted-foreground truncate mt-0.5">
                               Selected as loved
+                            </span>
+                          ) : (
+                            <span className="block text-xs text-muted-foreground truncate mt-0.5">
+                              {[
+                                formatDisplayGenre(game.primaryGenre),
+                                isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
+                                game.availablePlatformNames &&
+                                game.availablePlatformNames.length > 0
+                                  ? game.availablePlatformNames.slice(0, 3).join(", ") +
+                                    (game.availablePlatformNames.length > 3 ? "..." : "")
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
                             </span>
                           )}
                         </span>

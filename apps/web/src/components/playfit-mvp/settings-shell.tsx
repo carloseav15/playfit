@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ChevronRight,
-  Gamepad2,
-  Laptop,
-  Moon,
-  Sun,
-  User,
-  UserCheck,
-} from "lucide-react";
+import { ArrowLeft, Laptop, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,8 +12,9 @@ import { Container } from "@/components/ui/container";
 import { ToggleButton, ToggleGroup } from "@/components/ui/toggle-group";
 import { useHeader } from "../playfit/header-context";
 import { usePlayfit } from "../playfit/playfit-context";
+import { SettingsDesktop } from "./desktop/settings-desktop";
+import { SettingsMobile } from "./mobile/settings-mobile";
 import { PlayRouteTabs } from "./play-route-tabs";
-import { PlatformsTabContent } from "./taste-shell";
 
 export function SettingsShell() {
   const { state, authUser, setUseLocalProfile, signOut } = usePlayfit();
@@ -83,7 +75,7 @@ export function SettingsShell() {
       </CardHeader>
       <CardContent>
         {mounted ? (
-          <ToggleGroup className="w-full max-w-sm grid grid-cols-3 gap-2 bg-secondary/30 p-1 rounded-2xl border border-border/40">
+          <ToggleGroup className="w-full md:max-w-sm grid grid-cols-3 gap-2 bg-secondary/30 p-1 rounded-2xl border border-border/40">
             <ToggleButton
               active={theme === "light"}
               onClick={() => setTheme("light")}
@@ -107,7 +99,7 @@ export function SettingsShell() {
             </ToggleButton>
           </ToggleGroup>
         ) : (
-          <div className="h-12 w-full max-w-sm rounded-2xl bg-secondary/30 animate-pulse border border-border/40" />
+          <div className="h-12 w-full md:max-w-sm rounded-2xl bg-secondary/30 animate-pulse border border-border/40" />
         )}
       </CardContent>
     </Card>
@@ -200,121 +192,23 @@ export function SettingsShell() {
             <PlayRouteTabs pathname={pathname} className="w-full sm:w-auto" />
           </div>
 
-          {/* Mobile sub-views (Option B Settings Menu) */}
-          <div className="flex flex-col gap-6 md:hidden">
-            {subView === "menu" && (
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSubView("appearance")}
-                  className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
-                      {theme === "light" ? (
-                        <Sun className="size-5" />
-                      ) : theme === "dark" ? (
-                        <Moon className="size-5" />
-                      ) : (
-                        <Laptop className="size-5" />
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-extrabold text-foreground">App Appearance</span>
-                      <span className="text-xs text-muted-foreground mt-0.5">
-                        Theme: {theme ? theme.charAt(0).toUpperCase() + theme.slice(1) : "System"}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="size-4 text-muted-foreground/60" />
-                </button>
+          {/* Mobile sub-views */}
+          <SettingsMobile
+            subView={subView}
+            setSubView={setSubView}
+            renderThemeCard={renderThemeCard}
+            renderAccountCard={renderAccountCard}
+            authUser={authUser}
+            theme={theme}
+            platformsCount={state.user.onboarding.platforms.length}
+            setUseLocalProfile={setUseLocalProfile}
+          />
 
-                <button
-                  type="button"
-                  onClick={() => setSubView("platforms")}
-                  className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
-                      <Gamepad2 className="size-5" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-extrabold text-foreground">Your Platforms</span>
-                      <span className="text-xs text-muted-foreground mt-0.5">
-                        {state.user.onboarding.platforms.length}{" "}
-                        {state.user.onboarding.platforms.length === 1 ? "system" : "systems"}{" "}
-                        selected
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="size-4 text-muted-foreground/60" />
-                </button>
-
-                {authUser ? (
-                  <button
-                    type="button"
-                    onClick={() => setSubView("account")}
-                    className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
-                        <UserCheck className="size-5 text-accent" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-extrabold text-foreground">Your Account</span>
-                        <span className="text-xs text-muted-foreground mt-0.5">
-                          {authUser.email}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="size-4 text-muted-foreground/60" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setUseLocalProfile(false)}
-                    className="w-full flex items-center justify-between p-4 border border-accent/30 bg-accent/5 rounded-2xl hover:border-accent/60 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="size-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
-                        <User className="size-5" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-extrabold text-accent">
-                          Sign In / Sync Profile
-                        </span>
-                        <span className="text-xs text-muted-foreground mt-0.5">
-                          Save your preferences to the cloud
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="size-4 text-accent/60" />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {subView === "appearance" && (
-              <div className="flex flex-col gap-4">{renderThemeCard()}</div>
-            )}
-
-            {subView === "platforms" && (
-              <div className="flex flex-col gap-4">
-                <PlatformsTabContent />
-              </div>
-            )}
-
-            {subView === "account" && (
-              <div className="flex flex-col gap-4">{renderAccountCard()}</div>
-            )}
-          </div>
-
-          {/* Desktop Layout - Expanded view */}
-          <div className="hidden md:flex flex-col gap-6">
-            {renderThemeCard()}
-            {renderAccountCard()}
-            <PlatformsTabContent />
-          </div>
+          {/* Desktop Layout */}
+          <SettingsDesktop
+            renderThemeCard={renderThemeCard}
+            renderAccountCard={renderAccountCard}
+          />
         </Container>
       </div>
     </motion.div>

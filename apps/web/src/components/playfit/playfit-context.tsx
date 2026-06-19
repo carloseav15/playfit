@@ -67,6 +67,7 @@ interface PlayfitContextValue {
   seedData: ProductSeedData;
   state: ProductState;
   ui: ProductUiState;
+  dataLost: boolean;
   isPending: boolean;
   isSaving: boolean;
   authUser: AuthUser | null;
@@ -373,6 +374,7 @@ export function PlayfitProvider({
   const [state, setState] = useState<ProductState | null>(null);
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [dataLost, setDataLost] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchResults, setSearchResults] = useState<SeedGame[]>([]);
   const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
@@ -400,6 +402,24 @@ export function PlayfitProvider({
       try {
         const loadedState = await loadProductState();
         if (cancelled) return;
+
+        // Detect data loss: user previously had data but it's gone from the DB
+        const hadDataFlag = localStorage.getItem("playfit_had_data");
+        const hasDataNow =
+          !!loadedState.user.onboardingCompletedAt ||
+          Object.keys(loadedState.user.gameStates).length > 0 ||
+          loadedState.user.profile !== null;
+
+        if (hasDataNow) {
+          localStorage.setItem("playfit_had_data", "1");
+        } else if (hadDataFlag === "1") {
+          if (!cancelled) {
+            setDataLost(true);
+            setState(loadedState);
+            setUi(initialUi(loadedState));
+          }
+          return;
+        }
 
         // Collect all game IDs referenced by this user
         const gameIds = new Set([
@@ -648,6 +668,7 @@ export function PlayfitProvider({
       } satisfies ProductSeedData,
       state,
       ui,
+      dataLost,
       isPending: false,
       isSaving,
       authUser,
@@ -993,6 +1014,7 @@ export function PlayfitProvider({
         const clean = createInitialState();
         void enqueueSave(clean);
         setState(clean);
+        setDataLost(false);
         updateUi(initialUi(clean));
         clearGameCache();
       },
@@ -1005,6 +1027,7 @@ export function PlayfitProvider({
         setCachedAuth(null, null);
         setAuthUser(null);
         setUseLocalProfile(false);
+        setDataLost(false);
         const clean = createInitialState();
         setState(clean);
         updateUi(initialUi(clean));
@@ -1021,6 +1044,7 @@ export function PlayfitProvider({
     state,
     ui,
     isSaving,
+    dataLost,
     platforms,
     searchResults,
     onboardingSearchResults,

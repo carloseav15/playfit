@@ -11,7 +11,7 @@ export function Checkbox({ className, label, id, ...props }: CheckboxProps) {
     <label
       htmlFor={id}
       className={cn(
-        "flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-secondary px-4 transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:outline-none hover:bg-secondary/60",
+        "flex min-w-0 min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-secondary px-4 transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:outline-none hover:bg-secondary/60",
         className,
       )}
     >
