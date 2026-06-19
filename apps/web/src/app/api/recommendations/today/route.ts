@@ -1,18 +1,28 @@
 import { buildDislikedTagsFromProfile, buildLikedTagsFromProfile } from "@playfit/core/domain";
+import {
+  productGameStateSchema,
+  productProfileSchema,
+  productStateSchema,
+} from "@playfit/core/schemas";
 import type {
   ProductGameState,
   ProductOnboardingDraft,
   ProductProfile,
   ProductTodayModel,
 } from "@playfit/core/types";
+import { z } from "zod";
 import { getCache, setCache } from "@/lib/api-cache";
 import { createAnonClient } from "@/lib/supabase/server";
 
-interface TodayRequest {
-  profile: ProductProfile;
-  gameStates: Record<string, ProductGameState>;
-  onboarding: ProductOnboardingDraft;
-}
+const todayRequestSchema = z
+  .object({
+    profile: productProfileSchema,
+    gameStates: z.record(z.string(), productGameStateSchema),
+    onboarding: productStateSchema.shape.user.shape.onboarding,
+  })
+  .strict();
+
+type TodayRequest = z.infer<typeof todayRequestSchema>;
 
 const DB_VERSION = 3;
 const RECS_CACHE_TTL = 3600;
@@ -57,7 +67,22 @@ function computeRecsCacheKey(
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as TodayRequest;
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  const parsedBody = todayRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return Response.json(
+      { error: "Invalid recommendations payload", issues: parsedBody.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const body: TodayRequest = parsedBody.data;
   const { profile, gameStates, onboarding } = body;
 
   const supabase = createAnonClient();
@@ -109,7 +134,7 @@ export async function POST(request: Request) {
     if (debug) {
       console.log(JSON.stringify({ stage: "scoreRpcError", error: error.message }));
     }
-    throw new Error(`Failed to score recommendations: ${error.message}`);
+    return Response.json({ error: "Failed to score recommendations" }, { status: 500 });
   }
 
   const model = data as unknown as ProductTodayModel;

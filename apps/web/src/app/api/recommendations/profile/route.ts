@@ -1,5 +1,7 @@
 import { buildAdaptiveProfile } from "@playfit/core/domain";
-import type { ProductGameState, ProductOnboardingDraft, SeedGame } from "@playfit/core/types";
+import { productGameStateSchema, productStateSchema } from "@playfit/core/schemas";
+import type { SeedGame } from "@playfit/core/types";
+import { z } from "zod";
 import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
@@ -22,15 +24,34 @@ interface GameRow {
   genre: unknown;
 }
 
-interface ProfileRequest {
-  onboarding: ProductOnboardingDraft;
-  gameStates: Record<string, ProductGameState>;
-}
+const profileRequestSchema = z
+  .object({
+    onboarding: productStateSchema.shape.user.shape.onboarding,
+    gameStates: z.record(z.string(), productGameStateSchema),
+  })
+  .strict();
+
+type ProfileRequest = z.infer<typeof profileRequestSchema>;
 
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as ProfileRequest;
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  const parsedBody = profileRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return Response.json(
+      { error: "Invalid recommendations profile payload", issues: parsedBody.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const body: ProfileRequest = parsedBody.data;
   const { onboarding, gameStates } = body;
 
   const gameIds = new Set([

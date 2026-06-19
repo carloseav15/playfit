@@ -114,8 +114,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Game not found" }, { status: 404 });
   }
 
-  const similar = findSimilarGames(game, allGames, 5);
-  const series = findSeriesGames(game, allGames, 10);
+  const similar = findSimilarGames(game, allGames, 20);
+  const series = findSeriesGames(game, allGames, 20);
 
   return Response.json({ similar, series });
 }
