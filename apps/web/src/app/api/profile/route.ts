@@ -21,7 +21,7 @@ const profileSaveRequestSchema = z
   })
   .strict();
 
-const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
 function createClient() {
