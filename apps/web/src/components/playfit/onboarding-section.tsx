@@ -19,7 +19,6 @@ import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "./cover-art";
 import { usePlayfit } from "./playfit-context";
-import { formatGameDescriptor } from "./product-utils";
 import { SectionHead } from "./section-head";
 
 const preferredPlatformFamilies = ["nintendo", "playstation", "xbox", "sega", "pc", "other"];
@@ -322,16 +321,16 @@ export function OnboardingSection() {
   const _progressValue = step === 1 ? 33 : step === 2 ? 67 : 100;
   const stepTitle =
     draft.step === "platforms"
-      ? "Where can Playfit look?"
+      ? "Where do you play?"
       : draft.step === "anchors"
         ? "Pick three games you loved"
-        : "Pick one game that was not for you";
+        : "Pick one game that wasn't for you";
   const stepCopy =
     draft.step === "platforms"
-      ? "Your platforms keep recommendations grounded in what you can actually play."
+      ? "We will only recommend games available on your active platforms."
       : draft.step === "anchors"
-        ? "Start with games that clicked. Playfit will look for nearby signals."
-        : "A single miss helps Playfit avoid the wrong fit instead of only chasing favorites.";
+        ? "Start with games that clicked. We will look for similar games."
+        : "Tell us a popular game you didn't enjoy so we know what to avoid.";
   const _stepCountCopy =
     draft.step === "platforms"
       ? `${draft.platforms.length} platforms`
@@ -340,12 +339,12 @@ export function OnboardingSection() {
         : `${Math.min(draft.dislikedGameIds.length, 1)} / 1 not for me`;
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-card/70 to-background/50 p-1 backdrop-blur-md shadow-2xl">
-      <div className="p-4 sm:p-6 pb-2">
-        <SectionHead eyebrow="Tune your taste" title={stepTitle} copy={stepCopy} />
+    <section className="relative overflow-hidden flex flex-col h-full w-full border-0 rounded-none bg-transparent shadow-none md:border md:rounded-3xl md:border-white/10 md:bg-gradient-to-br md:from-card/70 md:to-background/50 md:p-1 md:backdrop-blur-md md:shadow-2xl">
+      <div className="p-4 md:p-6 pb-2 shrink-0">
+        <SectionHead eyebrow="Set up your taste" title={stepTitle} copy={stepCopy} />
       </div>
-      <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="pt-0">
+      <Card className="border-0 bg-transparent shadow-none flex flex-col flex-1 min-h-0">
+        <CardHeader className="pt-0 px-4 md:px-6 shrink-0">
           <div className="grid gap-4">
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -391,7 +390,7 @@ export function OnboardingSection() {
                       >
                         {s.label}
                       </span>
-                      <span className="text-[8px] font-mono text-muted-foreground/60 hidden sm:inline">
+                      <span className="text-[8px] font-mono text-muted-foreground/60">
                         {s.count}
                       </span>
                     </div>
@@ -401,7 +400,7 @@ export function OnboardingSection() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
+        <CardContent className="px-4 pb-4 md:px-6 md:pb-6 pt-0 flex-1 flex flex-col min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait">
             {draft.step === "platforms" ? (
               <motion.form
@@ -410,7 +409,7 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-6"
+                className="flex flex-col gap-6 flex-1 min-h-0"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (draft.platforms.length === 0) {
@@ -496,7 +495,7 @@ export function OnboardingSection() {
                     })}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/5 bg-secondary/20 p-4">
+                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:rounded-2xl md:border md:border-white/5 md:bg-secondary/20 flex flex-wrap items-center justify-between gap-4">
                   <p className="text-sm text-muted-foreground">
                     <strong className="text-foreground">{draft.platforms.length}</strong> systems
                     selected for Play Next.
@@ -508,7 +507,7 @@ export function OnboardingSection() {
                       onClick={() => setShowPlatformDetails(true)}
                       className="text-xs hover:text-foreground"
                     >
-                      Customize Systems
+                      Customize Platforms
                     </Button>
                     <Button
                       type="submit"
@@ -523,9 +522,9 @@ export function OnboardingSection() {
                 <Dialog
                   open={showPlatformDetails}
                   onClose={() => setShowPlatformDetails(false)}
-                  title="Customize Systems"
+                  title="Customize Platforms"
                   eyebrow="Platforms"
-                  className="overflow-hidden"
+                  className="max-w-md overflow-hidden"
                 >
                   <div className="max-h-[50vh] overflow-y-auto pr-1 grid gap-4">
                     <Checkbox
@@ -634,7 +633,7 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-6"
+                className="flex flex-col gap-6 flex-1 min-h-0"
               >
                 <FormField>
                   <FormLabel
@@ -661,60 +660,69 @@ export function OnboardingSection() {
                     )}
                   </div>
                 </FormField>
-                <div className="flex flex-wrap gap-2 items-center -mt-2">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
-                    Quick Hits:
-                  </span>
-                  {quickSuggestions.map((gameName) => (
-                    <button
-                      key={gameName}
-                      type="button"
-                      onClick={() =>
-                        setUi((current) => ({ ...current, onboardingQuery: gameName }))
-                      }
-                      className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-accent/20 transition-all duration-200"
-                    >
-                      {gameName}
-                    </button>
-                  ))}
-                </div>
+                {!ui.onboardingQuery.trim() && (
+                  <div className="flex flex-wrap gap-2 items-center -mt-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
+                      Quick Hits:
+                    </span>
+                    {quickSuggestions.map((gameName) => (
+                      <button
+                        key={gameName}
+                        type="button"
+                        onClick={() =>
+                          setUi((current) => ({ ...current, onboardingQuery: gameName }))
+                        }
+                        className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-accent/20 transition-all duration-200"
+                      >
+                        {gameName}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {draft.likedGameIds.length > 0 && (
                   <div className="grid gap-2">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
                       Selected Loved Games
                     </p>
-                    <Stack direction="row" wrap gap={2}>
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
                       {draft.likedGameIds.map((gameId) => {
                         const game = getSeedGame(gameId);
                         if (!game) return null;
                         return (
-                          <Tag
-                            key={gameId}
-                            onRemove={() => removeAnchor(gameId)}
-                            className="border-accent/30 bg-accent/5 text-foreground font-bold"
-                          >
-                            {game.title}
-                          </Tag>
+                          <div key={gameId} className="shrink-0">
+                            <Tag
+                              onRemove={() => removeAnchor(gameId)}
+                              className="border-accent/30 bg-accent/5 text-foreground font-bold"
+                            >
+                              {game.title}
+                            </Tag>
+                          </div>
                         );
                       })}
-                    </Stack>
+                    </div>
                   </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
                   {anchorResults.map((game) => {
                     const selected = draft.likedGameIds.includes(game.gameId);
-                    const disabled = selected || draft.likedGameIds.length >= 3;
+                    const disabled = !selected && draft.likedGameIds.length >= 3;
                     return (
                       <button
                         key={game.gameId}
                         type="button"
                         aria-pressed={selected}
                         className={cn(
-                          "group flex items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
+                          "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
                           selected && "border-accent/40 bg-accent/10",
                           disabled && !selected && "opacity-50 cursor-not-allowed",
                         )}
-                        onClick={() => addAnchor(game)}
+                        onClick={() => {
+                          if (selected) {
+                            removeAnchor(game.gameId);
+                          } else {
+                            addAnchor(game);
+                          }
+                        }}
                         disabled={disabled}
                       >
                         <CoverArt
@@ -722,12 +730,9 @@ export function OnboardingSection() {
                           className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="min-w-0 flex-1">
-                          <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-accent transition-colors">
+                          <strong className="block text-base font-black truncate text-foreground group-hover:text-accent transition-colors">
                             {game.title}
                           </strong>
-                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                            {formatGameDescriptor(game)}
-                          </span>
                         </span>
                         {selected ? (
                           <div className="size-6 shrink-0 grid place-items-center rounded-full bg-positive-bg text-positive border border-positive/30">
@@ -754,7 +759,7 @@ export function OnboardingSection() {
                     </p>
                   )
                 ) : null}
-                <Stack direction="row" wrap gap={3} className="pt-2">
+                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
                   <Button
                     type="button"
                     variant="secondary"
@@ -779,7 +784,7 @@ export function OnboardingSection() {
                   >
                     Continue <ChevronRight className="size-4" />
                   </Button>
-                </Stack>
+                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -788,7 +793,7 @@ export function OnboardingSection() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="grid gap-6"
+                className="flex flex-col gap-6 flex-1 min-h-0"
               >
                 <FormField>
                   <FormLabel
@@ -815,44 +820,47 @@ export function OnboardingSection() {
                     )}
                   </div>
                 </FormField>
-                <div className="flex flex-wrap gap-2 items-center -mt-2">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
-                    Quick Hits:
-                  </span>
-                  {quickSuggestions.map((gameName) => (
-                    <button
-                      key={gameName}
-                      type="button"
-                      onClick={() =>
-                        setUi((current) => ({ ...current, onboardingQuery: gameName }))
-                      }
-                      className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-negative/20 transition-all duration-200"
-                    >
-                      {gameName}
-                    </button>
-                  ))}
-                </div>
+                {!ui.onboardingQuery.trim() && (
+                  <div className="flex flex-wrap gap-2 items-center -mt-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
+                      Quick Hits:
+                    </span>
+                    {quickSuggestions.map((gameName) => (
+                      <button
+                        key={gameName}
+                        type="button"
+                        onClick={() =>
+                          setUi((current) => ({ ...current, onboardingQuery: gameName }))
+                        }
+                        className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-negative/20 transition-all duration-200"
+                      >
+                        {gameName}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {draft.dislikedGameIds.length > 0 && (
                   <div className="grid gap-2">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-negative">
                       Selected Missed Game
                     </p>
-                    <Stack direction="row" wrap gap={2}>
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none md:flex-wrap md:overflow-visible">
                       {draft.dislikedGameIds.map((gameId) => {
                         const game = getSeedGame(gameId);
                         if (!game) return null;
                         return (
-                          <Tag
-                            key={gameId}
-                            variant="default"
-                            onRemove={() => removeDislikedAnchor(gameId)}
-                            className="border-negative/30 bg-negative/5 text-foreground font-bold"
-                          >
-                            {game.title}
-                          </Tag>
+                          <div key={gameId} className="shrink-0">
+                            <Tag
+                              variant="default"
+                              onRemove={() => removeDislikedAnchor(gameId)}
+                              className="border-negative/30 bg-negative/5 text-foreground font-bold"
+                            >
+                              {game.title}
+                            </Tag>
+                          </div>
                         );
                       })}
-                    </Stack>
+                    </div>
                   </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
@@ -865,24 +873,32 @@ export function OnboardingSection() {
                         type="button"
                         aria-pressed={selected}
                         className={cn(
-                          "group flex items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
+                          "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
                           selected && "border-negative/40 bg-negative/10",
                           loved && "opacity-40 cursor-not-allowed bg-muted",
                         )}
-                        onClick={() => addDislikedAnchor(game)}
-                        disabled={selected || loved}
+                        onClick={() => {
+                          if (selected) {
+                            removeDislikedAnchor(game.gameId);
+                          } else {
+                            addDislikedAnchor(game);
+                          }
+                        }}
+                        disabled={loved}
                       >
                         <CoverArt
                           game={game}
                           className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
                         />
                         <span className="min-w-0 flex-1">
-                          <strong className="block text-sm font-extrabold truncate text-foreground group-hover:text-negative transition-colors">
+                          <strong className="block text-base font-black truncate text-foreground group-hover:text-negative transition-colors">
                             {game.title}
                           </strong>
-                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                            {loved ? "Selected as loved" : formatGameDescriptor(game)}
-                          </span>
+                          {loved && (
+                            <span className="block text-xs text-muted-foreground truncate mt-0.5">
+                              Selected as loved
+                            </span>
+                          )}
                         </span>
                         {selected ? (
                           <div className="size-6 shrink-0 grid place-items-center rounded-full bg-negative-bg text-negative border border-negative/30">
@@ -909,7 +925,7 @@ export function OnboardingSection() {
                     </p>
                   )
                 ) : null}
-                <Stack direction="row" wrap gap={3} className="pt-2">
+                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
                   <Button
                     type="button"
                     variant="secondary"
@@ -930,7 +946,7 @@ export function OnboardingSection() {
                   >
                     Find Play Next
                   </Button>
-                </Stack>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

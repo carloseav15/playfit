@@ -47,7 +47,7 @@ import { AuthPanel } from "./auth-panel";
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 type AuthUser = { id: string; email: string };
-const PLAYFIT_PICKS_LIMIT = 20;
+const PLAYFIT_PICKS_LIMIT = 100;
 
 export interface ProductUiState {
   activeTab: ProductTab;
@@ -69,6 +69,9 @@ interface PlayfitContextValue {
   ui: ProductUiState;
   isPending: boolean;
   isSaving: boolean;
+  authUser: AuthUser | null;
+  useLocalProfile: boolean;
+  setUseLocalProfile: (val: boolean) => void;
   setUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
   updateState: (updater: (draft: ProductState) => void) => void;
   getSeedGame: (gameId: string) => SeedGame | null;
@@ -258,8 +261,11 @@ function useQueuedProfileSave({
 }) {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveSequenceRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSnapshotRef = useRef<ProductState | null>(null);
+  const pendingOptionsRef = useRef<{ successMessage?: string }>({});
 
-  return useCallback(
+  const doSave = useCallback(
     (snapshot: ProductState, options: { successMessage?: string } = {}) => {
       const sequence = ++saveSequenceRef.current;
       setIsSaving(true);
@@ -321,6 +327,28 @@ function useQueuedProfileSave({
       return task;
     },
     [setAuthUser, setUseLocalProfile, setUi, setIsSaving],
+  );
+
+  return useCallback(
+    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
+      pendingSnapshotRef.current = snapshot;
+      pendingOptionsRef.current = options;
+
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(() => {
+        const latest = pendingSnapshotRef.current;
+        const latestOptions = pendingOptionsRef.current;
+        pendingSnapshotRef.current = null;
+        pendingOptionsRef.current = {};
+        if (latest) {
+          doSave(latest, latestOptions);
+        }
+      }, 1000);
+    },
+    [doSave],
   );
 }
 
@@ -622,6 +650,9 @@ export function PlayfitProvider({
       ui,
       isPending: false,
       isSaving,
+      authUser,
+      useLocalProfile,
+      setUseLocalProfile,
       finderSearchError,
       onboardingSearchError,
       onboardingSearchPending,
@@ -1002,6 +1033,8 @@ export function PlayfitProvider({
     enqueueSave,
     setAuthUser,
     setUseLocalProfile,
+    authUser,
+    useLocalProfile,
   ]);
 
   if (authBusy) {
