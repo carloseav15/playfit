@@ -37,30 +37,30 @@ async function main() {
     titleMap.get(key).push(g);
   }
 
-  // Find catalog_ games that have a non-catalog_ counterpart
+  // Find catalog-source games that have a non-catalog counterpart
   const toDelete = [];
 
   for (const [key, games] of titleMap) {
-    const catalogGame = games.find(g => g.game_id?.startsWith("catalog_"));
-    const nonCatalog = games.filter(g => !g.game_id?.startsWith("catalog_"));
+    const catalogGame = games.find(g => g.source_type === "catalog");
+    const nonCatalog = games.filter(g => g.source_type !== "catalog");
 
     if (catalogGame && nonCatalog.length > 0) {
       toDelete.push(catalogGame);
     }
   }
 
-  console.log(`\nCatalog_ games to DELETE: ${toDelete.length}`);
+  console.log(`\nCatalog-source games to DELETE: ${toDelete.length}`);
 
-  // Also find catalog_ games that are unique (no counterpart)
+  // Also find catalog-source games that are unique (no counterpart)
   const uniqueCatalog = [];
   for (const [key, games] of titleMap) {
-    const catalogGame = games.find(g => g.game_id?.startsWith("catalog_"));
-    const nonCatalog = games.filter(g => !g.game_id?.startsWith("catalog_"));
+    const catalogGame = games.find(g => g.source_type === "catalog");
+    const nonCatalog = games.filter(g => g.source_type !== "catalog");
     if (catalogGame && nonCatalog.length === 0) {
       uniqueCatalog.push(catalogGame);
     }
   }
-  console.log(`Unique catalog_ games to KEEP: ${uniqueCatalog.length}`);
+  console.log(`Unique catalog-source games to KEEP: ${uniqueCatalog.length}`);
 
   const apply = process.argv.includes("--apply");
   if (!apply) {
@@ -68,9 +68,9 @@ async function main() {
     return;
   }
 
-  // Delete duplicate catalog_ games
+  // Delete duplicate catalog-source games
   if (toDelete.length > 0) {
-    console.log(`\nDeleting ${toDelete.length} duplicate catalog_ games...`);
+      console.log(`\nDeleting ${toDelete.length} duplicate catalog-source games...`);
     const BATCH = 100;
     for (let i = 0; i < toDelete.length; i += BATCH) {
       const batch = toDelete.slice(i, i + BATCH);

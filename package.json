@@ -20,7 +20,10 @@
     "lint:fix": "npm run lint",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w apps/web",
-    "check:covers": "node scripts/check-cover-integrity.mjs"
+    "check:covers": "node scripts/check-cover-integrity.mjs",
+    "catalog:import-external": "bash scripts/import-external-catalog-data.sh",
+    "catalog:import-review-sentiment": "bash scripts/import-metacritic-review-sentiment.sh",
+    "catalog:report-external": "bash scripts/export-external-catalog-match-report.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",

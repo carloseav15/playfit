@@ -713,7 +713,7 @@ async function main() {
         });
       } else {
         // Game missing — create insert with unique ID
-        const baseSlug = `catalog_${slugify(game.title)}`;
+        const baseSlug = slugify(game.title);
         let gameId = baseSlug;
         let counter = 1;
         while (inserts.some(g => g.game_id === gameId)) {

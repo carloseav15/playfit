@@ -1,4 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+
+const PROGRESS_FILE = "/tmp/rawg-scrape-progress.json";
+const API_DELAY_MS = 800;
+const PAGE_SIZE = 40;
+const FLUSH_BATCH = 50;
+const MAX_PAGES_PER_YEAR = 25;
+const MAX_RETRO_PAGES = 20;
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -49,6 +57,55 @@ const RAWG_PLATFORMS = {
   xbox_original: { id: 80, name: "Xbox" },
   xbox_series_xs: { id: 186, name: "Xbox Series X|S" },
 };
+
+const RAWG_ID_TO_INTERNAL = Object.fromEntries(
+  Object.entries(RAWG_PLATFORMS).map(([key, val]) => [val.id, key]),
+);
+
+const RAWG_NAME_TO_INTERNAL = Object.fromEntries(
+  Object.entries(RAWG_PLATFORMS).map(([key, val]) => [val.name, key]),
+);
+
+const MODERN_PLATFORMS = [
+  "xbox_series_xs",
+  "switch_1",
+  "pc",
+  "macos",
+  "ps5",
+  "ps4",
+  "xbox_one",
+  "ios",
+  "android",
+  "linux",
+];
+
+const RETRO_PLATFORMS = [
+  "psp",
+  "ps1",
+  "3ds",
+  "ds",
+  "gba",
+  "xbox_360",
+  "ps3",
+  "ps2",
+  "wii",
+  "wii_u",
+  "snes",
+  "nes",
+  "n64",
+  "gamecube",
+  "ps_vita",
+  "gbc",
+  "gb",
+  "dreamcast",
+  "saturn",
+  "genesis",
+  "xbox_original",
+  "sega_master_system",
+  "neo_geo",
+  "game_gear",
+  "atari_2600",
+];
 
 const RAWG_GENRE_TAG_MAP = {
   action: ["action_combat"],
@@ -159,7 +216,7 @@ function makeGameId(title) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "")
     .slice(0, 80);
-  return `rawg_${safe}`;
+  return safe;
 }
 
 function normalizeTitle(title) {
@@ -173,34 +230,44 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchYearPlatform(apiKey, rawgId, year, ordering = "-rating", pageSize = 20) {
-  const dates = `${year}-01-01,${year}-12-31`;
-  const url = `https://api.rawg.io/api/games?key=${apiKey}&platforms=${rawgId}&dates=${dates}&page_size=${pageSize}&ordering=${ordering}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    console.error(`  HTTP ${response.status}`);
-    return [];
-  }
-  const data = await response.json();
-  return data.results || [];
+function mapRawgPlatformId(rawgId) {
+  return RAWG_ID_TO_INTERNAL[rawgId] || null;
 }
 
-async function fetchPlatformPage(apiKey, rawgId, page, ordering = "-rating", pageSize = 40) {
-  const url = `https://api.rawg.io/api/games?key=${apiKey}&platforms=${rawgId}&page=${page}&page_size=${pageSize}&ordering=${ordering}`;
+function mapRawgPlatformName(name) {
+  return RAWG_NAME_TO_INTERNAL[name] || null;
+}
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`  HTTP ${response.status}`);
-      return [];
-    }
-    const data = await response.json();
-    return data.results || [];
-  } catch (err) {
-    console.error(`  Network error: ${err.message}`);
-    return [];
+function extractPlatformIds(game) {
+  const ids = [];
+  for (const entry of game.platforms || []) {
+    const pid = mapRawgPlatformId(entry.platform?.id);
+    if (pid && !ids.includes(pid)) ids.push(pid);
   }
+  if (ids.length === 0) {
+    for (const pp of game.parent_platforms || []) {
+      const slug = pp.platform?.slug;
+      if (slug === "pc") { if (!ids.includes("pc")) ids.push("pc"); }
+      else if (slug === "playstation") {
+        if (game.platforms?.some((p) => p.platform?.slug?.includes("playstation-5"))) {
+          if (!ids.includes("ps5")) ids.push("ps5");
+        }
+        if (!ids.includes("ps4")) ids.push("ps4");
+      }
+      else if (slug === "xbox") {
+        if (game.platforms?.some((p) => p.platform?.slug?.includes("xbox-series"))) {
+          if (!ids.includes("xbox_series_xs")) ids.push("xbox_series_xs");
+        }
+        if (!ids.includes("xbox_one")) ids.push("xbox_one");
+      }
+      else if (slug === "nintendo") { if (!ids.includes("switch_1")) ids.push("switch_1"); }
+      else if (slug === "ios") { if (!ids.includes("ios")) ids.push("ios"); }
+      else if (slug === "android") { if (!ids.includes("android")) ids.push("android"); }
+      else if (slug === "macos") { if (!ids.includes("macos")) ids.push("macos"); }
+      else if (slug === "linux") { if (!ids.includes("linux")) ids.push("linux"); }
+    }
+  }
+  return ids;
 }
 
 function rawgToTags(game) {
@@ -240,66 +307,242 @@ function toGameRow(game, platformIds) {
   const gameId = makeGameId(game.name);
   const releaseYear = game.released ? game.released.slice(0, 4) : "";
   const released = game.released && game.released <= new Date().toISOString().slice(0, 10);
-  const coverUrl = game.background_image || "";
-  const tags = rawgToTags(game);
-  const rawgGenres = (game.genres || []).map((g) => g.slug);
-
-  const notes = [
-    game.rating ? `RAWG Rating: ${game.rating}` : "",
-    game.metacritic ? `Metacritic: ${game.metacritic}` : "",
-  ]
-    .filter(Boolean)
-    .join(" | ");
-
-  // Use first RAWG genre as primary genre_id; keep full list for backward compat
-  const firstGenre = rawgGenres[0] ?? "";
+  const platformNames = platformIds.map((pid) => RAWG_PLATFORMS[pid]?.name || pid).filter(Boolean);
 
   return {
     game_id: gameId,
     title: game.name,
     aliases: [],
-    genre_id: firstGenre || null,
+    genre_id: (game.genres || [])[0]?.slug || null,
     release_year: releaseYear,
     release_state: released ? "released" : "unreleased",
     source_type: "finder",
     source_ref: `rawg:${game.id}`,
-    cover_url: coverUrl,
-    tags,
-    notes,
-    sort_date: "",
+    cover_url: game.background_image || "",
+    tags: rawgToTags(game),
+    notes: [game.rating ? `RAWG Rating: ${game.rating}` : "", game.metacritic ? `Metacritic: ${game.metacritic}` : ""].filter(Boolean).join(" | "),
+    sort_date: game.released || "",
     release_label: "",
+    platforms: platformIds,
+    platform_names: platformNames,
   };
+}
+
+function toScoreRows(gameId, game) {
+  const rows = [];
+  const sourceKey = `rawg:${game.id}`;
+  if (game.metacritic != null || game.rating != null) {
+    rows.push({
+      game_id: gameId,
+      platform_id: null,
+      score_source: "rawg",
+      critic_score: game.metacritic ?? null,
+      critic_count: null,
+      user_score: game.rating ?? null,
+      user_count: game.ratings_count ?? null,
+      source_key: sourceKey,
+      metadata: {},
+    });
+  }
+  return rows;
+}
+
+function toAgeRatingRows(gameId, game) {
+  if (!game.esrb_rating?.slug) return [];
+  return [
+    {
+      game_id: gameId,
+      platform_id: null,
+      rating_board: "ESRB",
+      rating: game.esrb_rating.name || game.esrb_rating.slug,
+      descriptors: null,
+      source: "rawg",
+      source_key: `rawg:${game.id}`,
+    },
+  ];
+}
+
+function toPlatformRows(gameId, game) {
+  const rows = [];
+  const platformIds = extractPlatformIds(game);
+  for (const pid of platformIds) {
+    rows.push({ game_id: gameId, platform_id: pid });
+  }
+  return rows;
+}
+
+function toTagRows(gameId, game) {
+  const tags = rawgToTags(game);
+  return tags.map((tag) => ({ game_id: gameId, tag_id: tag }));
+}
+
+function toAliasRows(gameId, detail) {
+  if (!detail.alternative_names?.length) return [];
+  return detail.alternative_names
+    .filter((alias) => alias && alias !== detail.name)
+    .map((alias) => ({
+      game_id: gameId,
+      alias,
+    }));
+}
+
+function toCompanyRows(gameId, detail) {
+  const rows = [];
+  const sourceKey = `rawg:${detail.id}`;
+  for (const dev of detail.developers || []) {
+    rows.push({
+      game_id: gameId,
+      company_name: dev.name,
+      role: "developer",
+      source: "rawg",
+      source_key: sourceKey,
+      metadata: {},
+    });
+  }
+  for (const pub of detail.publishers || []) {
+    rows.push({
+      game_id: gameId,
+      company_name: pub.name,
+      role: "publisher",
+      source: "rawg",
+      source_key: sourceKey,
+      metadata: {},
+    });
+  }
+  return rows;
+}
+
+function toSummaryRows(gameId, detail) {
+  const text = detail.description_raw || detail.description || "";
+  if (!text) return [];
+  return [
+    {
+      game_id: gameId,
+      summary: text,
+      source: "rawg",
+      source_key: `rawg:${detail.id}`,
+    },
+  ];
+}
+
+function toReleaseRows(gameId, detail) {
+  const rows = [];
+  for (const entry of detail.platforms || []) {
+    const pid = mapRawgPlatformId(entry.platform?.id);
+    if (!pid) continue;
+    if (!entry.released_at) continue;
+    rows.push({
+      game_id: gameId,
+      platform_id: pid,
+      release_date: entry.released_at,
+      release_year: entry.released_at ? parseInt(entry.released_at.slice(0, 4), 10) : null,
+      source: "rawg",
+      source_key: `rawg:${detail.id}`,
+      metadata: {},
+    });
+  }
+  return rows;
+}
+
+function toPlatformScoreRows(gameId, detail) {
+  const rows = [];
+  for (const mp of detail.metacritic_platforms || []) {
+    const pid = mapRawgPlatformName(mp.platform?.name);
+    if (!pid) continue;
+    rows.push({
+      game_id: gameId,
+      platform_id: pid,
+      score_source: "metacritic",
+      critic_score: mp.metacritic ?? null,
+      critic_count: null,
+      user_score: null,
+      user_count: null,
+      source_key: `rawg:${detail.id}`,
+      metadata: { url: mp.url || "" },
+    });
+  }
+  return rows;
+}
+
+function toExternalIdRows(gameId, detail) {
+  const rows = [];
+  if (detail.metacritic_url) {
+    rows.push({
+      game_id: gameId,
+      provider: "metacritic",
+      provider_game_key: detail.metacritic_url,
+      source_title: detail.name,
+      source_platform_id: null,
+      confidence_score: 100,
+      metadata: {},
+    });
+  }
+  if (detail.reddit_url) {
+    const key = detail.reddit_name || detail.reddit_url;
+    rows.push({
+      game_id: gameId,
+      provider: "reddit",
+      provider_game_key: key,
+      source_title: detail.name,
+      source_platform_id: null,
+      confidence_score: 100,
+      metadata: {},
+    });
+  }
+  return rows;
 }
 
 async function loadExistingGames() {
   const ids = new Set();
   const titles = new Set();
-  const pageSize = 1000;
+  const byRawgId = new Map();
+  const hasSummary = new Set();
   let from = 0;
+  const pageSize = 1000;
   let done = false;
 
   while (!done) {
     const { data, error } = await supabase
       .from("games")
-      .select("game_id, title")
+      .select("game_id, title, source_ref")
       .range(from, from + pageSize - 1);
 
     if (error) {
       console.error("Error loading existing games:", error.message);
-      return { ids, titles };
+      return { ids, titles, byRawgId, hasSummary };
     }
 
     const batch = data ?? [];
     for (const g of batch) {
       if (g.game_id) ids.add(g.game_id);
       if (g.title) titles.add(normalizeTitle(g.title));
+      if (g.source_ref?.startsWith("rawg:")) {
+        byRawgId.set(g.source_ref, g.game_id);
+      }
     }
 
     from += pageSize;
     if (batch.length < pageSize) done = true;
   }
 
-  return { ids, titles };
+  from = 0;
+  done = false;
+  while (!done) {
+    const { data, error } = await supabase
+      .from("game_summaries")
+      .select("game_id")
+      .range(from, from + pageSize - 1);
+
+    if (!error) {
+      for (const row of data ?? []) {
+        hasSummary.add(row.game_id);
+      }
+    }
+    from += pageSize;
+    if ((data ?? []).length < pageSize) done = true;
+  }
+
+  return { ids, titles, byRawgId, hasSummary };
 }
 
 async function ensureGenres(rows) {
@@ -308,70 +551,266 @@ async function ensureGenres(rows) {
     if (row.genre_id) genreSet.add(row.genre_id);
   }
   if (genreSet.size === 0) return;
-  const genreRows = [...genreSet].map((slug) => ({
-    id: slug,
-    name: slug,
-  }));
+  const genreRows = [...genreSet].map((slug) => ({ id: slug, name: slug }));
   const { error } = await supabase.from("genres").upsert(genreRows, {
     onConflict: "id",
     ignoreDuplicates: true,
   });
-  if (error) {
-    console.error("Error ensuring genres:", error.message);
-  }
+  if (error) console.error("Error ensuring genres:", error.message);
 }
 
-async function ensureTags(rows) {
-  const tagSet = new Set();
-  for (const row of rows) {
-    for (const t of row.tags || []) {
-      if (t) tagSet.add(t);
-    }
-  }
+async function ensureTags(tagSet) {
   if (tagSet.size === 0) return;
   const tagRows = [...tagSet].map((id) => ({ id }));
   const { error } = await supabase.from("tags").upsert(tagRows, {
     onConflict: "id",
     ignoreDuplicates: true,
   });
-  if (error) console.error("  Error ensuring tags:", error.message);
+  if (error) console.error("Error ensuring tags:", error.message);
 }
 
-async function syncGameTags(gameId, tags) {
-  // Remove old entries
-  await supabase.from("game_tags").delete().eq("game_id", gameId);
-  // Insert new entries
-  if (tags.length > 0) {
-    await supabase.from("game_tags").insert(
-      tags.map((tag) => ({ game_id: gameId, tag_id: tag })),
-    );
-  }
-}
-
-async function syncGamePlatforms(gameId, platformIds) {
-  // Remove old entries
-  await supabase.from("game_platforms").delete().eq("game_id", gameId);
-  // Insert new entries
-  if (platformIds.length > 0) {
-    await supabase.from("game_platforms").insert(
-      platformIds.map((pid) => ({ game_id: gameId, platform_id: pid })),
-    );
-  }
-}
-
-async function upsertGames(rows) {
-  if (rows.length === 0) return;
-  await ensureGenres(rows);
-  await ensureTags(rows);
-  const { error } = await supabase.from("games").upsert(rows, { onConflict: "game_id" });
-  if (error) {
-    console.error("Error upserting games:", error.message);
-  } else {
-    // Sync game_tags for each upserted game
-    for (const row of rows) {
-      await syncGameTags(row.game_id, row.tags || []);
+function collectTags(rows) {
+  const set = new Set();
+  for (const row of rows) {
+    for (const t of row.tags || []) {
+      if (t) set.add(t);
     }
-    console.error(`  Upserted ${rows.length} games`);
+  }
+  return set;
+}
+
+async function upsertBatch(table, rows, conflictCols) {
+  if (rows.length === 0) return;
+  const { error } = await supabase.from(table).upsert(rows, {
+    onConflict: conflictCols,
+    ignoreDuplicates: true,
+  });
+  if (error) console.error(`Error upserting ${table}:`, error.message);
+}
+
+async function deleteAndInsert(table, rows) {
+  if (rows.length === 0) return;
+  const { error } = await supabase.from(table).insert(rows);
+  if (error) console.error(`Error inserting ${table}:`, error.message);
+}
+
+async function deleteGameData(table, column, gameIds) {
+  if (gameIds.length === 0) return;
+  const { error } = await supabase.from(table).delete().in(column, gameIds);
+  if (error) console.error(`Error deleting from ${table}:`, error.message);
+}
+
+async function fetchRawgList(apiKey, params) {
+  const q = new URLSearchParams({ key: apiKey, page_size: String(PAGE_SIZE), ...params });
+  const url = `https://api.rawg.io/api/games?${q}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error(`  HTTP ${response.status} for ${url.slice(0, 120)}`);
+    return null;
+  }
+  return response.json();
+}
+
+async function fetchRawgDetail(apiKey, rawgId) {
+  const url = `https://api.rawg.io/api/games/${rawgId}?key=${apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error(`  Detail HTTP ${response.status} for game ${rawgId}`);
+    return null;
+  }
+  return response.json();
+}
+
+async function fetchYearGames(apiKey, year) {
+  const allGames = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore && page <= MAX_PAGES_PER_YEAR) {
+    const data = await fetchRawgList(apiKey, {
+      dates: `${year}-01-01,${year}-12-31`,
+      ordering: "-released",
+      page: String(page),
+    });
+    if (!data || !data.results?.length) break;
+    allGames.push(...data.results);
+    hasMore = data.next !== null;
+    page++;
+    await sleep(API_DELAY_MS);
+  }
+  return allGames;
+}
+
+async function fetchPlatformGames(apiKey, rawgId) {
+  const allGames = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore && page <= MAX_RETRO_PAGES) {
+    const data = await fetchRawgList(apiKey, {
+      platforms: String(rawgId),
+      ordering: "-rating",
+      page: String(page),
+    });
+    if (!data || !data.results?.length) break;
+    allGames.push(...data.results);
+    hasMore = data.next !== null;
+    page++;
+    await sleep(API_DELAY_MS);
+  }
+  return allGames;
+}
+
+function dedupGames(games, seenTitles, seenIds, existingByRawgId) {
+  const newGames = [];
+  const updatedGames = [];
+
+  for (const game of games) {
+    if (isEasterEgg(game.released)) continue;
+
+    const existingGameId = existingByRawgId.get(`rawg:${game.id}`);
+    if (existingGameId) {
+      updatedGames.push(game);
+      continue;
+    }
+
+    const ntitle = normalizeTitle(game.name);
+    if (seenTitles.has(ntitle)) continue;
+
+    const gid = makeGameId(game.name);
+    if (seenIds.has(gid)) continue;
+
+    seenTitles.add(ntitle);
+    seenIds.add(gid);
+    newGames.push(game);
+  }
+
+  return { newGames, updatedGames };
+}
+
+function loadProgress() {
+  if (!existsSync(PROGRESS_FILE)) return { lastYear: null, detailQueue: [], detailProcessed: {} };
+  try {
+    return JSON.parse(readFileSync(PROGRESS_FILE, "utf-8"));
+  } catch {
+    return { lastYear: null, detailQueue: [], detailProcessed: {} };
+  }
+}
+
+function saveProgress(progress) {
+  writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
+}
+
+async function processListBatch(games, existingByRawgId) {
+  const gameRows = [];
+  const platformRows = [];
+  const tagRows = [];
+  const scoreRows = [];
+  const ageRatingRows = [];
+  const allTags = new Set();
+  const upsertedIds = [];
+
+  for (const game of games) {
+    const gameId = makeGameId(game.name);
+    const pids = extractPlatformIds(game);
+    const row = toGameRow(game, pids);
+
+    gameRows.push(row);
+    upsertedIds.push(gameId);
+
+    const pRows = toPlatformRows(gameId, game);
+    platformRows.push(...pRows);
+
+    const tRows = toTagRows(gameId, game);
+    tagRows.push(...tRows);
+
+    const sRows = toScoreRows(gameId, game);
+    scoreRows.push(...sRows);
+
+    const aRows = toAgeRatingRows(gameId, game);
+    ageRatingRows.push(...aRows);
+
+    for (const t of row.tags || []) {
+      if (t) allTags.add(t);
+    }
+
+    if (!existingByRawgId.has(`rawg:${game.id}`)) {
+      existingByRawgId.set(`rawg:${game.id}`, gameId);
+    }
+  }
+
+  await ensureGenres(gameRows);
+  await ensureTags(allTags);
+
+  if (gameRows.length > 0) {
+    const { error } = await supabase.from("games").upsert(gameRows, {
+      onConflict: "game_id",
+    });
+    if (error) {
+      console.error("  Error upserting games:", error.message);
+      return [];
+    }
+  }
+
+  if (upsertedIds.length > 0) {
+    await deleteGameData("game_platforms", "game_id", upsertedIds);
+    await deleteGameData("game_tags", "game_id", upsertedIds);
+    await deleteGameData("game_scores", "game_id", upsertedIds);
+    await deleteGameData("game_age_ratings", "game_id", upsertedIds);
+  }
+
+  if (platformRows.length > 0) {
+    await deleteAndInsert("game_platforms", platformRows);
+  }
+  if (tagRows.length > 0) {
+    await deleteAndInsert("game_tags", tagRows);
+  }
+  if (scoreRows.length > 0) {
+    await upsertBatch("game_scores", scoreRows, "game_id, platform_id, score_source, source_key");
+  }
+  if (ageRatingRows.length > 0) {
+    await upsertBatch("game_age_ratings", ageRatingRows, "game_id, platform_id, rating_board, source, source_key");
+  }
+
+  return gameRows.map((r) => r.game_id);
+}
+
+async function processDetailBatch(games) {
+  const aliasRows = [];
+  const companyRows = [];
+  const summaryRows = [];
+  const releaseRows = [];
+  const platformScoreRows = [];
+  const externalIdRows = [];
+
+  for (const game of games) {
+    aliasRows.push(...game.aliases);
+    companyRows.push(...game.companies);
+    summaryRows.push(...game.summaries);
+    releaseRows.push(...game.releases);
+    platformScoreRows.push(...game.platformScores);
+    externalIdRows.push(...game.externalIds);
+  }
+
+  if (aliasRows.length > 0) {
+    const gameIds = [...new Set(aliasRows.map((r) => r.game_id))];
+    await deleteGameData("game_aliases", "game_id", gameIds);
+    await deleteAndInsert("game_aliases", aliasRows);
+  }
+  if (companyRows.length > 0) {
+    await upsertBatch("game_companies", companyRows, "game_id, company_name, role, source");
+  }
+  if (summaryRows.length > 0) {
+    await upsertBatch("game_summaries", summaryRows, "game_id, source, source_key");
+  }
+  if (releaseRows.length > 0) {
+    await upsertBatch("game_releases", releaseRows, "game_id, platform_id, source, source_key");
+  }
+  if (platformScoreRows.length > 0) {
+    await upsertBatch("game_scores", platformScoreRows, "game_id, platform_id, score_source, source_key");
+  }
+  if (externalIdRows.length > 0) {
+    await upsertBatch("game_external_ids", externalIdRows, "game_id, provider, provider_game_key");
   }
 }
 
@@ -382,331 +821,149 @@ async function main() {
     process.exit(1);
   }
 
-  const years = [];
-  for (let y = 2026; y >= 2000; y--) years.push(y);
+  const isIncremental = process.argv.includes("--incremental");
+  const skipDetail = process.argv.includes("--no-detail");
+  const yearsBack = parseInt(
+    process.argv.find((a) => a.startsWith("--years="))?.split("=")[1] || "27",
+    10,
+  );
 
-  const modernPlatforms = [
-    "xbox_series_xs",
-    "switch_1",
-    "pc",
-    "macos",
-    "ps5",
-    "ps4",
-    "xbox_one",
-    "ios",
-    "android",
-    "linux",
-  ];
+  console.error(`Mode: ${isIncremental ? "incremental" : "full"}${skipDetail ? " (no detail)" : ""}`);
+  console.error("Loading existing data...");
+  const { ids, titles, byRawgId, hasSummary } = await loadExistingGames();
+  const seenIds = new Set(ids);
+  const seenTitles = new Set(titles);
+  console.error(`  ${seenIds.size} games, ${hasSummary.size} with summaries`);
 
-  console.error("Loading existing games for dedup...");
-  const existing = await loadExistingGames();
-  console.error(`  ${existing.ids.size} IDs, ${existing.titles.size} titles`);
+  const progress = loadProgress();
+  if (!progress.detailProcessed) progress.detailProcessed = {};
+  if (!progress.detailQueue) progress.detailQueue = [];
 
-  const seenIds = new Set(existing.ids);
-  const seenTitles = new Set(existing.titles);
+  let newGameIds = [];
+  let phase1Total = 0;
 
-  function isDuplicate(game) {
-    const gid = makeGameId(game.name);
-    const ntitle = normalizeTitle(game.name);
-    if (seenIds.has(gid) || seenTitles.has(ntitle)) return true;
-    return false;
-  }
-
-  function markSeen(game) {
-    const gid = makeGameId(game.name);
-    const ntitle = normalizeTitle(game.name);
-    seenIds.add(gid);
-    seenTitles.add(ntitle);
-  }
-
-  // -- Modern platforms (2026 → 2015) --
-  for (const platformId of modernPlatforms) {
-    const p = RAWG_PLATFORMS[platformId];
-    if (!p) continue;
-    console.error(`\n=== ${p.name} (${platformId}) ===`);
-
-    const platformRows = [];
-    const gamePlatformMap = new Map();
+  if (!isIncremental) {
+    const currentYear = new Date().getFullYear();
+    const startYear = Math.max(currentYear - yearsBack + 1, 2000);
+    const years = [];
+    for (let y = currentYear; y >= startYear; y--) years.push(y);
 
     for (const year of years) {
-      console.error(`  ${year}...`);
-      const games = await fetchYearPlatform(apiKey, p.id, year);
+      console.error(`\n=== Year ${year} ===`);
+      const games = await fetchYearGames(apiKey, year);
+      console.error(`  Fetched ${games.length} games`);
 
-      let added = 0;
-      for (const game of games) {
-        if (isEasterEgg(game.released)) continue;
-        if (isDuplicate(game)) continue;
+      const { newGames, updatedGames } = dedupGames(games, seenTitles, seenIds, byRawgId);
+      const toProcess = [...newGames, ...updatedGames];
 
-        const otherPlatforms = [];
-        const otherNames = [p.name];
-        if (game.parent_platforms) {
-          for (const pp of game.parent_platforms) {
-            const slug = pp.platform.slug;
-            for (const [pid, info] of Object.entries(RAWG_PLATFORMS)) {
-              if (pid === platformId) continue;
-              if (slug.includes("playstation") && info.name.includes("PlayStation")) {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("xbox") && info.name.includes("Xbox")) {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("nintendo-switch") && pid === "switch_1") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("pc") && pid === "pc") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if ((slug === "macos" || slug === "mac") && pid === "macos") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("ios") && pid === "ios") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("android") && pid === "android") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("linux") && pid === "linux") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              }
-            }
-          }
-        }
-
-        const allPids = [platformId, ...otherPlatforms.filter((p) => p !== platformId)];
-        const allNames = [p.name, ...otherNames.filter((n) => n !== p.name)];
-        const row = toGameRow(game, allPids);
-        platformRows.push(row);
-        gamePlatformMap.set(row.game_id, allPids);
-        markSeen(game);
-        added++;
+      if (toProcess.length === 0) {
+        console.error(`  0 to process`);
+        continue;
       }
-      console.error(`    +${added} games`);
 
-      await sleep(800);
+      console.error(`  ${newGames.length} new, ${updatedGames.length} to update`);
+
+      const uuids = await processListBatch(toProcess, byRawgId);
+      newGameIds.push(...uuids);
+      phase1Total += uuids.length;
+      console.error(`  Upserted ${uuids.length} games`);
     }
 
-    if (platformRows.length > 0) {
-      await upsertGames(platformRows);
-      for (const [gameId, pids] of gamePlatformMap) {
-        await syncGamePlatforms(gameId, pids);
+    for (const platformId of RETRO_PLATFORMS) {
+      const p = RAWG_PLATFORMS[platformId];
+      if (!p) continue;
+      console.error(`\n=== ${p.name} (retro) ===`);
+      const games = await fetchPlatformGames(apiKey, p.id);
+      console.error(`  Fetched ${games.length} games`);
+
+      const { newGames, updatedGames } = dedupGames(games, seenTitles, seenIds, byRawgId);
+      const toProcess = [...newGames, ...updatedGames];
+
+      if (toProcess.length === 0) {
+        console.error(`  0 to process`);
+        continue;
       }
+
+      console.error(`  ${newGames.length} new, ${updatedGames.length} to update`);
+      const uuids = await processListBatch(toProcess, byRawgId);
+      newGameIds.push(...uuids);
+      phase1Total += uuids.length;
+      console.error(`  Upserted ${uuids.length} games`);
     }
+
+    console.error(`\n=== Phase 1 done: ${phase1Total} games processed ===`);
   }
 
-  // -- Modern platforms (ordering=-added, second pass) --
-  for (const platformId of modernPlatforms) {
-    const p = RAWG_PLATFORMS[platformId];
-    if (!p) continue;
-    console.error(`\n=== ${p.name} (${platformId}) [added] ===`);
-
-    const platformRows = [];
-    const gamePlatformMap = new Map();
-
-    for (const year of years) {
-      console.error(`  ${year}...`);
-      const games = await fetchYearPlatform(apiKey, p.id, year, "-added");
-
-      let added = 0;
-      for (const game of games) {
-        if (isEasterEgg(game.released)) continue;
-        if (isDuplicate(game)) continue;
-
-        const otherPlatforms = [];
-        const otherNames = [p.name];
-        if (game.parent_platforms) {
-          for (const pp of game.parent_platforms) {
-            const slug = pp.platform.slug;
-            for (const [pid, info] of Object.entries(RAWG_PLATFORMS)) {
-              if (pid === platformId) continue;
-              if (slug.includes("playstation") && info.name.includes("PlayStation")) {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("xbox") && info.name.includes("Xbox")) {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("nintendo-switch") && pid === "switch_1") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("pc") && pid === "pc") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if ((slug === "macos" || slug === "mac") && pid === "macos") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("ios") && pid === "ios") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("android") && pid === "android") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              } else if (slug.includes("linux") && pid === "linux") {
-                if (!otherPlatforms.includes(pid)) {
-                  otherPlatforms.push(pid);
-                  otherNames.push(info.name);
-                }
-              }
-            }
-          }
-        }
-
-        const allPids = [platformId, ...otherPlatforms.filter((p) => p !== platformId)];
-        const allNames = [p.name, ...otherNames.filter((n) => n !== p.name)];
-        const row = toGameRow(game, allPids);
-        platformRows.push(row);
-        gamePlatformMap.set(row.game_id, allPids);
-        markSeen(game);
-        added++;
-      }
-      console.error(`    +${added} games`);
-      await sleep(800);
-    }
-
-    if (platformRows.length > 0) {
-      await upsertGames(platformRows);
-    }
+  if (skipDetail) {
+    console.error("Skipping phase 2 (detail fetch)");
+    return;
   }
 
-  // -- Retro platforms (top-rated all-time, page-based) --
-  const retroPlatforms = [
-    "psp",
-    "ps1",
-    "3ds",
-    "ds",
-    "gba",
-    "xbox_360",
-    "ps3",
-    "ps2",
-    "wii",
-    "wii_u",
-    "snes",
-    "nes",
-    "n64",
-    "gamecube",
-    "ps_vita",
-    "gbc",
-    "gb",
-    "dreamcast",
-    "saturn",
-    "genesis",
-    "xbox_original",
-    "sega_master_system",
-    "neo_geo",
-    "game_gear",
-    "atari_2600",
-  ];
+  console.error("\n=== Phase 2: Detail fetch ===");
+  const apiGameIds = [...byRawgId.entries()].filter(
+    ([ref]) => !hasSummary.has(byRawgId.get(ref)) || !progress.detailProcessed[ref],
+  );
 
-  let totalAdded = 0;
+  apiGameIds.sort((a, b) => {
+    const aScore = parseInt(a[0].split(":")[1], 10);
+    const bScore = parseInt(b[0].split(":")[1], 10);
+    return aScore - bScore;
+  });
 
-  for (const platformId of retroPlatforms) {
-    const p = RAWG_PLATFORMS[platformId];
-    if (!p) continue;
-    console.error(`\n=== ${p.name} (${platformId}) ===`);
+  const gameIdsToFetch = apiGameIds.slice(0, 500);
+  console.error(`  Queue: ${gameIdsToFetch.length} games (${apiGameIds.length} total pending)`);
 
-    const platformRows = [];
-    const gamePlatformMap = new Map();
+  let detailBatch = [];
+  let detailTotal = 0;
 
-    for (let page = 1; page <= 50; page++) {
-      console.error(`  page ${page}...`);
-      const games = await fetchPlatformPage(apiKey, p.id, page, 40);
-
-      let added = 0;
-      for (const game of games) {
-        if (isEasterEgg(game.released)) continue;
-        if (isDuplicate(game)) continue;
-
-        const allPids = [platformId];
-
-        const row = toGameRow(game, allPids);
-        platformRows.push(row);
-        gamePlatformMap.set(row.game_id, allPids);
-        markSeen(game);
-        added++;
-      }
-      console.error(`    +${added} games`);
-      await sleep(800);
+  for (const [ref, gameId] of gameIdsToFetch) {
+    const rawgId = ref.replace("rawg:", "");
+    const detail = await fetchRawgDetail(apiKey, rawgId);
+    if (!detail) {
+      await sleep(API_DELAY_MS);
+      continue;
     }
 
-    if (platformRows.length > 0) {
-      await upsertGames(platformRows);
-      for (const [gameId, pids] of gamePlatformMap) {
-        await syncGamePlatforms(gameId, pids);
-      }
-      totalAdded += platformRows.length;
+    progress.detailProcessed[ref] = true;
+
+    const aliases = toAliasRows(gameId, detail);
+    const companies = toCompanyRows(gameId, detail);
+    const summaries = toSummaryRows(gameId, detail);
+    const releases = toReleaseRows(gameId, detail);
+    const platformScores = toPlatformScoreRows(gameId, detail);
+    const externalIds = toExternalIdRows(gameId, detail);
+
+    detailBatch.push({
+      gameId,
+      aliases,
+      companies,
+      summaries,
+      releases,
+      platformScores,
+      externalIds,
+    });
+    detailTotal++;
+    hasSummary.add(gameId);
+
+    if (detailBatch.length >= FLUSH_BATCH) {
+      await processDetailBatch(detailBatch);
+      console.error(`  Detail batch flushed (${detailTotal} processed)`);
+      detailBatch = [];
+      saveProgress(progress);
     }
+
+    await sleep(API_DELAY_MS);
   }
 
-  // -- Modern platforms (ordering=-added, second pass) --
-  for (const platformId of modernPlatforms) {
-  for (const platformId of retroPlatforms) {
-    const p = RAWG_PLATFORMS[platformId];
-    if (!p) continue;
-    console.error(`\n=== ${p.name} (${platformId}) [added] ===`);
-
-    const platformRows = [];
-    const gamePlatformMap = new Map();
-
-    for (let page = 1; page <= 50; page++) {
-      console.error(`  page ${page}...`);
-      const games = await fetchPlatformPage(apiKey, p.id, page, "-added", 40);
-
-      let added = 0;
-      for (const game of games) {
-        if (isEasterEgg(game.released)) continue;
-        if (isDuplicate(game)) continue;
-
-        const allPids = [platformId];
-
-        const row = toGameRow(game, allPids);
-        platformRows.push(row);
-        gamePlatformMap.set(row.game_id, allPids);
-        markSeen(game);
-        added++;
-      }
-      console.error(`    +${added} games`);
-      await sleep(800);
-    }
-
-    if (platformRows.length > 0) {
-      await upsertGames(platformRows);
-      for (const [gameId, pids] of gamePlatformMap) {
-        await syncGamePlatforms(gameId, pids);
-      }
-      totalAdded += platformRows.length;
-    }
+  if (detailBatch.length > 0) {
+    await processDetailBatch(detailBatch);
+    console.error(`  Final detail batch flushed (${detailTotal} total)`);
+    saveProgress(progress);
   }
 
-  console.error(`\n=== Done: ${totalAdded} new games added ===`);
+  console.error(`\n=== Done ===`);
+  console.error(`  Phase 1: ${phase1Total} games`);
+  console.error(`  Phase 2: ${detailTotal} details fetched`);
 }
 
 main().catch(console.error);
