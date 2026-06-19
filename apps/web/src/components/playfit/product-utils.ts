@@ -68,6 +68,33 @@ export function formatGenre(value: string) {
   return cleaned;
 }
 
+export function formatDisplayGenre(genre?: string): string {
+  if (!genre || genre.toLowerCase() === "unknown") return "";
+
+  const words = genre
+    .replace(/[;_/-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ");
+
+  return words
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (lower === "jrpg") return "JRPG";
+      if (lower === "rpg") return "RPG";
+      if (lower === "fps") return "FPS";
+      if (lower === "mmo") return "MMO";
+      if (lower === "rts") return "RTS";
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+export function isValidReleaseYear(year?: string): boolean {
+  if (!year) return false;
+  return /^\d{4}$/.test(year) && year !== "0000";
+}
+
 export function formatGameDescriptor(game: SeedGame) {
   if (game.series && game.series.toLowerCase() !== "unknown") return game.series;
   return formatGenre(game.primaryGenre);

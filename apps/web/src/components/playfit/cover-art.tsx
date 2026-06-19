@@ -66,7 +66,7 @@ export function CoverArt({
           <Image
             src={src}
             alt={alt}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
             width={260}
             height={390}
             priority={priority}
@@ -76,7 +76,7 @@ export function CoverArt({
           <Image
             src={src}
             alt={alt}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
             width={260}
             height={390}
             priority={priority}
