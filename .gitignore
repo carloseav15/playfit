@@ -35,3 +35,4 @@ output/
 reports/assets/
 reports/*.html
 reports/play-audit-*/
+reports/external-catalog/
