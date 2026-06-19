@@ -52,36 +52,36 @@
 }
 
 :root {
-  --background: #f7f8f4;
-  --foreground: #17201d;
-  --card: rgba(255, 255, 255, 0.76);
-  --card-foreground: #17201d;
-  --primary: #17201d;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #0f172a;
   --primary-foreground: #ffffff;
-  --secondary: rgba(23, 32, 29, 0.06);
-  --secondary-foreground: #17201d;
-  --muted: rgba(23, 32, 29, 0.07);
-  --muted-foreground: #42504a;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f8fafc;
+  --muted-foreground: #475569;
   --accent: #0f766e;
-  --accent-foreground: #ecfdf5;
+  --accent-foreground: #ffffff;
   --destructive: #be123c;
   --destructive-foreground: #fff1f2;
-  --border: rgba(23, 32, 29, 0.14);
-  --input: rgba(255, 255, 255, 0.82);
+  --border: #e2e8f0;
+  --input: #ffffff;
   --ring: rgba(15, 118, 110, 0.85);
   --ink: #0d9488;
   --radius: 0.5rem;
   --positive: #047857;
-  --positive-bg: rgba(4, 120, 87, 0.1);
+  --positive-bg: rgba(4, 120, 87, 0.08);
   --warning: #b45309;
-  --warning-bg: rgba(180, 83, 9, 0.1);
+  --warning-bg: rgba(180, 83, 9, 0.08);
   --negative: #be123c;
-  --negative-bg: rgba(190, 18, 60, 0.1);
+  --negative-bg: rgba(190, 18, 60, 0.08);
   --tone-accent: #0369a1;
-  --tone-accent-bg: rgba(3, 105, 161, 0.1);
-  --shadow-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --tone-accent-bg: rgba(3, 105, 161, 0.08);
+  --shadow-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  --shadow-elevation-md: 0 4px 10px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+  --shadow-elevation-lg: 0 10px 30px -3px rgba(0, 0, 0, 0.04), 0 4px 12px -4px rgba(0, 0, 0, 0.03);
 }
 
 .dark {
@@ -118,6 +118,11 @@
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  overflow-x: hidden;
 }
 
 html {
@@ -192,6 +197,45 @@ dialog[open]::backdrop {
 @starting-style {
   dialog[open]::backdrop {
     opacity: 0;
+  }
+}
+
+/* ── Mobile Dialogs (Bottom Sheets) ──────────────── */
+@media (max-width: 767px) {
+  dialog.max-w-md,
+  dialog.max-w-sm {
+    margin-bottom: 0;
+    margin-top: auto;
+    margin-left: 0;
+    margin-right: 0;
+    left: 0;
+    right: 0;
+    border-radius: 1.5rem 1.5rem 0 0;
+    max-height: 85vh;
+    width: 100%;
+    max-width: 100%;
+    transform: translateY(100%);
+    border-bottom: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    opacity: 1;
+    transition:
+      opacity var(--duration-fast),
+      transform var(--duration-normal) var(--ease-out);
+  }
+
+  dialog.max-w-md[open],
+  dialog.max-w-sm[open] {
+    transform: translateY(0);
+  }
+
+  @starting-style {
+    dialog.max-w-md[open],
+    dialog.max-w-sm[open] {
+      transform: translateY(100%);
+    }
   }
 }
 
