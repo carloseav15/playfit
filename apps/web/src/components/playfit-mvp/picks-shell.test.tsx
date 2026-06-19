@@ -35,7 +35,7 @@ describe("PicksShell", () => {
 
     const html = renderToStaticMarkup(<PicksShell />);
 
-    expect(html).toContain("Tune your taste first");
+    expect(html).toContain("Set up your taste first");
     expect(html).toContain("Start Play Next");
   });
 });

@@ -17,7 +17,7 @@ ORIG_SCHEMA="games_library"
 TEMP_CONTAINER="pg_restore_temp"
 
 psql_cmd() {
-  docker run --rm --network=host -e PGPASSWORD="${DB_PASS}" "${IMAGE}" \
+  docker run --rm --network=host -e PGPASSWORD="${DB_PASS}" -i "${IMAGE}" \
     psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" "$@"
 }
 
@@ -67,8 +67,9 @@ CREATE TABLE ${TEMP_SCHEMA}.game_platforms (
 CREATE TABLE ${TEMP_SCHEMA}.profiles (
   id uuid NOT NULL PRIMARY KEY,
   user_id text NOT NULL,
-  username text,
-  avatar_url text,
+  game_states jsonb,
+  profile jsonb,
+  onboarding jsonb,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -86,6 +87,7 @@ for i in $(seq 1 10); do
   fi
   sleep 1
 done
+sleep 3
 
 echo ""
 echo ">>> 3/6 Creating old-schema tables in temp container..."
@@ -94,7 +96,7 @@ docker exec "${TEMP_CONTAINER}" psql -U postgres -d postgres \
   -c "CREATE TABLE ${ORIG_SCHEMA}.games (game_id text NOT NULL, title text NOT NULL, aliases text[] DEFAULT '{}', series text, primary_genre text, release_year integer, release_state text, source_type text, source_ref text, cover_url text, tags text[] DEFAULT '{}', notes text, sort_date date, release_label text, PRIMARY KEY (game_id))" \
   -c "CREATE TABLE ${ORIG_SCHEMA}.platforms (id text NOT NULL PRIMARY KEY, name text NOT NULL, rawg_id integer)" \
   -c "CREATE TABLE ${ORIG_SCHEMA}.game_platforms (game_id text NOT NULL, platform_id text NOT NULL, PRIMARY KEY (game_id, platform_id))" \
-  -c "CREATE TABLE ${ORIG_SCHEMA}.profiles (id uuid NOT NULL PRIMARY KEY, user_id text NOT NULL, username text, avatar_url text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())"
+  -c "CREATE TABLE ${ORIG_SCHEMA}.profiles (id uuid NOT NULL PRIMARY KEY, user_id text NOT NULL, game_states jsonb, profile jsonb, onboarding jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())"
 
 echo ""
 echo ">>> 4/6 Restoring dump data into temp container..."
