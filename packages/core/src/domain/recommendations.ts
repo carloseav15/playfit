@@ -511,7 +511,7 @@ export function buildTodayModel(
         entry.accessStatus === "playable",
     )
     .sort((left, right) => right.affinityScore - left.affinityScore)
-    .slice(0, 100);
+    .slice(0, 10);
 
   const picks = rankedFiltered
     .filter((entry) => entry.inPlayfitPicks && isPlayableNow(entry))
@@ -578,7 +578,7 @@ export function buildTodayModel(
     return right.affinityScore - left.affinityScore || left.riskScore - right.riskScore;
   });
 
-  const nextUp = sortedPlayable.slice(0, 100);
+  const nextUp = sortedPlayable.slice(0, 10);
 
   return { currentRun, nextUp, resume, picks };
 }
