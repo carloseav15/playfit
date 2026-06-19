@@ -4,8 +4,6 @@ import { ThemeProvider } from "next-themes";
 import type React from "react";
 import "./globals.css";
 
-import { ThemeToggle } from "../components/theme-toggle";
-
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -46,7 +44,16 @@ export const metadata: Metadata = {
   description:
     "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
   icons: {
-    icon: "/playfit_logo.png",
+    icon: [
+      {
+        url: "/playfit_logo_light.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/playfit_logo_dark.png",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
   },
   openGraph: {
     title: "Playfit | Game decisions you can trust",
@@ -87,7 +94,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           >
             Skip to content
           </a>
-          <ThemeToggle />
           <div id="main-content" tabIndex={-1}>
             {children}
           </div>
