@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "./cover-art";
 import { usePlayfit } from "./playfit-context";
-import { decisionLabel, decisionTone, formatGameDescriptor } from "./product-utils";
+import { decisionLabel, decisionTone } from "./product-utils";
 import { SectionHead } from "./section-head";
 
 const containerVariants = {
@@ -92,11 +92,10 @@ export function FinderSection() {
                   onClick={() => openDossier(game.gameId)}
                 >
                   <CoverArt game={game} className="aspect-[2/3]" />
-                  <span>
-                    <strong>{game.title}</strong>
-                    <span className="block text-sm text-muted-foreground">
-                      {formatGameDescriptor(game)}
-                    </span>
+                  <span className="min-w-0">
+                    <strong className="block text-base font-bold truncate text-foreground">
+                      {game.title}
+                    </strong>
                   </span>
                   {ranked ? (
                     <Badge variant={decisionTone(ranked)}>{decisionLabel(ranked)}</Badge>

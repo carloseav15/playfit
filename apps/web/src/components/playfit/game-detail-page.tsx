@@ -302,7 +302,7 @@ export function GameDetailPage({ gameId }: { gameId: string }) {
             <Card className="min-w-0">
               <CardHeader>
                 <CardTitle as="h2">Same series</CardTitle>
-                <CardDescription>Other titles in the {game.series} collection.</CardDescription>
+                <CardDescription>Other titles in this collection.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Carousel>

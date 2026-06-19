@@ -23,10 +23,10 @@ export function Tag({ className, onRemove, variant = "accent", children, ...prop
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-sm opacity-60 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-0.5 rounded-full opacity-60 hover:bg-black/10 dark:hover:bg-white/10 p-1 -m-1 min-w-6 min-h-6 inline-flex items-center justify-center transition-all hover:opacity-100 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Remove"
         >
-          <X className="size-3" />
+          <X className="size-3.5" />
         </button>
       )}
     </span>
