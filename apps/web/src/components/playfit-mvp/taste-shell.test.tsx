@@ -77,11 +77,11 @@ describe("TasteShell", () => {
 
     const html = renderToStaticMarkup(<TasteShell />);
 
-    expect(html).toContain("Tune your taste first");
+    expect(html).toContain("Set up your taste first");
     expect(html).toContain("Start Play Next");
   });
 
-  it("renders the taste map and history for a ready profile", async () => {
+  it("renders the taste map and activity tab for a ready profile", async () => {
     const liked = createGame("chrono_trigger", "Chrono Trigger");
     const disliked = createGame("resident_evil_4", "Resident Evil 4", {
       primaryGenre: "horror",
@@ -127,11 +127,10 @@ describe("TasteShell", () => {
 
     expect(html).toContain("Your Taste");
     expect(html).toContain("Taste Map");
-    expect(html).toContain("Decisions &amp; Activity");
-    expect(html).toContain("Lean toward");
-    expect(html).toContain("Steer away from");
-    expect(html).toContain("Setup favorite");
-    expect(html).toContain("Setup miss");
-    expect(html).toContain("Loved");
+    expect(html).toContain("Activity");
+    expect(html).toContain("Liked");
+    expect(html).toContain("Avoided");
+    expect(html).toContain("Preferences");
+    expect(html).toContain("Based on 3 preferences");
   });
 });

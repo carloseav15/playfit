@@ -1,5 +1,7 @@
 # Playfit
 
+![Playfit Dashboard Mockup](apps/web/public/playfit_mvp_mockup.png)
+
 Playfit is a Next.js App Router app that turns a game catalog, platform access, ratings, and profile
 signals into practical recommendations for what to start, resume, or skip.
 

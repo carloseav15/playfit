@@ -41,7 +41,7 @@ vi.mock("../playfit/playfit-context", () => ({
 }));
 
 vi.mock("../playfit/onboarding-section", () => ({
-  OnboardingSection: () => "Tune your taste",
+  OnboardingSection: () => "Set up your taste",
 }));
 
 vi.mock("../playfit/status-toast", () => ({
@@ -58,7 +58,7 @@ describe("DecisionShell", () => {
     vi.clearAllMocks();
   });
 
-  it("renders taste onboarding instead of a dead-end state for new users", async () => {
+  it("renders the calibration launcher instead of a dead-end state for new users", async () => {
     mocks.usePlayfit.mockReturnValue({
       state: createInitialState(),
       applyDecisionFeedback: vi.fn(),
@@ -68,8 +68,8 @@ describe("DecisionShell", () => {
 
     const html = renderToStaticMarkup(<DecisionShell />);
 
-    expect(html).toContain("Find what to play next");
-    expect(html).toContain("Tune my taste");
+    expect(html).toContain("Your next game");
+    expect(html).toContain("Find What to Play");
     expect(html).not.toContain("Not ready yet");
   });
 
@@ -94,7 +94,7 @@ describe("DecisionShell", () => {
 
     const html = renderToStaticMarkup(<DecisionShell />);
 
-    expect(html).not.toContain("Find what to play next");
-    expect(html).not.toContain("Tune your taste");
+    expect(html).not.toContain("Your next game");
+    expect(html).not.toContain("Set up your taste");
   });
 });
