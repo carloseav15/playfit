@@ -93,13 +93,12 @@ function normalizeTitle(title) {
     .trim();
 }
 
-function makeGameId(title, prefix = "wiki") {
-  const safe = title
+function makeGameId(title) {
+  return title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "")
     .slice(0, 80);
-  return `${prefix}_${safe}`;
 }
 
 async function fetchWikipediaTable(pageTitle) {
@@ -398,7 +397,7 @@ async function main() {
           continue;
         }
 
-        const gameId = makeGameId(rawgGame.name, "rawg");
+        const gameId = makeGameId(rawgGame.name);
         const releaseYear = rawgGame.released ? rawgGame.released.slice(0, 4) : g.year;
         const coverUrl = rawgGame.background_image || "";
 
@@ -433,7 +432,7 @@ async function main() {
     }
 
     // Insert as minimal entry
-    const gameId = makeGameId(g.title, "wiki");
+    const gameId = makeGameId(g.title);
     newRows.push({
       game_id: gameId,
       title: g.title,

@@ -145,7 +145,7 @@ async function importFromGrouvee(htmlPath, downloadDir, { apply }) {
     if (existingId) {
       toUpdate.push({ game_id: existingId, cover_url: localPath });
     } else {
-      const newId = `grouvee_${slug}`;
+      const newId = slug;
       toInsert.push({
         game_id: newId,
         title: game.title,
