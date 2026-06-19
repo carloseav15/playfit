@@ -23,10 +23,21 @@ export function createInitialState() {
   return JSON.parse(JSON.stringify(DEFAULT_PRODUCT_STATE)) as ProductState;
 }
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function getDeviceId(): string {
   let deviceId = localStorage.getItem("playfit_device_id");
   if (!deviceId) {
-    deviceId = crypto.randomUUID();
+    deviceId = generateUUID();
     localStorage.setItem("playfit_device_id", deviceId);
   }
   return deviceId;
