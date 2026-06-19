@@ -7,71 +7,20 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Stack } from "@/components/ui/stack";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import {
   confidenceLabel,
   decisionLabel,
   decisionTone,
-  formatGameDescriptor,
   matchQualityLabel,
   primaryReason,
   watchOutLabel,
 } from "../playfit/product-utils";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
-
-const reasonOptions = ["Wrong mood", "Too long", "Too hard", "Not my genre"];
-
-function DecisionMetric({
-  label,
-  value,
-  detail,
-  numericValue,
-  colorClass = "bg-accent",
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  numericValue?: number;
-  colorClass?: string;
-}) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl border border-white/5 bg-secondary/35 p-4 transition-all duration-300 hover:border-white/10 hover:bg-secondary/40"
-      {...(numericValue != null
-        ? {
-            role: "meter",
-            "aria-valuenow": numericValue,
-            "aria-valuemin": 0,
-            "aria-valuemax": 100,
-            "aria-label": `${label}: ${value}${detail ? `, ${detail}` : ""}`,
-          }
-        : {
-            "aria-label": `${label}: ${value}${detail ? `, ${detail}` : ""}`,
-          })}
-    >
-      <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
-        {label}
-      </span>
-      <strong className="mt-1 block text-base font-extrabold leading-tight text-foreground">
-        {value}
-      </strong>
-      {detail ? (
-        <span className="mt-1 block text-xs text-muted-foreground/80">{detail}</span>
-      ) : null}
-
-      {numericValue != null && (
-        <div className="absolute bottom-0 inset-x-0 h-1 bg-white/5">
-          <div
-            className={cn("h-full transition-all duration-500", colorClass)}
-            style={{ width: `${numericValue}%` }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
+import { FeedbackReasonPicker } from "./feedback-reason-picker";
+import { RecommendationMetric } from "./recommendation-metric";
+import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
 
 export function PlayNextCard({
   entry,
@@ -98,14 +47,7 @@ export function PlayNextCard({
   const tone = decisionTone(entry);
   const label = decisionLabel(entry);
   const bestReason = primaryReason(entry);
-  const validCautions = (entry.cautionReasons ?? []).filter(
-    (r) =>
-      r &&
-      r.trim() !== "" &&
-      r !== "No reliable call yet." &&
-      r !== "No major watch-out yet." &&
-      r !== "No major caveat yet.",
-  );
+  const validCautions = filterUsefulCautions(entry.cautionReasons);
   const hasCautions = validCautions.length > 0;
   const firstWatchOut = validCautions[0] ?? "";
   const matchLabel = matchQualityLabel(entry.affinityScore);
@@ -126,7 +68,7 @@ export function PlayNextCard({
 
   if (!primary) {
     return (
-      <Card className="group relative overflow-hidden rounded-3xl border border-white/5 bg-card/50 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-white/10 hover:shadow-xl">
+      <Card className="group relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm hover:border-border/80 hover:shadow-md transition-all duration-300">
         <CardContent className="grid gap-4 p-5 md:grid-cols-[6rem_minmax(0,1fr)_auto] md:items-center">
           <CoverArt
             game={entry.game}
@@ -142,10 +84,7 @@ export function PlayNextCard({
               </Badge>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                {formatGameDescriptor(entry.game)}
-              </p>
-              <h3 className="font-display text-xl font-extrabold leading-tight text-foreground">
+              <h3 className="font-display text-2xl font-black leading-tight text-foreground">
                 {entry.game.title}
               </h3>
             </div>
@@ -232,28 +171,15 @@ export function PlayNextCard({
             onSelect={chooseAlreadyPlayed}
           />
           {showReasonPicker ? (
-            <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/30 p-4 md:col-span-3 mt-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                What got in the way?
-              </p>
-              <Stack direction="row" wrap gap={2}>
-                {reasonOptions.map((reason) => (
-                  <Button
-                    key={reason}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      onReason?.(reason);
-                      setShowReasonPicker(false);
-                    }}
-                    className="text-xs border-white/10 bg-card hover:bg-secondary"
-                  >
-                    {reason}
-                  </Button>
-                ))}
-              </Stack>
-            </div>
+            <FeedbackReasonPicker
+              onSelect={(reason) => {
+                onReason?.(reason);
+                setShowReasonPicker(false);
+              }}
+              className="border-border/60 bg-secondary/50 md:col-span-3 mt-2"
+              labelClassName="text-[10px]"
+              buttonClassName="text-xs border-border bg-card hover:bg-secondary"
+            />
           ) : null}
         </CardContent>
       </Card>
@@ -263,11 +189,10 @@ export function PlayNextCard({
   return (
     <Card
       className={cn(
-        "relative min-w-0 overflow-hidden rounded-3xl border border-white/10 shadow-2xl backdrop-blur-md",
-        primary && "bg-gradient-to-br from-card/85 to-card/60",
+        "relative min-w-0 overflow-hidden rounded-3xl border border-border shadow-md transition-all duration-300",
+        primary && "bg-card shadow-lg",
       )}
     >
-      {/* Decorative inner glows */}
       <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-accent/10 blur-3xl" />
       <div className="pointer-events-none absolute -left-16 -bottom-16 size-44 rounded-full bg-indigo-500/10 blur-3xl" />
 
@@ -297,63 +222,70 @@ export function PlayNextCard({
           <div className="relative group/cover justify-self-center w-full max-w-44 md:max-w-none">
             <CoverArt
               game={entry.game}
-              className="aspect-[2/3] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-white/5"
+              className="aspect-[2/3] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-border/40"
               priority={primary}
             />
           </div>
           <div className="grid min-w-0 content-start gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
-                {formatGameDescriptor(entry.game)}
-              </p>
               <h2
                 className={cn(
-                  "font-display font-black leading-[0.95] tracking-tight mt-1 text-foreground",
-                  primary ? "text-3xl md:text-4xl" : "text-xl",
+                  "font-display font-black leading-[0.95] tracking-tight text-foreground",
+                  primary ? "text-4xl md:text-5xl" : "text-2xl",
                 )}
               >
                 {entry.game.title}
               </h2>
             </div>
             <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-              <DecisionMetric
+              <RecommendationMetric
                 label="Match"
                 value={matchLabel}
                 detail={`${entry.affinityScore}/100`}
                 numericValue={entry.affinityScore}
                 colorClass="bg-gradient-to-r from-accent to-indigo-600"
+                interactive
               />
-              <DecisionMetric
+              <RecommendationMetric
                 label="Watch-outs"
                 value={watchLabel}
                 detail={`${entry.riskScore}/100`}
                 numericValue={entry.riskScore}
                 colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
+                interactive
               />
-              <DecisionMetric label="Confidence" value={confidence} colorClass="bg-accent/70" />
+              <RecommendationMetric
+                label="Confidence"
+                value={confidence}
+                colorClass="bg-accent/70"
+                interactive
+              />
             </div>
             <div className={cn("grid gap-3.5", hasCautions ? "md:grid-cols-2" : "grid-cols-1")}>
-              <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
-                  Why this fits
-                </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{bestReason}</p>
-              </div>
+              <RecommendationReasons
+                title="Why this fits"
+                reasons={[bestReason]}
+                fallback={bestReason}
+                variant="paragraph"
+                className="bg-secondary/25 hover:bg-secondary/40 transition-colors duration-200"
+                titleClassName="mb-0"
+              />
               {hasCautions ? (
-                <div className="rounded-2xl border border-white/5 bg-secondary/25 p-4 hover:bg-secondary/40 transition-colors duration-200">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-warning">
-                    Watch-outs
-                  </p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                    {firstWatchOut}
-                  </p>
-                </div>
+                <RecommendationReasons
+                  title="Watch-outs"
+                  reasons={[firstWatchOut]}
+                  fallback={firstWatchOut}
+                  tone="warning"
+                  variant="paragraph"
+                  className="bg-secondary/25 hover:bg-secondary/40 transition-colors duration-200"
+                  titleClassName="mb-0"
+                />
               ) : null}
             </div>
           </div>
         </div>
 
-        <div className="grid gap-4 pt-2 border-t border-white/5">
+        <div className="grid gap-4 pt-2 border-t border-border/60">
           <Button
             type="button"
             onClick={onAddPick}
@@ -362,16 +294,16 @@ export function PlayNextCard({
               "w-full h-12 font-extrabold text-sm rounded-2xl transition-all duration-300 active:scale-[0.99]",
               inPlayfitPicks
                 ? "bg-secondary text-muted-foreground cursor-not-allowed"
-                : "bg-gradient-to-r from-accent to-indigo-600 text-white shadow-[0_0_20px_rgba(255,106,61,0.2)] hover:shadow-[0_0_25px_rgba(255,106,61,0.35)] scale-100 hover:scale-[1.01]",
+                : "bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.2)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.35)] scale-100 hover:scale-[1.01]",
             )}
           >
             <ListPlus className="size-4 mr-2" />
             {inPlayfitPicks ? "Saved in Playfit Picks" : "Add to Playfit Picks"}
           </Button>
 
-          <div className="flex flex-col gap-3 p-3 rounded-2xl bg-secondary/15 border border-white/5">
+          <div className="flex flex-col gap-3 p-3 rounded-2xl bg-secondary/50 border border-border/50">
             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/80 px-1">
-              Calibration Feedback
+              What's your verdict?
             </span>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -383,34 +315,34 @@ export function PlayNextCard({
                   setShowAlreadyPlayed((current) => !current);
                   setShowReasonPicker(false);
                 }}
-                className="flex-1 text-xs border-white/5 bg-secondary/40 hover:bg-secondary/80 hover:text-foreground"
+                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-secondary h-11 md:h-10 rounded-xl text-xs font-bold"
               >
                 <CheckCircle2 className="size-4" />
-                Already Played
+                Already Played It
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={markNotForMe}
-                className="flex-1 text-xs border-white/5 bg-secondary/40 hover:bg-destructive-bg hover:text-destructive"
+                className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive"
               >
                 <XCircle className="size-4" />
-                Not for me
+                No, skip this
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2">
           {onShowAnother ? (
             <Button
               type="button"
               variant="ghost"
               onClick={onShowAnother}
-              className="text-xs hover:text-foreground"
+              className="text-xs hover:text-foreground h-11 sm:h-9 justify-center sm:justify-start"
             >
               <Dices className="size-4 mr-1.5 text-muted-foreground" />
-              Show another recommendation
+              Show me another option
             </Button>
           ) : (
             <div />
@@ -418,13 +350,12 @@ export function PlayNextCard({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             asChild
-            className="text-xs text-accent hover:text-accent/80"
+            className="text-xs text-accent hover:text-accent/80 h-11 sm:h-9 justify-center sm:justify-start"
           >
             <Link href={`/play/game/${entry.game.gameId}`}>
               <Eye className="size-4 mr-1.5" />
-              Why this fits & analysis
+              See analysis
             </Link>
           </Button>
         </div>
@@ -435,28 +366,15 @@ export function PlayNextCard({
           onSelect={chooseAlreadyPlayed}
         />
         {showReasonPicker ? (
-          <div className="grid gap-2 rounded-2xl border border-white/5 bg-secondary/35 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              What got in the way?
-            </p>
-            <Stack direction="row" wrap gap={2}>
-              {reasonOptions.map((reason) => (
-                <Button
-                  key={reason}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    onReason?.(reason);
-                    setShowReasonPicker(false);
-                  }}
-                  className="text-xs border-white/10 bg-card hover:bg-secondary"
-                >
-                  {reason}
-                </Button>
-              ))}
-            </Stack>
-          </div>
+          <FeedbackReasonPicker
+            onSelect={(reason) => {
+              onReason?.(reason);
+              setShowReasonPicker(false);
+            }}
+            className="border-border/60 bg-secondary/50 animate-in fade-in slide-in-from-top-2 duration-300"
+            labelClassName="text-[10px]"
+            buttonClassName="text-xs border-border bg-card hover:bg-secondary"
+          />
         ) : null}
       </CardContent>
     </Card>
