@@ -156,6 +156,13 @@ export interface ProductTodayModel {
   picks: RankedSeedGame[];
 }
 
+export interface ProductPlayNextModel {
+  primary: RankedSeedGame | null;
+  alternatives: RankedSeedGame[];
+  savedPickIds: string[];
+  stateVersion: string;
+}
+
 export interface ProductTasteHistoryEntry {
   gameId: string;
   title: string;

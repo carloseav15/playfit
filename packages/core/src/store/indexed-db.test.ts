@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createInitialState } from "./indexed-db";
+import { authenticatedFetch, createInitialState, setCachedAuth } from "./indexed-db";
 
 function mockFetch(response: unknown) {
   return vi.fn().mockImplementation(() =>
@@ -22,6 +22,7 @@ describe("product indexeddb store", () => {
   });
 
   afterEach(() => {
+    setCachedAuth(null, null);
     vi.unstubAllGlobals();
   });
 
@@ -206,5 +207,34 @@ describe("product indexeddb store", () => {
 
     expect(restored.user.onboarding.step).toBe("platforms");
     expect(restored.user.onboarding.platforms).toEqual([]);
+  });
+
+  it("adds the cached bearer token to authenticated fetches", async () => {
+    setCachedAuth("cached-token", "test-user-id");
+
+    await authenticatedFetch("/api/recommendations/today", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+
+    const [, init] = (fetch as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock
+      .calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get("authorization")).toBe("Bearer cached-token");
+    expect(headers.get("content-type")).toBe("application/json");
+  });
+
+  it("preserves an explicit authorization header", async () => {
+    setCachedAuth("cached-token", "test-user-id");
+
+    await authenticatedFetch("/api/recommendations/model", {
+      method: "POST",
+      headers: { authorization: "Bearer explicit-token" },
+    });
+
+    const [, init] = (fetch as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock
+      .calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get("authorization")).toBe("Bearer explicit-token");
   });
 });

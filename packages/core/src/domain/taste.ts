@@ -14,7 +14,7 @@ import type {
 } from "../types";
 import { buildTagPreferenceAnalysis } from "./onboarding";
 
-const MAX_TASTE_TRAITS = 10;
+const MAX_TASTE_TRAITS = 25;
 
 function decisionFromRating(record: ProductGameState): ProductTasteDecision | null {
   if (record.status === "abandoned") return "dropped";
