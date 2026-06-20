@@ -162,4 +162,20 @@ describe("today recommendations API route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Failed to score recommendations" });
     expect(response.status).toBe(500);
   });
+
+  it("returns a controlled scoring error when the RPC rejects", async () => {
+    mocks.rpc.mockRejectedValue(new Error("network timeout"));
+
+    const { POST } = await loadRoute();
+    const response = await POST(
+      new Request("http://playfit.test/api/recommendations/today", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(validPayload()),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({ error: "Failed to score recommendations" });
+    expect(response.status).toBe(500);
+  });
 });
