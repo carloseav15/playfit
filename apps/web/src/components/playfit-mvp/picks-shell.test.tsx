@@ -29,7 +29,6 @@ describe("PicksShell", () => {
       state: createInitialState(),
       applyDecisionFeedback: vi.fn(),
       setPlayfitPick: vi.fn(),
-      startPlayfitPick: vi.fn(),
     });
     const { PicksShell } = await loadPicksShell();
 

@@ -12,7 +12,7 @@ import type {
 export interface HistoryOrActivityEntry {
   gameId: string;
   title: string;
-  decision: ProductTasteDecision | "playing" | "picks";
+  decision: ProductTasteDecision | "picks";
   source: ProductTasteSignalSource | "active_state";
   tone?: ProductTasteTone;
   rating?: ProductRating;
@@ -72,18 +72,7 @@ export function buildHistoryAndActivityEntries({
     const game = gamesById.get(record.gameId);
     if (!game) continue;
 
-    if (record.status === "playing") {
-      activeEntries.push({
-        gameId: record.gameId,
-        title: game.title,
-        decision: "playing",
-        source: "active_state",
-        rating: record.rating,
-        status: record.status,
-        updatedAt: record.updatedAt,
-        traits: getGameTraits(game),
-      });
-    } else if (isActivePick(record)) {
+    if (isActivePick(record)) {
       activeEntries.push({
         gameId: record.gameId,
         title: game.title,

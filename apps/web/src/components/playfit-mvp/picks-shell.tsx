@@ -17,7 +17,7 @@ import type { AlreadyPlayedFeedback } from "./already-played-panel";
 import { PicksDesktop } from "./desktop/picks-desktop";
 import { PicksMobile } from "./mobile/picks-mobile";
 import { PlayRouteTabs } from "./play-route-tabs";
-import { useTodayRecommendations } from "./use-today-recommendations";
+import { usePicksRecommendations } from "./use-picks-recommendations";
 
 function PickCard({
   entry,
@@ -69,13 +69,11 @@ export function PicksShell() {
   const pathname = usePathname();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
-  const { model, loading, loadError } = useTodayRecommendations({
+  const { picks, loading, loadError } = usePicksRecommendations({
     enabled: profileReady,
     profile: state.user.profile,
     gameStates: state.user.gameStates,
-    onboarding: state.user.onboarding,
     errorMessage: "Playfit Picks could not be refreshed.",
-    cacheScope: "picks",
   });
 
   if (!profileReady) {
@@ -114,8 +112,6 @@ export function PicksShell() {
       </Container>
     );
   }
-
-  const picks = model?.picks ?? [];
 
   return (
     <motion.div

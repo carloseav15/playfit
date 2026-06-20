@@ -1,6 +1,7 @@
 "use client";
 
 import { scoreSeedGame } from "@playfit/core/domain";
+import { authenticatedFetch } from "@playfit/core/store";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { ArrowLeft, Check, CheckCircle2, ListPlus, XCircle } from "lucide-react";
 import { motion } from "motion/react";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Stack } from "@/components/ui/stack";
-import { fetchGame } from "@/lib/game-cache";
+import { addGamesToCache, fetchGame } from "@/lib/game-cache";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import { usePlayfit } from "../playfit/playfit-context";
@@ -26,6 +27,7 @@ import {
 import { StatusToast } from "../playfit/status-toast";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
 import { PlayRouteTabs } from "./play-route-tabs";
+import { addRecommendationsToSessionCache, getCachedRecommendation } from "./recommendation-cache";
 import { RecommendationMetric } from "./recommendation-metric";
 import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
 
@@ -138,13 +140,54 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   const { getSeedGame, state } = usePlayfit();
   const pathname = usePathname();
   const router = useRouter();
+  const [recommendationEntry, setRecommendationEntry] = useState<RankedSeedGame | null>(() =>
+    getCachedRecommendation(gameId),
+  );
+  const [loadingRecommendation, setLoadingRecommendation] = useState(!recommendationEntry);
   const cachedGame = getSeedGame(gameId);
   const [fetchedGame, setFetchedGame] = useState<SeedGame | null>(null);
-  const [loadingGame, setLoadingGame] = useState(!cachedGame);
-  const game = cachedGame ?? fetchedGame;
+  const [loadingGame, setLoadingGame] = useState(!recommendationEntry && !cachedGame);
+  const game = recommendationEntry?.game ?? cachedGame ?? fetchedGame;
 
   useEffect(() => {
-    if (cachedGame) {
+    const cachedEntry = getCachedRecommendation(gameId);
+    if (cachedEntry) {
+      setRecommendationEntry(cachedEntry);
+      setLoadingRecommendation(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRecommendationEntry(null);
+    setLoadingRecommendation(true);
+
+    void authenticatedFetch(`/api/recommendations/game/${encodeURIComponent(gameId)}`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as { entry?: RankedSeedGame };
+      })
+      .then((data) => {
+        const entry = data?.entry ?? null;
+        if (!cancelled && entry) {
+          addRecommendationsToSessionCache([entry]);
+          addGamesToCache([entry.game]);
+          setRecommendationEntry(entry);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendationEntry(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRecommendation(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId]);
+
+  useEffect(() => {
+    if (recommendationEntry?.game || cachedGame) {
       setFetchedGame(null);
       setLoadingGame(false);
       return;
@@ -168,12 +211,16 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [gameId, cachedGame]);
+  }, [gameId, cachedGame, recommendationEntry?.game]);
 
-  const entry = useMemo(
-    () => (game && state.user.profile ? scoreSeedGame(game, state, state.user.profile) : null),
-    [game, state],
+  const localEntry = useMemo(
+    () =>
+      !recommendationEntry && game && state.user.profile
+        ? scoreSeedGame(game, state, state.user.profile)
+        : null,
+    [game, state, recommendationEntry],
   );
+  const entry = recommendationEntry ?? localEntry;
   const gameState = game ? state.user.gameStates[game.gameId] : null;
 
   const ownedPlatformIds = useMemo(() => {
@@ -190,7 +237,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
   }, [game]);
 
   if (!game) {
-    if (loadingGame) {
+    if (loadingRecommendation || loadingGame) {
       return (
         <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
           <Card>

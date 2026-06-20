@@ -3,7 +3,6 @@
 import type {
   ProductDecisionFeedback,
   ProductGameState,
-  ProductPlayStatus,
   ProductTasteSignalSource,
   RankedSeedGame,
   SeedGame,
@@ -25,10 +24,8 @@ interface TasteMobileProps {
   changingId: string | null;
   setChangingId: (id: string | null) => void;
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
-  setPlayStatus: (gameId: string, status: ProductPlayStatus | undefined) => void;
   setPlayfitPick: (gameId: string, pick: boolean) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
-  startPlayfitPick: (gameId: string) => void;
 }
 
 export function TasteMobile({
@@ -42,10 +39,8 @@ export function TasteMobile({
   changingId,
   setChangingId,
   applyDecisionFeedback,
-  setPlayStatus,
   setPlayfitPick,
   removeTasteSignal,
-  startPlayfitPick,
 }: TasteMobileProps) {
   return (
     <div className="flex flex-col gap-6 md:hidden">
@@ -125,9 +120,9 @@ export function TasteMobile({
                   <Layers className="size-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-extrabold text-foreground">Gaming Traits List</span>
+                  <span className="text-sm font-extrabold text-foreground">Gaming Taste DNA</span>
                   <span className="text-xs text-muted-foreground mt-0.5">
-                    Liked and skipped styles list
+                    Radar chart and affinity pill clouds
                   </span>
                 </div>
               </div>
@@ -185,17 +180,12 @@ export function TasteMobile({
               setChangingId(null);
             }}
             onRemove={(entry) => {
-              if (entry.decision === "playing") {
-                setPlayStatus(entry.gameId, undefined);
-              } else if (entry.decision === "picks") {
+              if (entry.decision === "picks") {
                 setPlayfitPick(entry.gameId, false);
               } else if (entry.source !== "active_state") {
                 removeTasteSignal(entry.gameId, entry.source);
               }
               setChangingId(null);
-            }}
-            onStart={(gameId) => {
-              startPlayfitPick(gameId);
             }}
           />
         </div>

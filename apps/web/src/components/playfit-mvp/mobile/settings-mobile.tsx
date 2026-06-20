@@ -1,13 +1,23 @@
 "use client";
 
-import { ChevronRight, Gamepad2, Laptop, Moon, Sun, User, UserCheck } from "lucide-react";
+import {
+  ChevronRight,
+  Gamepad2,
+  Laptop,
+  Moon,
+  ShieldAlert,
+  Sun,
+  User,
+  UserCheck,
+} from "lucide-react";
 import { PlatformsTabContent } from "../taste-shell";
 
 interface SettingsMobileProps {
-  subView: "menu" | "appearance" | "platforms" | "account";
-  setSubView: (view: "menu" | "appearance" | "platforms" | "account") => void;
+  subView: "menu" | "appearance" | "platforms" | "account" | "privacy";
+  setSubView: (view: "menu" | "appearance" | "platforms" | "account" | "privacy") => void;
   renderThemeCard: () => React.ReactNode;
   renderAccountCard: () => React.ReactNode;
+  renderPrivacyCard: () => React.ReactNode;
   // biome-ignore lint/suspicious/noExplicitAny: Supabase User type
   authUser: any;
   theme: string | undefined;
@@ -20,6 +30,7 @@ export function SettingsMobile({
   setSubView,
   renderThemeCard,
   renderAccountCard,
+  renderPrivacyCard,
   authUser,
   theme,
   platformsCount,
@@ -110,6 +121,25 @@ export function SettingsMobile({
               <ChevronRight className="size-4 text-accent/60" />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setSubView("privacy")}
+            className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
+                <ShieldAlert className="size-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-extrabold text-foreground">Data & Privacy</span>
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  Manage cache and profile preferences
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground/60" />
+          </button>
         </div>
       )}
 
@@ -122,6 +152,8 @@ export function SettingsMobile({
       )}
 
       {subView === "account" && <div className="flex flex-col gap-4">{renderAccountCard()}</div>}
+
+      {subView === "privacy" && <div className="flex flex-col gap-4">{renderPrivacyCard()}</div>}
     </div>
   );
 }

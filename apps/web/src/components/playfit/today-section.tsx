@@ -1,5 +1,6 @@
 "use client";
 
+import { authenticatedFetch } from "@playfit/core/store";
 import type { ProductTodayModel } from "@playfit/core/types";
 import { Gamepad2, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -80,6 +81,7 @@ export function TodaySection() {
   const { state, setUi } = usePlayfit();
   const [model, setModel] = useState<ProductTodayModel | null>(null);
   const [loading, setLoading] = useState(true);
+  const refreshKey = state.user.lastUpdatedAt ?? state.user.onboardingCompletedAt ?? "";
 
   useEffect(() => {
     if (!state.user.profile) {
@@ -91,14 +93,12 @@ export function TodaySection() {
 
     async function fetchToday() {
       try {
-        const res = await fetch("/api/recommendations/today", {
+        const res = await authenticatedFetch("/api/recommendations/model", {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            profile: state.user.profile,
-            gameStates: state.user.gameStates,
-            onboarding: state.user.onboarding,
-          }),
+          headers: {
+            "content-type": "application/json",
+            "x-playfit-refresh-key": refreshKey,
+          },
         });
         if (!cancelled && res.ok) {
           const data = (await res.json()) as ProductTodayModel;
@@ -115,7 +115,7 @@ export function TodaySection() {
     return () => {
       cancelled = true;
     };
-  }, [state.user.profile, state.user.gameStates, state.user.onboarding]);
+  }, [state.user.profile, refreshKey]);
 
   if (loading || !model) return <TodaySkeleton />;
 

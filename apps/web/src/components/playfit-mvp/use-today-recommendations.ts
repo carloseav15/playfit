@@ -1,5 +1,6 @@
 "use client";
 
+import { authenticatedFetch } from "@playfit/core/store";
 import type {
   ProductGameState,
   ProductOnboardingDraft,
@@ -16,7 +17,7 @@ function selectCacheGames(model: ProductTodayModel, cacheScope: TodayRecommendat
     return model.picks.map((entry) => entry.game);
   }
 
-  return [...model.nextUp, ...model.resume, ...model.currentRun].map((entry) => entry.game);
+  return model.nextUp.map((entry) => entry.game);
 }
 
 export function useTodayRecommendations({
@@ -38,7 +39,6 @@ export function useTodayRecommendations({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const gameStatesRef = useRef(gameStates);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serializedRef = useRef("");
 
@@ -50,10 +50,11 @@ export function useTodayRecommendations({
     });
     return parts.join(",");
   })();
-
-  useEffect(() => {
-    gameStatesRef.current = gameStates;
-  }, [gameStates]);
+  const serializedOnboarding = JSON.stringify({
+    platforms: onboarding.platforms.map((platform) => `${platform.platformId}:${platform.status}`),
+    likedGameIds: onboarding.likedGameIds,
+    dislikedGameIds: onboarding.dislikedGameIds ?? [],
+  });
 
   useEffect(() => {
     if (!enabled || !profile) {
@@ -73,14 +74,12 @@ export function useTodayRecommendations({
       setLoadError(null);
 
       try {
-        const res = await fetch("/api/recommendations/today", {
+        const res = await authenticatedFetch("/api/recommendations/model", {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            profile,
-            gameStates: gameStatesRef.current,
-            onboarding,
-          }),
+          headers: {
+            "content-type": "application/json",
+            "x-playfit-refresh-key": `${serializedGameStates.length}:${serializedOnboarding.length}`,
+          },
         });
 
         if (!res.ok) {
@@ -117,7 +116,7 @@ export function useTodayRecommendations({
         debounceRef.current = null;
       }
     };
-  }, [enabled, profile, serializedGameStates, onboarding, errorMessage, cacheScope]);
+  }, [enabled, profile, serializedGameStates, serializedOnboarding, errorMessage, cacheScope]);
 
   return { model, loading, loadError };
 }

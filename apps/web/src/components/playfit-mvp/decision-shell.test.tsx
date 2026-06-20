@@ -61,7 +61,9 @@ describe("DecisionShell", () => {
   it("renders the calibration launcher instead of a dead-end state for new users", async () => {
     mocks.usePlayfit.mockReturnValue({
       state: createInitialState(),
+      ui: { saveStatus: "idle" },
       applyDecisionFeedback: vi.fn(),
+      setPlayfitPick: vi.fn(),
       setStatusMessage: vi.fn(),
     });
     const { DecisionShell } = await loadDecisionShell();
@@ -87,7 +89,9 @@ describe("DecisionShell", () => {
     };
     mocks.usePlayfit.mockReturnValue({
       state,
+      ui: { saveStatus: "idle" },
       applyDecisionFeedback: vi.fn(),
+      setPlayfitPick: vi.fn(),
       setStatusMessage: vi.fn(),
     });
     const { DecisionShell } = await loadDecisionShell();
@@ -96,5 +100,75 @@ describe("DecisionShell", () => {
 
     expect(html).not.toContain("Your next game");
     expect(html).not.toContain("Set up your taste");
+  });
+
+  it("only refreshes recommendations after a pending save completes", async () => {
+    const { shouldRefreshRecommendationsAfterSave } = await loadDecisionShell();
+
+    expect(
+      shouldRefreshRecommendationsAfterSave({
+        pending: true,
+        previousSaveStatus: "saving",
+        saveStatus: "saved",
+      }),
+    ).toBe(true);
+    expect(
+      shouldRefreshRecommendationsAfterSave({
+        pending: true,
+        previousSaveStatus: "saved",
+        saveStatus: "saved",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshRecommendationsAfterSave({
+        pending: false,
+        previousSaveStatus: "saving",
+        saveStatus: "saved",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshRecommendationsAfterSave({
+        pending: true,
+        previousSaveStatus: "saving",
+        saveStatus: "error",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not show the terminal empty state while recommendations are refreshing", async () => {
+    const { shouldShowNoRecommendations } = await loadDecisionShell();
+
+    expect(
+      shouldShowNoRecommendations({
+        primary: null,
+        loading: false,
+        refreshing: false,
+        refreshPending: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowNoRecommendations({
+        primary: null,
+        loading: false,
+        refreshing: true,
+        refreshPending: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoRecommendations({
+        primary: null,
+        loading: false,
+        refreshing: false,
+        refreshPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoRecommendations({
+        primary: null,
+        loading: true,
+        refreshing: false,
+        refreshPending: false,
+      }),
+    ).toBe(false);
   });
 });
