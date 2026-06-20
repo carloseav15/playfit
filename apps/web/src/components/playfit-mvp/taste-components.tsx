@@ -453,7 +453,7 @@ function TasteHistoryRow({
               </div>
             ) : null}
             <Stack direction="row" wrap gap={2} className="mt-2.5">
-              {entry.traits.slice(0, 4).map((trait) => (
+              {(entry.traits ?? []).slice(0, 4).map((trait) => (
                 <Badge
                   key={trait}
                   variant="outline"

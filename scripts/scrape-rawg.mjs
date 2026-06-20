@@ -275,12 +275,12 @@ function rawgToTags(game) {
 
   for (const genre of game.genres || []) {
     const mapped = RAWG_GENRE_TAG_MAP[genre.slug];
-    if (mapped) tags.push(...mapped);
+    if (Array.isArray(mapped)) tags.push(...mapped);
   }
 
   for (const tag of game.tags || []) {
     const mapped = TAG_RAW_MAP[tag.slug];
-    if (mapped) tags.push(...mapped);
+    if (Array.isArray(mapped)) tags.push(...mapped);
     else if (tag.slug) {
       if (tag.slug.includes("single") || tag.slug.includes("solo")) tags.push("single_player");
       if (tag.slug.includes("coop") || tag.slug.includes("co-op")) tags.push("co_op");
@@ -305,7 +305,7 @@ function rawgToTags(game) {
 
 function toGameRow(game, platformIds) {
   const gameId = makeGameId(game.name);
-  const releaseYear = game.released ? game.released.slice(0, 4) : "";
+  const releaseYear = game.released ? parseInt(game.released.slice(0, 4), 10) : null;
   const released = game.released && game.released <= new Date().toISOString().slice(0, 10);
   const platformNames = platformIds.map((pid) => RAWG_PLATFORMS[pid]?.name || pid).filter(Boolean);
 
@@ -321,10 +321,11 @@ function toGameRow(game, platformIds) {
     cover_url: game.background_image || "",
     tags: rawgToTags(game),
     notes: [game.rating ? `RAWG Rating: ${game.rating}` : "", game.metacritic ? `Metacritic: ${game.metacritic}` : ""].filter(Boolean).join(" | "),
-    sort_date: game.released || "",
+    sort_date: game.released || null,
     release_label: "",
     platforms: platformIds,
     platform_names: platformNames,
+    playtime: game.playtime || null,
   };
 }
 
@@ -497,6 +498,7 @@ async function loadExistingGames() {
   const titles = new Set();
   const byRawgId = new Map();
   const hasSummary = new Set();
+  const scores = new Map();
   let from = 0;
   const pageSize = 1000;
   let done = false;
@@ -509,7 +511,7 @@ async function loadExistingGames() {
 
     if (error) {
       console.error("Error loading existing games:", error.message);
-      return { ids, titles, byRawgId, hasSummary };
+      return { ids, titles, byRawgId, hasSummary, scores };
     }
 
     const batch = data ?? [];
@@ -542,16 +544,33 @@ async function loadExistingGames() {
     if ((data ?? []).length < pageSize) done = true;
   }
 
-  return { ids, titles, byRawgId, hasSummary };
+  from = 0;
+  done = false;
+  while (!done) {
+    const { data, error } = await supabase
+      .from("game_scores")
+      .select("game_id, critic_score")
+      .range(from, from + pageSize - 1);
+
+    if (!error) {
+      for (const row of data ?? []) {
+        const existing = scores.get(row.game_id) ?? 0;
+        scores.set(row.game_id, Math.max(existing, row.critic_score ?? 0));
+      }
+    }
+    from += pageSize;
+    if ((data ?? []).length < pageSize) done = true;
+  }
+
+  return { ids, titles, byRawgId, hasSummary, scores };
 }
 
-async function ensureGenres(rows) {
-  const genreSet = new Set();
-  for (const row of rows) {
-    if (row.genre_id) genreSet.add(row.genre_id);
-  }
-  if (genreSet.size === 0) return;
-  const genreRows = [...genreSet].map((slug) => ({ id: slug, name: slug }));
+async function ensureGenres(genreNames) {
+  if (genreNames.size === 0) return;
+  const genreRows = [...genreNames.entries()].map(([slug, name]) => ({
+    id: slug,
+    name: name || slug,
+  }));
   const { error } = await supabase.from("genres").upsert(genreRows, {
     onConflict: "id",
     ignoreDuplicates: true,
@@ -561,7 +580,7 @@ async function ensureGenres(rows) {
 
 async function ensureTags(tagSet) {
   if (tagSet.size === 0) return;
-  const tagRows = [...tagSet].map((id) => ({ id }));
+  const tagRows = [...tagSet].map((id) => ({ id, name: id }));
   const { error } = await supabase.from("tags").upsert(tagRows, {
     onConflict: "id",
     ignoreDuplicates: true,
@@ -596,8 +615,12 @@ async function deleteAndInsert(table, rows) {
 
 async function deleteGameData(table, column, gameIds) {
   if (gameIds.length === 0) return;
-  const { error } = await supabase.from(table).delete().in(column, gameIds);
-  if (error) console.error(`Error deleting from ${table}:`, error.message);
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < gameIds.length; i += CHUNK_SIZE) {
+    const chunk = gameIds.slice(i, i + CHUNK_SIZE);
+    const { error } = await supabase.from(table).delete().in(column, chunk);
+    if (error) console.error(`Error deleting from ${table} (chunk ${i}):`, error.message);
+  }
 }
 
 async function fetchRawgList(apiKey, params) {
@@ -708,6 +731,7 @@ async function processListBatch(games, existingByRawgId) {
   const scoreRows = [];
   const ageRatingRows = [];
   const allTags = new Set();
+  const genreNames = new Map();
   const upsertedIds = [];
 
   for (const game of games) {
@@ -730,6 +754,10 @@ async function processListBatch(games, existingByRawgId) {
     const aRows = toAgeRatingRows(gameId, game);
     ageRatingRows.push(...aRows);
 
+    for (const genre of game.genres || []) {
+      if (genre.slug) genreNames.set(genre.slug, genre.name);
+    }
+
     for (const t of row.tags || []) {
       if (t) allTags.add(t);
     }
@@ -739,7 +767,7 @@ async function processListBatch(games, existingByRawgId) {
     }
   }
 
-  await ensureGenres(gameRows);
+  await ensureGenres(genreNames);
   await ensureTags(allTags);
 
   if (gameRows.length > 0) {
@@ -830,7 +858,7 @@ async function main() {
 
   console.error(`Mode: ${isIncremental ? "incremental" : "full"}${skipDetail ? " (no detail)" : ""}`);
   console.error("Loading existing data...");
-  const { ids, titles, byRawgId, hasSummary } = await loadExistingGames();
+  const { ids, titles, byRawgId, hasSummary, scores } = await loadExistingGames();
   const seenIds = new Set(ids);
   const seenTitles = new Set(titles);
   console.error(`  ${seenIds.size} games, ${hasSummary.size} with summaries`);
@@ -838,6 +866,8 @@ async function main() {
   const progress = loadProgress();
   if (!progress.detailProcessed) progress.detailProcessed = {};
   if (!progress.detailQueue) progress.detailQueue = [];
+  if (!progress.processedYears) progress.processedYears = [];
+  if (!progress.processedRetro) progress.processedRetro = [];
 
   let newGameIds = [];
   let phase1Total = 0;
@@ -849,6 +879,10 @@ async function main() {
     for (let y = currentYear; y >= startYear; y--) years.push(y);
 
     for (const year of years) {
+      if (progress.processedYears.includes(year)) {
+        console.error(`=== Year ${year} (skipped, already done) ===`);
+        continue;
+      }
       console.error(`\n=== Year ${year} ===`);
       const games = await fetchYearGames(apiKey, year);
       console.error(`  Fetched ${games.length} games`);
@@ -858,6 +892,8 @@ async function main() {
 
       if (toProcess.length === 0) {
         console.error(`  0 to process`);
+        progress.processedYears.push(year);
+        saveProgress(progress);
         continue;
       }
 
@@ -867,9 +903,16 @@ async function main() {
       newGameIds.push(...uuids);
       phase1Total += uuids.length;
       console.error(`  Upserted ${uuids.length} games`);
+      progress.processedYears.push(year);
+      saveProgress(progress);
     }
 
     for (const platformId of RETRO_PLATFORMS) {
+      if (progress.processedRetro.includes(platformId)) {
+        const p = RAWG_PLATFORMS[platformId];
+        console.error(`=== ${p?.name || platformId} (retro, skipped, already done) ===`);
+        continue;
+      }
       const p = RAWG_PLATFORMS[platformId];
       if (!p) continue;
       console.error(`\n=== ${p.name} (retro) ===`);
@@ -881,6 +924,8 @@ async function main() {
 
       if (toProcess.length === 0) {
         console.error(`  0 to process`);
+        progress.processedRetro.push(platformId);
+        saveProgress(progress);
         continue;
       }
 
@@ -889,9 +934,12 @@ async function main() {
       newGameIds.push(...uuids);
       phase1Total += uuids.length;
       console.error(`  Upserted ${uuids.length} games`);
+      progress.processedRetro.push(platformId);
+      saveProgress(progress);
     }
 
     console.error(`\n=== Phase 1 done: ${phase1Total} games processed ===`);
+    saveProgress(progress);
   }
 
   if (skipDetail) {
@@ -905,9 +953,9 @@ async function main() {
   );
 
   apiGameIds.sort((a, b) => {
-    const aScore = parseInt(a[0].split(":")[1], 10);
-    const bScore = parseInt(b[0].split(":")[1], 10);
-    return aScore - bScore;
+    const aScore = scores.get(byRawgId.get(a[0])) ?? -1;
+    const bScore = scores.get(byRawgId.get(b[0])) ?? -1;
+    return bScore - aScore;
   });
 
   const gameIdsToFetch = apiGameIds.slice(0, 500);

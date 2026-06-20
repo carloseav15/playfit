@@ -119,6 +119,7 @@ function buildTrait({
 }
 
 export function formatTasteTraitLabel(trait: string) {
+  if (typeof trait !== "string" || !trait) return "";
   return trait
     .replace(/[_-]/g, " ")
     .split(" ")
