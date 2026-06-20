@@ -6,7 +6,7 @@ import type {
   ProductProfile,
   ProductTodayModel,
 } from "@playfit/core/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
 
 type TodayRecommendationCacheScope = "decision" | "picks";
@@ -38,6 +38,23 @@ export function useTodayRecommendations({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const gameStatesRef = useRef(gameStates);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serializedRef = useRef("");
+
+  const serializedGameStates = (() => {
+    const keys = Object.keys(gameStates).sort();
+    const parts = keys.map((id) => {
+      const gs = gameStates[id];
+      return `${id}:${gs.status ?? ""}:${gs.excluded ? "x" : ""}:${gs.inWishlist ? "w" : ""}:${gs.inPlayfitPicks ? "p" : ""}`;
+    });
+    return parts.join(",");
+  })();
+
+  useEffect(() => {
+    gameStatesRef.current = gameStates;
+  }, [gameStates]);
+
   useEffect(() => {
     if (!enabled || !profile) {
       setModel(null);
@@ -45,6 +62,9 @@ export function useTodayRecommendations({
       setLoading(false);
       return;
     }
+
+    const gameStateChanged = serializedGameStates !== serializedRef.current;
+    serializedRef.current = serializedGameStates;
 
     let cancelled = false;
 
@@ -58,7 +78,7 @@ export function useTodayRecommendations({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             profile,
-            gameStates,
+            gameStates: gameStatesRef.current,
             onboarding,
           }),
         });
@@ -83,12 +103,21 @@ export function useTodayRecommendations({
       }
     }
 
-    void fetchRecommendations();
+    if (gameStateChanged) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(fetchRecommendations, 300);
+    } else {
+      void fetchRecommendations();
+    }
 
     return () => {
       cancelled = true;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
     };
-  }, [enabled, profile, gameStates, onboarding, errorMessage, cacheScope]);
+  }, [enabled, profile, serializedGameStates, onboarding, errorMessage, cacheScope]);
 
   return { model, loading, loadError };
 }
