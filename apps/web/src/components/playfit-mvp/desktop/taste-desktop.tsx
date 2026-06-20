@@ -3,7 +3,6 @@
 import type {
   ProductDecisionFeedback,
   ProductGameState,
-  ProductPlayStatus,
   ProductTasteSignalSource,
   RankedSeedGame,
   SeedGame,
@@ -27,10 +26,8 @@ interface TasteDesktopProps {
   changingId: string | null;
   setChangingId: (id: string | null) => void;
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
-  setPlayStatus: (gameId: string, status: ProductPlayStatus | undefined) => void;
   setPlayfitPick: (gameId: string, pick: boolean) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
-  startPlayfitPick: (gameId: string) => void;
 }
 
 export function TasteDesktop({
@@ -46,10 +43,8 @@ export function TasteDesktop({
   changingId,
   setChangingId,
   applyDecisionFeedback,
-  setPlayStatus,
   setPlayfitPick,
   removeTasteSignal,
-  startPlayfitPick,
 }: TasteDesktopProps) {
   return (
     <div className="hidden md:flex flex-col gap-6">
@@ -135,7 +130,7 @@ export function TasteDesktop({
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                Traits List
+                Taste DNA
               </button>
             </div>
 
@@ -161,17 +156,12 @@ export function TasteDesktop({
               setChangingId(null);
             }}
             onRemove={(entry) => {
-              if (entry.decision === "playing") {
-                setPlayStatus(entry.gameId, undefined);
-              } else if (entry.decision === "picks") {
+              if (entry.decision === "picks") {
                 setPlayfitPick(entry.gameId, false);
               } else if (entry.source !== "active_state") {
                 removeTasteSignal(entry.gameId, entry.source);
               }
               setChangingId(null);
-            }}
-            onStart={(gameId) => {
-              startPlayfitPick(gameId);
             }}
           />
         )}

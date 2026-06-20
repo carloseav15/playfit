@@ -1,24 +1,8 @@
 "use client";
 
 import { buildTasteModel } from "@playfit/core/domain";
-import type {
-  ProductDecisionFeedback,
-  ProductPlatformOption,
-  ProductTasteDecision,
-} from "@playfit/core/types";
-import {
-  ArrowLeft,
-  Gamepad2,
-  Heart,
-  Laptop,
-  Layers,
-  ShieldCheck,
-  ThumbsDown,
-  ThumbsUp,
-  Tv,
-  Waves,
-  XCircle,
-} from "lucide-react";
+import type { ProductPlatformOption } from "@playfit/core/types";
+import { ArrowLeft, Gamepad2, Laptop, Layers, ShieldCheck, Tv } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -44,50 +28,8 @@ import {
   getMissingGameIds,
   getSeedGamesById,
   getTasteGameIds,
-  type HistoryOrActivityEntry,
 } from "./taste-model";
 import { useTodayRecommendations } from "./use-today-recommendations";
-
-const _decisionLabels: Record<ProductTasteDecision | "playing" | "picks", string> = {
-  setup_favorite: "Setup: Loved",
-  setup_miss: "Setup: Missed",
-  loved: "Loved",
-  liked: "Liked",
-  mixed: "Mixed",
-  dropped: "Dropped",
-  not_for_me: "Not for me",
-  playing: "Playing",
-  picks: "Saved pick",
-};
-
-const _changeOptions: {
-  feedback: ProductDecisionFeedback;
-  label: string;
-  Icon: typeof Heart;
-}[] = [
-  { feedback: "played_loved", label: "Loved", Icon: Heart },
-  { feedback: "played_liked", label: "Liked", Icon: ThumbsUp },
-  { feedback: "played_mixed", label: "Mixed", Icon: Waves },
-  { feedback: "played_dropped", label: "Dropped", Icon: ThumbsDown },
-  { feedback: "not_for_me", label: "Not for me", Icon: XCircle },
-];
-
-function _formatDate(value?: string) {
-  if (!value) return "Setup signal";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function _toneVariant(entry: HistoryOrActivityEntry) {
-  if (entry.decision === "playing") return "info";
-  if (entry.decision === "picks") return "positive";
-  if (entry.tone === "positive") return "positive";
-  if (entry.tone === "negative") return "negative";
-  return "warning";
-}
 
 const tastePlatformCurrentIds = new Set([
   "switch_1",
@@ -468,15 +410,8 @@ export function PlatformsTabContent() {
 }
 
 export function TasteShell() {
-  const {
-    state,
-    getSeedGame,
-    applyDecisionFeedback,
-    removeTasteSignal,
-    setPlayStatus,
-    setPlayfitPick,
-    startPlayfitPick,
-  } = usePlayfit();
+  const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal, setPlayfitPick } =
+    usePlayfit();
   const [, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
@@ -551,7 +486,7 @@ export function TasteShell() {
 
   const recs = useMemo(() => {
     if (!recsModel) return [];
-    return [...recsModel.nextUp, ...recsModel.resume, ...recsModel.currentRun];
+    return recsModel.nextUp;
   }, [recsModel]);
 
   if (!profile) {
@@ -677,10 +612,8 @@ export function TasteShell() {
             changingId={changingId}
             setChangingId={setChangingId}
             applyDecisionFeedback={applyDecisionFeedback}
-            setPlayStatus={setPlayStatus}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
-            startPlayfitPick={startPlayfitPick}
           />
 
           {/* Desktop layout */}
@@ -697,10 +630,8 @@ export function TasteShell() {
             changingId={changingId}
             setChangingId={setChangingId}
             applyDecisionFeedback={applyDecisionFeedback}
-            setPlayStatus={setPlayStatus}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
-            startPlayfitPick={startPlayfitPick}
           />
         </Container>
         <StatusToast />

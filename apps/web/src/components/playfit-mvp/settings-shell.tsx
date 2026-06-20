@@ -3,7 +3,7 @@
 import { ArrowLeft, Laptop, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,26 @@ import { SettingsMobile } from "./mobile/settings-mobile";
 import { PlayRouteTabs } from "./play-route-tabs";
 
 export function SettingsShell() {
-  const { state, authUser, setUseLocalProfile, signOut } = usePlayfit();
+  const {
+    state,
+    authUser,
+    setUseLocalProfile,
+    signOut,
+    linkGoogleAccount,
+    resetTasteProfile,
+    deleteAccount,
+  } = usePlayfit();
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [subView, setSubView] = useState<"menu" | "appearance" | "platforms" | "account">("menu");
+  const [linkingAccount, setLinkingAccount] = useState(false);
+  const [subView, setSubView] = useState<
+    "menu" | "appearance" | "platforms" | "account" | "privacy"
+  >("menu");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
 
   useHeader(
@@ -31,7 +46,9 @@ export function SettingsShell() {
         ? { title: "Your Platforms", onBack: () => setSubView("menu") }
         : subView === "account"
           ? { title: "Your Account", onBack: () => setSubView("menu") }
-          : {},
+          : subView === "privacy"
+            ? { title: "Data & Privacy", onBack: () => setSubView("menu") }
+            : {},
     [subView],
   );
 
@@ -122,20 +139,37 @@ export function SettingsShell() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/30 border border-border/40">
             <div className="flex flex-col">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Signed in as
+                {authUser.isAnonymous ? "Guest session" : "Signed in as"}
               </span>
               <span className="text-sm font-extrabold text-foreground mt-0.5">
                 {authUser.email}
               </span>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={signOut}
-              className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shrink-0"
-            >
-              Sign Out
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {authUser.isAnonymous ? (
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    setLinkingAccount(true);
+                    await linkGoogleAccount();
+                    setLinkingAccount(false);
+                  }}
+                  disabled={linkingAccount}
+                  loading={linkingAccount}
+                  className="text-xs font-bold h-10 px-4 rounded-xl shrink-0"
+                >
+                  Link Google
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={signOut}
+                className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shrink-0"
+              >
+                Sign Out
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-accent/25 bg-accent/5">
@@ -156,6 +190,128 @@ export function SettingsShell() {
             </Button>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+
+  const handleReset = async () => {
+    setActionPending(true);
+    await resetTasteProfile();
+    setActionPending(false);
+    setConfirmReset(false);
+    router.push("/play");
+  };
+
+  const handleDelete = async () => {
+    setActionPending(true);
+    await deleteAccount();
+    setActionPending(false);
+    setConfirmDelete(false);
+    router.push("/play");
+  };
+
+  const renderPrivacyCard = () => (
+    <Card className="rounded-3xl border border-border bg-card shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-lg font-black text-foreground">Data & Privacy</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground mt-0.5">
+          Manage your personal data, local taste storage, and account settings.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/20 border border-border/40">
+            <div className="flex flex-col gap-1 max-w-md">
+              <span className="text-sm font-extrabold text-foreground">Reset Taste Profile</span>
+              <span className="text-xs text-muted-foreground leading-relaxed">
+                Deletes all taste preferences, ratings, and library history. Your active account
+                session stays, and you will restart calibration.
+              </span>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              {confirmReset ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleReset}
+                    disabled={actionPending}
+                    loading={actionPending}
+                    className="text-xs font-bold h-10 px-4 rounded-xl"
+                  >
+                    Confirm Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setConfirmReset(false)}
+                    disabled={actionPending}
+                    className="text-xs font-bold h-10 px-3 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmReset(true)}
+                  className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                >
+                  Reset Profile
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {authUser && (
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-destructive/5 border border-destructive/10">
+              <div className="flex flex-col gap-1 max-w-md">
+                <span className="text-sm font-extrabold text-destructive">
+                  Delete Cloud Account
+                </span>
+                <span className="text-xs text-muted-foreground leading-relaxed">
+                  Permanently deletes your account metadata, cloud-synchronized taste, and sign-in
+                  credentials from our servers. This action is irreversible.
+                </span>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                {confirmDelete ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={actionPending}
+                      loading={actionPending}
+                      className="text-xs font-bold h-10 px-4 rounded-xl"
+                    >
+                      Confirm Delete
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={actionPending}
+                      className="text-xs font-bold h-10 px-3 rounded-xl"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                  >
+                    Delete Account
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -198,6 +354,7 @@ export function SettingsShell() {
             setSubView={setSubView}
             renderThemeCard={renderThemeCard}
             renderAccountCard={renderAccountCard}
+            renderPrivacyCard={renderPrivacyCard}
             authUser={authUser}
             theme={theme}
             platformsCount={state.user.onboarding.platforms.length}
@@ -208,6 +365,7 @@ export function SettingsShell() {
           <SettingsDesktop
             renderThemeCard={renderThemeCard}
             renderAccountCard={renderAccountCard}
+            renderPrivacyCard={renderPrivacyCard}
           />
         </Container>
       </div>

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
-import { FormField, FormLabel } from "@/components/ui/form-field";
+import { FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Stack } from "@/components/ui/stack";
@@ -152,6 +152,8 @@ export function OnboardingSection() {
   const draft = state.user.onboarding;
   const [platformError, setPlatformError] = useState<string | null>(null);
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
+  const [searchSlot, setSearchSlot] = useState<"anchor" | "dislike" | null>(null);
+  const [replaceGameId, setReplaceGameId] = useState<string | null>(null);
   const platformFamilies = useMemo(() => {
     const availableFamilies = [
       ...new Set(seedData.platforms.map((platform) => platform.family || "other")),
@@ -164,7 +166,7 @@ export function OnboardingSection() {
       .sort((a, b) => formatPlatformFamily(a).localeCompare(formatPlatformFamily(b)));
     return [...preferred, ...remaining];
   }, [seedData.platforms]);
-  const deferredQuery = useDeferredValue(ui.onboardingQuery);
+  const deferredQuery = useDeferredValue(ui.onboardingQuery.trim());
   const anchorResults = useMemo(() => {
     const games = searchGames(deferredQuery);
     const seen = new Set<string>();
@@ -250,6 +252,27 @@ export function OnboardingSection() {
       next.user.gameStates[game.gameId] ??= {
         gameId: game.gameId,
         title: game.title,
+        inBacklog: false,
+        inWishlist: false,
+        inPlayfitPicks: false,
+        source: "onboarding",
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+    });
+  }
+
+  function replaceAnchor(oldGameId: string, newGame: SeedGame) {
+    updateState((next) => {
+      next.user.onboarding.likedGameIds = next.user.onboarding.likedGameIds.map((id) =>
+        id === oldGameId ? newGame.gameId : id,
+      );
+      next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
+        (id) => id !== newGame.gameId,
+      );
+      next.user.gameStates[newGame.gameId] ??= {
+        gameId: newGame.gameId,
+        title: newGame.title,
         inBacklog: false,
         inWishlist: false,
         inPlayfitPicks: false,
@@ -635,167 +658,75 @@ export function OnboardingSection() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="flex flex-col gap-6 flex-1 min-h-0"
               >
-                <FormField>
-                  <FormLabel
-                    htmlFor="favorite-search"
-                    className="font-extrabold text-sm text-foreground"
-                  >
-                    Search by title or series
-                  </FormLabel>
-                  <div className="relative">
-                    <Input
-                      id="favorite-search"
-                      type="search"
-                      value={ui.onboardingQuery}
-                      onChange={(event) =>
-                        setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
-                      }
-                      placeholder="e.g. Zelda, Halo, Elden Ring..."
-                      className="pr-10 border-white/10 bg-secondary/30 focus:border-accent"
-                    />
-                    {onboardingSearchPending && (
-                      <div className="absolute right-3 top-3">
-                        <Spinner size="sm" />
-                      </div>
-                    )}
-                  </div>
-                </FormField>
-                {!ui.onboardingQuery.trim() && (
-                  <div className="flex flex-wrap gap-2 items-center -mt-2">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
-                      Quick Hits:
-                    </span>
-                    {quickSuggestions.map((gameName) => (
-                      <button
-                        key={gameName}
-                        type="button"
-                        onClick={() =>
-                          setUi((current) => ({ ...current, onboardingQuery: gameName }))
-                        }
-                        className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-accent/20 transition-all duration-200"
-                      >
-                        {gameName}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {draft.likedGameIds.length > 0 && (
-                  <div className="grid gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
-                      Selected Loved Games
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {draft.likedGameIds.map((gameId) => {
-                        const game = getSeedGame(gameId);
-                        if (!game) return null;
-                        return (
-                          <div
-                            key={gameId}
-                            className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-secondary/20 p-2 min-w-0"
+                <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                  Select 3 games you loved. This establishes your taste baseline and platforms
+                  preferences.
+                </p>
+                <div className="grid grid-cols-3 gap-4 py-2">
+                  {[0, 1, 2].map((index) => {
+                    const gameId = draft.likedGameIds[index];
+                    const game = gameId ? getSeedGame(gameId) : null;
+
+                    if (game) {
+                      return (
+                        <div
+                          key={game.gameId}
+                          className="group relative aspect-[2/3] w-full rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300 hover:border-accent/40"
+                        >
+                          <CoverArt
+                            game={game}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchSlot("anchor");
+                              setReplaceGameId(game.gameId);
+                            }}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-3 text-center cursor-pointer animate-fade-in border-0"
                           >
-                            <CoverArt
-                              game={game}
-                              className="aspect-[2/3] w-8 shrink-0 rounded-sm shadow-sm"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <h4 className="truncate text-xs font-extrabold text-foreground leading-tight">
-                                {game.title}
-                              </h4>
-                              <p className="truncate text-[10px] text-muted-foreground mt-0.5">
-                                {[
-                                  isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
-                                  game.availablePlatformNames &&
-                                  game.availablePlatformNames.length > 0
-                                    ? game.availablePlatformNames[0]
-                                    : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" • ")}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeAnchor(gameId)}
-                              className="size-6 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              aria-label={`Remove ${game.title}`}
-                            >
-                              <X className="size-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className="grid gap-3 md:grid-cols-2">
-                  {anchorResults.map((game) => {
-                    const selected = draft.likedGameIds.includes(game.gameId);
-                    const disabled = !selected && draft.likedGameIds.length >= 3;
+                            <span className="text-[11px] font-black uppercase tracking-wider text-accent">
+                              Change Game
+                            </span>
+                            <span className="text-[9px] text-white/70 line-clamp-2 mt-1 leading-snug">
+                              {game.title}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeAnchor(game.gameId);
+                            }}
+                            className="absolute top-2 right-2 size-7 rounded-full bg-black/75 text-white/80 hover:text-white hover:bg-destructive shadow-md grid place-items-center transition-all duration-200 z-10"
+                            aria-label={`Remove ${game.title}`}
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
-                        key={game.gameId}
+                        key={index}
                         type="button"
-                        aria-pressed={selected}
-                        className={cn(
-                          "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
-                          selected && "border-accent/40 bg-accent/10",
-                          disabled && !selected && "opacity-50 cursor-not-allowed",
-                        )}
                         onClick={() => {
-                          if (selected) {
-                            removeAnchor(game.gameId);
-                          } else {
-                            addAnchor(game);
-                          }
+                          setSearchSlot("anchor");
+                          setReplaceGameId(null);
                         }}
-                        disabled={disabled}
+                        className="group flex flex-col items-center justify-center aspect-[2/3] w-full rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:border-accent/30 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer"
                       >
-                        <CoverArt
-                          game={game}
-                          className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <strong className="block text-base font-black truncate text-foreground group-hover:text-accent transition-colors">
-                            {game.title}
-                          </strong>
-                          <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                            {[
-                              formatDisplayGenre(game.primaryGenre),
-                              isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
-                              game.availablePlatformNames && game.availablePlatformNames.length > 0
-                                ? game.availablePlatformNames.slice(0, 3).join(", ") +
-                                  (game.availablePlatformNames.length > 3 ? "..." : "")
-                                : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" • ")}
-                          </span>
+                        <div className="size-10 rounded-full border border-white/10 bg-white/[0.02] group-hover:bg-accent/15 group-hover:border-accent/30 group-hover:text-accent transition-all duration-300 grid place-items-center mb-2">
+                          <span className="text-xl font-bold leading-none">+</span>
+                        </div>
+                        <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
+                          Select {index + 1}
                         </span>
-                        {selected ? (
-                          <div className="size-6 shrink-0 grid place-items-center rounded-full bg-positive-bg text-positive border border-positive/30">
-                            <Check className="size-3.5 stroke-[3]" />
-                          </div>
-                        ) : (
-                          <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
-                        )}
                       </button>
                     );
                   })}
                 </div>
-                {anchorResults.length === 0 && hasOnboardingSearch ? (
-                  onboardingSearchPending ? null : onboardingSearchError ? (
-                    <Alert variant="error">{onboardingSearchError}</Alert>
-                  ) : seedData.allGames.length === 0 ? (
-                    <Alert variant="warning">
-                      The game catalog is currently empty. Make sure you run the seeding script (
-                      <code>bash scripts/seed-catalog.sh</code>) to import games.
-                    </Alert>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-2 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
-                      No games found matching your search.
-                    </p>
-                  )
-                ) : null}
                 <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
                   <Button
                     type="button"
@@ -832,174 +763,70 @@ export function OnboardingSection() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="flex flex-col gap-6 flex-1 min-h-0"
               >
-                <FormField>
-                  <FormLabel
-                    htmlFor="dislike-search"
-                    className="font-extrabold text-sm text-foreground"
-                  >
-                    Search for a game that missed for you
-                  </FormLabel>
-                  <div className="relative">
-                    <Input
-                      id="dislike-search"
-                      type="search"
-                      value={ui.onboardingQuery}
-                      onChange={(event) =>
-                        setUi((current) => ({ ...current, onboardingQuery: event.target.value }))
-                      }
-                      placeholder="e.g. Cyberpunk, FIFA, Dark Souls..."
-                      className="pr-10 border-white/10 bg-secondary/30 focus:border-accent"
-                    />
-                    {onboardingSearchPending && (
-                      <div className="absolute right-3 top-3">
-                        <Spinner size="sm" />
-                      </div>
-                    )}
-                  </div>
-                </FormField>
-                {!ui.onboardingQuery.trim() && (
-                  <div className="flex flex-wrap gap-2 items-center -mt-2">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mr-1">
-                      Quick Hits:
-                    </span>
-                    {quickSuggestions.map((gameName) => (
-                      <button
-                        key={gameName}
-                        type="button"
-                        onClick={() =>
-                          setUi((current) => ({ ...current, onboardingQuery: gameName }))
-                        }
-                        className="text-[11px] font-extrabold px-3 py-1 rounded-xl border border-white/5 bg-secondary/25 text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-negative/20 transition-all duration-200"
-                      >
-                        {gameName}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {draft.dislikedGameIds.length > 0 && (
-                  <div className="grid gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-negative">
-                      Selected Missed Game
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {draft.dislikedGameIds.map((gameId) => {
-                        const game = getSeedGame(gameId);
-                        if (!game) return null;
-                        return (
-                          <div
-                            key={gameId}
-                            className="flex items-center gap-2.5 rounded-xl border border-white/5 bg-secondary/20 p-2 min-w-0"
+                <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                  Select 1 game that was not for you so the recommender knows what to avoid.
+                </p>
+                <div className="flex justify-center py-4">
+                  {(() => {
+                    const gameId = draft.dislikedGameIds[0];
+                    const game = gameId ? getSeedGame(gameId) : null;
+
+                    if (game) {
+                      return (
+                        <div className="group relative aspect-[2/3] w-40 rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300 hover:border-negative/40">
+                          <CoverArt
+                            game={game}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchSlot("dislike");
+                              setReplaceGameId(game.gameId);
+                            }}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-3 text-center cursor-pointer animate-fade-in border-0"
                           >
-                            <CoverArt
-                              game={game}
-                              className="aspect-[2/3] w-8 shrink-0 rounded-sm shadow-sm"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <h4 className="truncate text-xs font-extrabold text-foreground leading-tight">
-                                {game.title}
-                              </h4>
-                              <p className="truncate text-[10px] text-muted-foreground mt-0.5">
-                                {[
-                                  isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
-                                  game.availablePlatformNames &&
-                                  game.availablePlatformNames.length > 0
-                                    ? game.availablePlatformNames[0]
-                                    : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" • ")}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeDislikedAnchor(gameId)}
-                              className="size-6 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              aria-label={`Remove ${game.title}`}
-                            >
-                              <X className="size-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className="grid gap-3 md:grid-cols-2">
-                  {anchorResults.map((game) => {
-                    const selected = draft.dislikedGameIds.includes(game.gameId);
-                    const loved = draft.likedGameIds.includes(game.gameId);
+                            <span className="text-[11px] font-black uppercase tracking-wider text-negative">
+                              Change Game
+                            </span>
+                            <span className="text-[9px] text-white/70 line-clamp-2 mt-1 leading-snug">
+                              {game.title}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDislikedAnchor(game.gameId);
+                            }}
+                            className="absolute top-2 right-2 size-7 rounded-full bg-black/75 text-white/80 hover:text-white hover:bg-destructive shadow-md grid place-items-center transition-all duration-200 z-10"
+                            aria-label={`Remove ${game.title}`}
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
-                        key={game.gameId}
                         type="button"
-                        aria-pressed={selected}
-                        className={cn(
-                          "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50",
-                          selected && "border-negative/40 bg-negative/10",
-                          loved && "opacity-40 cursor-not-allowed bg-muted",
-                        )}
                         onClick={() => {
-                          if (selected) {
-                            removeDislikedAnchor(game.gameId);
-                          } else {
-                            addDislikedAnchor(game);
-                          }
+                          setSearchSlot("dislike");
+                          setReplaceGameId(null);
                         }}
-                        disabled={loved}
+                        className="group flex flex-col items-center justify-center aspect-[2/3] w-40 rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:border-negative/30 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer"
                       >
-                        <CoverArt
-                          game={game}
-                          className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <strong className="block text-base font-black truncate text-foreground group-hover:text-negative transition-colors">
-                            {game.title}
-                          </strong>
-                          {loved ? (
-                            <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                              Selected as loved
-                            </span>
-                          ) : (
-                            <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                              {[
-                                formatDisplayGenre(game.primaryGenre),
-                                isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
-                                game.availablePlatformNames &&
-                                game.availablePlatformNames.length > 0
-                                  ? game.availablePlatformNames.slice(0, 3).join(", ") +
-                                    (game.availablePlatformNames.length > 3 ? "..." : "")
-                                  : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" • ")}
-                            </span>
-                          )}
+                        <div className="size-10 rounded-full border border-white/10 bg-white/[0.02] group-hover:bg-negative/15 group-hover:border-negative/30 group-hover:text-negative transition-all duration-300 grid place-items-center mb-2">
+                          <span className="text-xl font-bold leading-none">+</span>
+                        </div>
+                        <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
+                          Select Game
                         </span>
-                        {selected ? (
-                          <div className="size-6 shrink-0 grid place-items-center rounded-full bg-negative-bg text-negative border border-negative/30">
-                            <Check className="size-3.5 stroke-[3]" />
-                          </div>
-                        ) : (
-                          <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
-                        )}
                       </button>
                     );
-                  })}
+                  })()}
                 </div>
-                {anchorResults.length === 0 && hasOnboardingSearch ? (
-                  onboardingSearchPending ? null : onboardingSearchError ? (
-                    <Alert variant="error">{onboardingSearchError}</Alert>
-                  ) : seedData.allGames.length === 0 ? (
-                    <Alert variant="warning">
-                      The game catalog is currently empty. Make sure you run the seeding script (
-                      <code>bash scripts/seed-catalog.sh</code>) to import games.
-                    </Alert>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-2 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
-                      No games found matching your search.
-                    </p>
-                  )
-                ) : null}
                 <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
                   <Button
                     type="button"
@@ -1027,6 +854,204 @@ export function OnboardingSection() {
           </AnimatePresence>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={searchSlot !== null}
+        onClose={() => {
+          setSearchSlot(null);
+          setReplaceGameId(null);
+          setUi((current) => ({ ...current, onboardingQuery: "" }));
+        }}
+        title={
+          searchSlot === "anchor"
+            ? replaceGameId
+              ? "Change loved game"
+              : "Search loved game"
+            : "Search missed game"
+        }
+        eyebrow={searchSlot === "anchor" ? "Loved Games" : "Missed Game"}
+        className="max-w-xl overflow-hidden"
+      >
+        <div className="grid gap-5">
+          <div className="grid gap-2">
+            <FormLabel htmlFor="onboarding-search-input">Search by title</FormLabel>
+            <Input
+              id="onboarding-search-input"
+              value={ui.onboardingQuery}
+              onChange={(e) => setUi((curr) => ({ ...curr, onboardingQuery: e.target.value }))}
+              placeholder="Type game title..."
+              autoFocus
+              className="w-full text-base"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Quick Suggestions
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {quickSuggestions.map((suggestion) => (
+                <Button
+                  key={suggestion}
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setUi((curr) => ({ ...curr, onboardingQuery: suggestion }))}
+                  className="text-xs"
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 max-h-[40vh] overflow-y-auto pr-1">
+            {anchorResults.map((game) => {
+              const loved = draft.likedGameIds.includes(game.gameId);
+              const disliked = draft.dislikedGameIds.includes(game.gameId);
+
+              let isDisabled = false;
+              let isCurrentSelection = false;
+              let statusLabel = "";
+
+              if (searchSlot === "anchor") {
+                isCurrentSelection = game.gameId === replaceGameId;
+                isDisabled = loved && !isCurrentSelection;
+                if (isDisabled) {
+                  statusLabel = "Already selected as loved";
+                } else if (isCurrentSelection) {
+                  statusLabel = "Current selection";
+                } else if (disliked) {
+                  statusLabel = "Selected as disliked (will swap)";
+                }
+              } else if (searchSlot === "dislike") {
+                isCurrentSelection = disliked;
+                isDisabled = loved;
+                if (isDisabled) {
+                  statusLabel = "Selected as loved";
+                } else if (isCurrentSelection) {
+                  statusLabel = "Current selection";
+                }
+              }
+
+              return (
+                <button
+                  key={game.gameId}
+                  type="button"
+                  aria-pressed={isCurrentSelection}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    if (searchSlot === "anchor") {
+                      if (replaceGameId) {
+                        replaceAnchor(replaceGameId, game);
+                      } else {
+                        addAnchor(game);
+                      }
+                    } else if (searchSlot === "dislike") {
+                      addDislikedAnchor(game);
+                    }
+                    setUi((current) => ({ ...current, onboardingQuery: "" }));
+                    setSearchSlot(null);
+                    setReplaceGameId(null);
+                  }}
+                  className={cn(
+                    "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted/10",
+                    isCurrentSelection &&
+                      (searchSlot === "anchor"
+                        ? "border-accent/40 bg-accent/10"
+                        : "border-negative/40 bg-negative/10"),
+                  )}
+                >
+                  <CoverArt
+                    game={game}
+                    className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <strong
+                      className={cn(
+                        "block text-base font-black truncate text-foreground transition-colors",
+                        isCurrentSelection &&
+                          (searchSlot === "anchor"
+                            ? "group-hover:text-accent"
+                            : "group-hover:text-negative"),
+                      )}
+                    >
+                      {game.title}
+                    </strong>
+                    {statusLabel ? (
+                      <span
+                        className={cn(
+                          "block text-xs font-bold uppercase tracking-wider mt-0.5",
+                          isDisabled
+                            ? "text-muted-foreground/60"
+                            : searchSlot === "anchor"
+                              ? "text-accent"
+                              : "text-negative",
+                        )}
+                      >
+                        {statusLabel}
+                      </span>
+                    ) : (
+                      <span className="block text-xs text-muted-foreground truncate mt-0.5">
+                        {[
+                          formatDisplayGenre(game.primaryGenre),
+                          isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
+                          game.availablePlatformNames && game.availablePlatformNames.length > 0
+                            ? game.availablePlatformNames.slice(0, 3).join(", ") +
+                              (game.availablePlatformNames.length > 3 ? "..." : "")
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </span>
+                    )}
+                  </div>
+                  {isCurrentSelection ? (
+                    <div
+                      className={cn(
+                        "size-6 shrink-0 grid place-items-center rounded-full border",
+                        searchSlot === "anchor"
+                          ? "bg-accent/10 text-accent border-accent/30"
+                          : "bg-negative/10 text-negative border-negative/30",
+                      )}
+                    >
+                      <Check className="size-3.5 stroke-[3]" />
+                    </div>
+                  ) : (
+                    !isDisabled && (
+                      <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
+                    )
+                  )}
+                </button>
+              );
+            })}
+
+            {anchorResults.length === 0 && hasOnboardingSearch ? (
+              onboardingSearchPending ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Spinner className="text-accent" />
+                  <p className="text-sm text-muted-foreground">Searching catalog...</p>
+                </div>
+              ) : onboardingSearchError ? (
+                <Alert variant="error">{onboardingSearchError}</Alert>
+              ) : seedData.allGames.length === 0 ? (
+                <Alert variant="warning">
+                  The game catalog is currently empty. Make sure you run the seeding script (
+                  <code>bash scripts/seed-catalog.sh</code>) to import games.
+                </Alert>
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
+                  No games found matching your search.
+                </p>
+              )
+            ) : !hasOnboardingSearch ? (
+              <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/5">
+                Type a game title above to search.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </Dialog>
     </section>
   );
 }

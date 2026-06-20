@@ -1,7 +1,7 @@
 "use client";
 
 import type { SeedGame } from "@playfit/core/types";
-import { Compass, Sparkles } from "lucide-react";
+import { Compass, LogIn, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,13 @@ const MOCK_GAMES = [
   },
 ];
 
-export function DecisionIntro({ onStart }: { onStart?: () => void }) {
+export function DecisionIntro({
+  onStart,
+  onSignIn,
+}: {
+  onStart?: () => void;
+  onSignIn?: () => void;
+}) {
   const [realGame, setRealGame] = useState<SeedGame | null>(null);
   const mock = MOCK_GAMES[1]; // Use Hades deterministically to prevent hydration mismatch and visual flicker
 
@@ -130,7 +136,7 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
             Zero noise. Zero decision fatigue.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4 w-full">
+        <div className="flex flex-wrap items-center gap-3 w-full">
           <Button
             type="button"
             className="w-full sm:w-fit bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 font-extrabold shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
@@ -139,6 +145,17 @@ export function DecisionIntro({ onStart }: { onStart?: () => void }) {
             <Compass className="size-4 mr-2" />
             Find What to Play
           </Button>
+          {onSignIn && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-fit font-bold border-border bg-secondary/10 hover:bg-secondary/40 active:scale-[0.98] transition-all"
+              onClick={onSignIn}
+            >
+              <LogIn className="size-4 mr-2 text-accent" />
+              Sign In
+            </Button>
+          )}
         </div>
       </div>
 
