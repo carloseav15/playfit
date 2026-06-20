@@ -34,7 +34,10 @@ function generateUUID(): string {
   });
 }
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return "";
+  }
   let deviceId = localStorage.getItem("playfit_device_id");
   if (!deviceId) {
     deviceId = generateUUID();
@@ -51,7 +54,7 @@ export function setCachedAuth(token: string | null, userId: string | null = null
   cachedUserId = userId;
 }
 
-function getToken(): string | null {
+export function getCachedAuthToken(): string | null {
   return cachedToken;
 }
 
@@ -59,32 +62,54 @@ function getUserId(): string | null {
   return cachedUserId;
 }
 
+export function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  const token = getCachedAuthToken();
+  if (token && !headers.has("authorization")) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+
+  let finalInput = input;
+  if (!token && typeof window !== "undefined") {
+    const deviceId = getDeviceId();
+    if (deviceId) {
+      if (typeof input === "string" && input.startsWith("/api/")) {
+        try {
+          const url = new URL(input, window.location.origin);
+          if (!url.searchParams.has("device_id")) {
+            url.searchParams.set("device_id", deviceId);
+            finalInput = url.pathname + url.search;
+          }
+        } catch {
+          // ignore
+        }
+      } else if (input instanceof URL && input.pathname.startsWith("/api/")) {
+        if (!input.searchParams.has("device_id")) {
+          input.searchParams.set("device_id", deviceId);
+        }
+      }
+    }
+  }
+
+  return fetch(finalInput, { ...init, headers });
+}
+
 async function apiGet(path: string): Promise<Response> {
-  const token = await getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers.authorization = `Bearer ${token}`;
-  return fetch(path, { headers });
+  return authenticatedFetch(path);
 }
 
 async function apiPost(path: string, body: unknown): Promise<Response> {
-  const token = await getToken();
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (token) headers.authorization = `Bearer ${token}`;
-  return fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+  return authenticatedFetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 async function apiPatch(path: string, body: unknown): Promise<Response> {
-  const token = await getToken();
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (token) headers.authorization = `Bearer ${token}`;
-  return fetch(path, { method: "PATCH", headers, body: JSON.stringify(body) });
+  return authenticatedFetch(path, { method: "PATCH", headers, body: JSON.stringify(body) });
 }
 
 async function apiDelete(path: string): Promise<Response> {
-  const token = await getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers.authorization = `Bearer ${token}`;
-  return fetch(path, { method: "DELETE", headers });
+  return authenticatedFetch(path, { method: "DELETE" });
 }
 
 export async function loadProductState(): Promise<ProductState> {
@@ -117,7 +142,7 @@ export async function loadProductState(): Promise<ProductState> {
       onboardingCompletedAt: data.onboarding?.onboardingCompletedAt ?? null,
       profile: data.profile ?? null,
       gameStates: data.game_states ?? {},
-      lastUpdatedAt: data.created_at ?? null,
+      lastUpdatedAt: data.updated_at ?? data.created_at ?? null,
     },
   };
 

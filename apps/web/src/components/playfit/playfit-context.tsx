@@ -8,6 +8,7 @@ import {
 import {
   createInitialState,
   loadProductState,
+  resetProductState,
   saveProductState,
   setCachedAuth,
 } from "@playfit/core/store";
@@ -23,6 +24,7 @@ import type {
   SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
+import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import {
@@ -46,7 +48,7 @@ import { AuthPanel } from "./auth-panel";
 
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
-type AuthUser = { id: string; email: string };
+type AuthUser = { id: string; email: string; isAnonymous: boolean };
 const PLAYFIT_PICKS_LIMIT = 100;
 
 export interface ProductUiState {
@@ -67,7 +69,6 @@ interface PlayfitContextValue {
   seedData: ProductSeedData;
   state: ProductState;
   ui: ProductUiState;
-  dataLost: boolean;
   isPending: boolean;
   isSaving: boolean;
   authUser: AuthUser | null;
@@ -97,7 +98,10 @@ interface PlayfitContextValue {
   onboardingSearchPending: boolean;
   retrySave: () => Promise<void>;
   resetLocalState: () => void;
+  resetTasteProfile: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
   openDossier: (gameId: string) => void;
   closeDossier: () => void;
 }
@@ -201,11 +205,11 @@ function rebuildAdaptiveProfileFromCache(draft: ProductState) {
 function usePlayfitAuth(localFirst = false) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authBusy, setAuthBusy] = useState(true);
-  const [useLocalProfile, setUseLocalProfile] = useState(localFirst);
+  const [useLocalProfile, setUseLocalProfile] = useState(false);
 
-  const handleAuth = useCallback((userId: string, email: string) => {
+  const handleAuth = useCallback((userId: string, email: string, isAnonymous = false) => {
     setUseLocalProfile(false);
-    setAuthUser({ id: userId, email });
+    setAuthUser({ id: userId, email, isAnonymous });
   }, []);
 
   const handleLocalProfile = useCallback(() => {
@@ -213,14 +217,50 @@ function usePlayfitAuth(localFirst = false) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then((res) => {
-      const user = res.data.session?.user;
-      if (user) {
-        setCachedAuth(res.data.session?.access_token ?? null, user.id);
-        setAuthUser({ id: user.id, email: user.email ?? "" });
+    let cancelled = false;
+
+    function mapAuthUser(user: User) {
+      const isAnonymous = user.is_anonymous === true;
+      return {
+        id: user.id,
+        email: isAnonymous ? "Guest profile" : (user.email ?? ""),
+        isAnonymous,
+      };
+    }
+
+    async function ensureSession() {
+      try {
+        const res = await supabase.auth.getSession();
+        const session = res.data.session;
+        if (cancelled) return;
+
+        if (session?.user) {
+          setCachedAuth(session.access_token ?? null, session.user.id);
+          setUseLocalProfile(false);
+          setAuthUser(mapAuthUser(session.user));
+          return;
+        }
+
+        if (localFirst) {
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (cancelled) return;
+
+          if (!error && data.session?.user) {
+            setCachedAuth(data.session.access_token ?? null, data.session.user.id);
+            setUseLocalProfile(false);
+            setAuthUser(mapAuthUser(data.session.user));
+            return;
+          }
+
+          setUseLocalProfile(true);
+          setAuthUser(null);
+        }
+      } finally {
+        if (!cancelled) setAuthBusy(false);
       }
-      setAuthBusy(false);
-    });
+    }
+
+    void ensureSession();
 
     const {
       data: { subscription },
@@ -228,15 +268,18 @@ function usePlayfitAuth(localFirst = false) {
       if (session?.user) {
         setCachedAuth(session.access_token, session.user.id);
         setUseLocalProfile(false);
-        setAuthUser({ id: session.user.id, email: session.user.email ?? "" });
+        setAuthUser(mapAuthUser(session.user));
       } else {
         setCachedAuth(null, null);
         setAuthUser(null);
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [localFirst]);
 
   return {
     authUser,
@@ -335,6 +378,9 @@ function useQueuedProfileSave({
       pendingSnapshotRef.current = snapshot;
       pendingOptionsRef.current = options;
 
+      setIsSaving(true);
+      setUi((currentUi) => (currentUi ? { ...currentUi, saveStatus: "saving" } : currentUi));
+
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
@@ -349,7 +395,7 @@ function useQueuedProfileSave({
         }
       }, 1000);
     },
-    [doSave],
+    [doSave, setIsSaving, setUi],
   );
 }
 
@@ -374,7 +420,6 @@ export function PlayfitProvider({
   const [state, setState] = useState<ProductState | null>(null);
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
-  const [dataLost, setDataLost] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchResults, setSearchResults] = useState<SeedGame[]>([]);
   const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
@@ -413,8 +458,9 @@ export function PlayfitProvider({
         if (hasDataNow) {
           localStorage.setItem("playfit_had_data", "1");
         } else if (hadDataFlag === "1") {
+          localStorage.removeItem("playfit_had_data");
+          clearGameCache();
           if (!cancelled) {
-            setDataLost(true);
             setState(loadedState);
             setUi(initialUi(loadedState));
           }
@@ -668,7 +714,6 @@ export function PlayfitProvider({
       } satisfies ProductSeedData,
       state,
       ui,
-      dataLost,
       isPending: false,
       isSaving,
       authUser,
@@ -683,14 +728,15 @@ export function PlayfitProvider({
         return getCachedGame(gameId) ?? null;
       },
       searchGames(query: string) {
-        if (!query) return [];
+        const trimmed = query.trim();
+        if (!trimmed) return [];
         const fq = ui?.finderQuery?.trim();
         const oq = ui?.onboardingQuery?.trim();
-        if (query === fq) return searchResults;
-        if (query === oq) return onboardingSearchResults;
+        if (trimmed === fq) return searchResults;
+        if (trimmed === oq) return onboardingSearchResults;
         // Handle deferred queries (stale but valid prefix)
-        if (fq?.startsWith(query)) return searchResults;
-        if (oq?.startsWith(query)) return onboardingSearchResults;
+        if (fq?.startsWith(trimmed)) return searchResults;
+        if (oq?.startsWith(trimmed)) return onboardingSearchResults;
         return [];
       },
       buildProfileFromCurrentData() {
@@ -1014,7 +1060,36 @@ export function PlayfitProvider({
         const clean = createInitialState();
         void enqueueSave(clean);
         setState(clean);
-        setDataLost(false);
+        updateUi(initialUi(clean));
+        clearGameCache();
+      },
+      async resetTasteProfile() {
+        try {
+          await resetProductState();
+        } catch (err) {
+          console.error("Failed to reset taste profile:", err);
+        }
+        const clean = createInitialState();
+        setState(clean);
+        updateUi(initialUi(clean));
+        clearGameCache();
+      },
+      async deleteAccount() {
+        try {
+          await resetProductState();
+        } catch (err) {
+          console.error("Failed to delete account:", err);
+        }
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // ignore
+        }
+        setCachedAuth(null, null);
+        setAuthUser(null);
+        setUseLocalProfile(false);
+        const clean = createInitialState();
+        setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
       },
@@ -1027,11 +1102,29 @@ export function PlayfitProvider({
         setCachedAuth(null, null);
         setAuthUser(null);
         setUseLocalProfile(false);
-        setDataLost(false);
         const clean = createInitialState();
         setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
+      },
+      async linkGoogleAccount() {
+        if (!authUser?.isAnonymous) return;
+        const { error } = await supabase.auth.linkIdentity({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) {
+          updateUi((current) =>
+            current
+              ? {
+                  ...current,
+                  statusMessage: error.message,
+                }
+              : current,
+          );
+        }
       },
       openDossier(gameId: string) {
         routerRef.current.push(`/app/game/${gameId}`);
@@ -1044,7 +1137,6 @@ export function PlayfitProvider({
     state,
     ui,
     isSaving,
-    dataLost,
     platforms,
     searchResults,
     onboardingSearchResults,
