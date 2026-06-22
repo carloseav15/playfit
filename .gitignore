@@ -32,6 +32,7 @@ scripts/grove.html
 
 # Generated artifacts (catalog cleanup reports, screenshots)
 output/
+reports/
 reports/assets/
 reports/*.html
 reports/play-audit-*/

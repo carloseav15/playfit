@@ -11,8 +11,8 @@
 ## Step 2: Clone & Install
 
 ```bash
-git clone <repo-url> games-library
-cd games-library
+git clone <repo-url> playfit
+cd playfit
 npm install
 ```
 

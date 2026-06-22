@@ -5,6 +5,13 @@
 Playfit is a Next.js App Router app that turns a game catalog, platform access, ratings, and profile
 signals into practical recommendations for what to start, resume, or skip.
 
+## Why Review This Repo
+
+- Product-grade recommendation UX with inspectable confidence, match, and risk signals.
+- A Supabase-backed data model with RLS, RPC boundaries, catalog cleanup migrations, and shared cache.
+- A TypeScript monorepo that separates Next.js UI/API code from reusable domain logic.
+- Automated quality gates covering typecheck, lint, unit tests, build, audit, e2e, migrations, and cover integrity.
+
 ## Stack
 
 - Next.js 16 App Router, React 19, TypeScript strict mode, Tailwind CSS v4
@@ -12,9 +19,8 @@ signals into practical recommendations for what to start, resume, or skip.
 - `@playfit/core` workspace package for domain logic, schema validation, seed loading, and profile persistence
 - Biome for linting and Vitest/Playwright for automated checks
 
-Next is pinned to `16.3.0-canary.34` intentionally. On June 9, 2026, `next@16.2.7`
-reintroduced a moderate `postcss` audit finding in this repo, while the canary plus the current
-PostCSS override kept `npm audit --audit-level=moderate` clean.
+Next is pinned to `16.3.0-canary.34` intentionally because this repo tracks the App Router behavior
+needed by the product. Dependency health is checked with `npm audit --audit-level=moderate`.
 
 ## Commands
 
@@ -37,7 +43,7 @@ Use Node 22 (`.nvmrc`) for local development and CI parity.
 - **Node.js 22** (`.nvmrc`)
 - **Docker Desktop** — required for local Supabase
 - **Supabase CLI** — `npm install -g supabase` or `brew install supabase/tap/supabase`
-- **RAWG API key** — register at https://rawg.io/register (free tier: 20k requests/month)
+- **RAWG API key** — optional; only needed for scraping/enrichment scripts
 
 ## Getting Started
 
@@ -123,7 +129,8 @@ title groups for manual review.
 
 **Staging** — auto-deployed from `main` via GitHub Actions → Vercel preview.
 
-**Production** — not yet documented (pending pipeline setup).
+**Production** — the app is designed for Vercel + Supabase. Public production rollout is tracked
+separately from the open repository because a full catalog restore is required for parity.
 
 ### Vercel
 
@@ -138,6 +145,12 @@ title groups for manual review.
 - Automatic daily backup via GitHub Actions (`.github/workflows/backup.yml`)
 - Local backup: `bash scripts/backup-db.sh`
 - Restore: `bash scripts/restore-backup.sh <path-to-backup.dump>`
+
+## Licensing and Data
+
+Code is MIT licensed. Third-party game metadata, cover art, trademarks, and external catalog data
+remain property of their respective owners and are included only where allowed for local product
+development and portfolio demonstration.
 
 ### CI Pipeline
 
@@ -154,7 +167,7 @@ title groups for manual review.
 | `params.gameId is undefined` | Next.js 16 canary — `params` is a Promise | `const { gameId } = await props.params` |
 | `Connection refused` on port 54321 | Supabase not running | `supabase start` |
 | `relation "games_library.games" does not exist` | Migrations not applied | `supabase db reset --local` |
-| `npm audit` shows moderate findings | PostCSS version mismatch | `npm audit --audit-level=moderate` (override in package.json) |
+| `npm audit` reports a transitive dependency | Dependency drift | Run `npm audit fix` first; avoid `--force` unless the proposed changes are reviewed |
 | Catalog is empty | Seed data not imported | Import catalog data separately (see Getting Started) |
 | Build fails with `default.js` missing | Next.js 16 parallel routes requirement | Add `default.js` to parallel route slot directories |
 
