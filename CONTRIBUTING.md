@@ -9,10 +9,12 @@ repo easy to review, easy to run locally, and honest about operational limits.
 npm install
 cp .env.example .env
 supabase start
-supabase db reset --local
 bash scripts/seed-catalog.sh
 npm run dev
 ```
+
+Only run `supabase db reset --local` against a disposable local database. It
+rebuilds the schema from migrations and removes existing local data.
 
 The migrations create schema and policies. They do not include the full catalog;
 import or restore catalog data before testing recommendation flows against a
@@ -23,11 +25,7 @@ fresh database.
 Run the relevant checks before opening a PR:
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm audit --audit-level=moderate
+npm run check:ci
 npm run test:e2e
 npm run check:covers
 ```
@@ -35,7 +33,7 @@ npm run check:covers
 When touching Supabase schema, also run:
 
 ```bash
-bash scripts/validate-migrations.sh
+npm run validate:migrations
 ```
 
 ## Standards

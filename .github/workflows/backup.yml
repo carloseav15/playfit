@@ -1,8 +1,6 @@
 name: Database Backup
 
 on:
-  schedule:
-    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -13,13 +11,22 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Require backup database URL
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL is required for manual backups."
+            exit 1
+          fi
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       - name: Dump database
         run: >
-          supabase db dump --local
+          supabase db dump
+          --db-url "$SUPABASE_DB_URL"
           -f backup_$(date +%Y%m%d_%H%M%S).sql
           --schema games_library
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ github.run_id }}

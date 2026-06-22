@@ -9,6 +9,7 @@ What changed and why?
 - [ ] `npm test`
 - [ ] `npm run build`
 - [ ] `npm audit --audit-level=moderate`
+- [ ] `npm run validate:migrations`
 - [ ] `npm run test:e2e`
 - [ ] `npm run check:covers`
 

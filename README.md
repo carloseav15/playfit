@@ -1,5 +1,7 @@
 # Playfit
 
+[![CI](https://github.com/carloseav15/playfit/actions/workflows/ci.yml/badge.svg)](https://github.com/carloseav15/playfit/actions/workflows/ci.yml)
+
 ![Playfit Dashboard Mockup](apps/web/public/playfit_mvp_mockup.png)
 
 Playfit is a Next.js App Router app that turns a game catalog, platform access, ratings, and profile
@@ -10,7 +12,8 @@ signals into practical recommendations for what to start, resume, or skip.
 - Product-grade recommendation UX with inspectable confidence, match, and risk signals.
 - A Supabase-backed data model with RLS, RPC boundaries, catalog cleanup migrations, and shared cache.
 - A TypeScript monorepo that separates Next.js UI/API code from reusable domain logic.
-- Automated quality gates covering typecheck, lint, unit tests, build, audit, e2e, migrations, and cover integrity.
+- Automated quality gates covering typecheck, lint, unit tests, build, audit, and migration validation.
+- Manual verification workflows for browser e2e and cover integrity checks when staging credentials are available.
 
 ## Stack
 
@@ -31,7 +34,10 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run check
+npm run check:ci
 npm audit --audit-level=moderate
+npm run validate:migrations
 npm run test:e2e
 npm run check:covers
 ```
@@ -53,7 +59,6 @@ npm install
 
 # 2. Start Supabase locally
 supabase start
-supabase db reset --local
 
 # 3. Copy environment variables
 cp .env.example .env
@@ -62,8 +67,11 @@ cp .env.example .env
 npm run dev
 ```
 
-> The migration creates the schema but does **not** seed the full catalog.
-> After a fresh DB reset, seed catalog data:
+Only reset a disposable local database. `supabase db reset --local` rebuilds the local schema from
+migrations and removes existing local data.
+
+> Migrations create the schema but do **not** seed the full catalog.
+> After a fresh local reset, seed catalog data:
 > ```bash
 > bash scripts/seed-catalog.sh
 > ```
@@ -127,7 +135,8 @@ title groups for manual review.
 
 ## Deployment
 
-**Staging** — auto-deployed from `main` via GitHub Actions → Vercel preview.
+**Staging** — manually deployed through `.github/workflows/deploy-staging.yml` when preview secrets
+are configured.
 
 **Production** — the app is designed for Vercel + Supabase. Public production rollout is tracked
 separately from the open repository because a full catalog restore is required for parity.
@@ -142,7 +151,7 @@ separately from the open repository because a full catalog restore is required f
 ### Database
 
 - Staging uses Supabase cloud (connection details in GitHub secrets)
-- Automatic daily backup via GitHub Actions (`.github/workflows/backup.yml`)
+- Manual backup via GitHub Actions (`.github/workflows/backup.yml`) when `SUPABASE_DB_URL` is configured
 - Local backup: `bash scripts/backup-db.sh`
 - Restore: `bash scripts/restore-backup.sh <path-to-backup.dump>`
 
@@ -156,9 +165,23 @@ development and portfolio demonstration.
 
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
 - TypeScript check, Biome lint, Vitest unit tests, Next.js build
+- `npm audit --audit-level=moderate`
 - Migration validation (naming, begin/commit, idempotency)
-- Playwright e2e tests (if Supabase URL available)
-- Cover integrity check (if service key available)
+
+`.github/workflows/manual-verification.yml` runs on demand:
+- Playwright e2e tests against a configured Supabase environment
+- Optional cover integrity check against Supabase with `SUPABASE_SERVICE_KEY`
+
+## Known Limitations
+
+- Public deployment is intentionally deferred until the production/staging catalog restore path is
+  ready.
+- Duplicate catalog cleanup is tracked as a separate data-quality pass; current redirects and
+  canonical IDs protect app lookups, but the catalog still has manual review queues.
+- `scripts/` contains operational catalog tooling that predates the current Biome formatting rules;
+  app and package source are linted/formatted through workspace gates.
+- Third-party game metadata and cover art are included only where appropriate for local product
+  development and portfolio demonstration.
 
 ## Troubleshooting
 
@@ -179,6 +202,7 @@ Additional documentation is available in the `docs/` directory:
 - `PLAY-MVP.md` — product brief and UX contract for the `/play` MVP experience
 - `SCHEMA.md` — consolidated database schema (tables, columns, relationships)
 - `SCRIPTS.md` — reference for all scripts in `scripts/`
+- `ROADMAP.md` — known limitations, publish-readiness scope, and deferred work
 - `ONBOARDING.md` — step-by-step guide for new developers
 - `nextjs-16-canary.md` — breaking changes and upgrade notes for Next.js 16 canary
 - `AGENTS.md` (root) — development guide, migration strategy, auth architecture, UI kit conventions
