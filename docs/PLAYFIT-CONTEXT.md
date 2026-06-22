@@ -161,7 +161,7 @@ State is persisted to two layers:
 |---|---|---|
 | IndexedDB (local) | `@playfit/core/store` | On every `updateState()` |
 | Supabase (server) | `POST /api/profile` | Via `enqueueSave()` in save queue |
-| Auth session | Supabase SSR cookie | Handled by middleware |
+| Auth session | Supabase SSR cookie | Read by client/provider and API routes |
 
 ## Error States
 

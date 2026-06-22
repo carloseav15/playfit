@@ -13,7 +13,7 @@ graph TD
         B["PlayfitContext<br/>(React Context)"]
         C["@playfit/core/store<br/>(IndexedDB persistence)"]
         D["UI Kit<br/>30 components"]
-        E["Middleware<br/>(SSR auth check)"]
+        E["Proxy / middleware<br/>(request pass-through)"]
     end
 
     subgraph Server["Next.js Server"]
@@ -56,9 +56,7 @@ sequenceDiagram
     participant EF as Edge Function
 
     Browser->>Middleware: Request /app/*
-    Middleware->>Supabase: auth.getUser()
-    Supabase-->>Middleware: user session
-    Middleware->>Browser: Allow or redirect
+    Middleware->>Browser: Continue request
 
     Browser->>API: GET /api/profile
     API->>Supabase: auth.getUser() (cookie)
@@ -173,7 +171,7 @@ packages/core/               # Shared domain logic
   /legal/terms          → TermsPage
   /ui-kit               → UiKitPage (living style guide)
 
-  /app (protected)      → AppLayout → PlayfitRouteProvider
+  /app                  → AppLayout → PlayfitRouteProvider
     /app                → ProductApp
       ├── TodaySection
       ├── LibrarySection
@@ -231,7 +229,7 @@ components/
 
 ### Navigation Flow
 
-Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. The middleware protects `/app/*` — unauthenticated users get redirected to `/`.
+Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. Authentication is handled inside the product shell and API calls; the current middleware file is a request pass-through.
 
 ## Domain Business Rules
 
