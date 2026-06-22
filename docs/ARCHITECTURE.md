@@ -13,7 +13,7 @@ graph TD
         B["PlayfitContext<br/>(React Context)"]
         C["@playfit/core/store<br/>(IndexedDB persistence)"]
         D["UI Kit<br/>30 components"]
-        E["Proxy / middleware<br/>(request pass-through)"]
+        E["Proxy<br/>(request pass-through)"]
     end
 
     subgraph Server["Next.js Server"]
@@ -229,7 +229,7 @@ components/
 
 ### Navigation Flow
 
-Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. Authentication is handled inside the product shell and API calls; the current middleware file is a request pass-through.
+Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. Authentication is handled inside the product shell and API calls; the current proxy is a request pass-through.
 
 ## Domain Business Rules
 
