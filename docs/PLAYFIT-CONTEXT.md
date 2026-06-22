@@ -143,6 +143,9 @@ applyDecisionFeedback(gameId, feedback)
 usePlayfitAuth()
   ├── On mount: check supabase.auth.getSession()
   ├── Subscribe to onAuthStateChange (session refresh, sign out)
+  ├── If localFirst and unauthenticated:
+  │     ├── Try anonymous Supabase auth
+  │     └── Fall back to local profile when anonymous auth is unavailable
   ├── If authenticated:
   │     ├── setCachedAuth(access_token, user.id)
   │     ├── setAuthUser({ id, email })

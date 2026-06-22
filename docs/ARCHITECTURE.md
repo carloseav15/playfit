@@ -171,7 +171,7 @@ packages/core/               # Shared domain logic
   /legal/terms          → TermsPage
   /ui-kit               → UiKitPage (living style guide)
 
-  /app                  → AppLayout → PlayfitRouteProvider
+  /app                  → AppLayout → PlayfitRouteProvider (local-first)
     /app                → ProductApp
       ├── TodaySection
       ├── LibrarySection

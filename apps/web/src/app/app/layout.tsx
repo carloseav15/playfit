@@ -36,5 +36,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const platforms = platformsResult.platforms ?? [];
-  return <PlayfitRouteProvider platforms={platforms}>{children}</PlayfitRouteProvider>;
+  return (
+    <PlayfitRouteProvider platforms={platforms} localFirst>
+      {children}
+    </PlayfitRouteProvider>
+  );
 }

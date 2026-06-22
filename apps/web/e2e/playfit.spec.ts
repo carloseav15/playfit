@@ -556,6 +556,17 @@ test("play route loads locally without mandatory sign in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Continue locally" })).toHaveCount(0);
 });
 
+test("app route loads locally without mandatory sign in", async ({ page }) => {
+  await mockSupabase(page);
+
+  await gotoApp(page, "/app");
+
+  await expect(page.getByRole("heading", { name: "Where do you play?" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole("button", { name: "Continue locally" })).toHaveCount(0);
+});
+
 test("play dossier direct link fetches a valid game before asking for taste", async ({ page }) => {
   await mockSupabase(page);
 
