@@ -1,0 +1,58 @@
+name: Manual Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_covers:
+        description: "Run cover integrity check against Supabase"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321' }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'local-dev-anon-key' }}
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Require Supabase verification environment
+        run: |
+          if [ "$NEXT_PUBLIC_SUPABASE_URL" = "http://127.0.0.1:54321" ] || [ "$NEXT_PUBLIC_SUPABASE_ANON_KEY" = "local-dev-anon-key" ]; then
+            echo "Manual E2E requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY secrets."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  covers:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_covers }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Require cover integrity credentials
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "SUPABASE_SERVICE_KEY is required for cover integrity checks."
+            exit 1
+          fi
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      - run: npm ci
+      - run: npm run check:covers
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
