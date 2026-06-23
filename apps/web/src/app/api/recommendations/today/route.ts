@@ -33,6 +33,9 @@ export async function POST(request: Request) {
 
   const loaded = await loadRecommendationState(request);
   if (!loaded.ok) {
+    if (loaded.status === 200) {
+      return Response.json({ needsResync: true });
+    }
     return Response.json({ error: loaded.error }, { status: loaded.status });
   }
 

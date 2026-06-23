@@ -169,16 +169,32 @@ export async function loadRecommendationState(
   if (error) {
     return { ok: false, status: 500, error: "Failed to load recommendation state" };
   }
-  if (!data) {
-    return { ok: false, status: 404, error: "Recommendation profile not found" };
+
+  let resolvedUserId = userId;
+  let resolvedData = data;
+
+  // Fallback: if no data for userId, try device_id (covers session loss / pending migration)
+  if (!resolvedData) {
+    const deviceId = new URL(request.url).searchParams.get("device_id");
+    if (deviceId && deviceId !== userId && isValidDeviceId(deviceId)) {
+      const { data: deviceData } = await supabase.rpc("get_profile", { p_user_id: deviceId });
+      if (deviceData) {
+        resolvedUserId = deviceId;
+        resolvedData = deviceData;
+      }
+    }
+  }
+
+  if (!resolvedData) {
+    return { ok: false, status: 200, error: "needs_resync" };
   }
 
   try {
-    const payload = data as PersistedProfilePayload;
+    const payload = resolvedData as PersistedProfilePayload;
     const state = mapPersistedState(payload);
     return {
       ok: true,
-      userId,
+      userId: resolvedUserId,
       state,
       stateVersion: computeStateVersion(payload, state),
     };

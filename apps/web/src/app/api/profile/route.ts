@@ -232,6 +232,20 @@ export async function POST(request: Request) {
       return Response.json({ error: error.message }, { status: 500 });
     }
 
+    // Also save under device_id so data survives session loss
+    if (body.deviceId && body.deviceId !== resolvedId) {
+      try {
+        await client.rpc("upsert_profile", {
+          p_user_id: body.deviceId,
+          p_game_states: body.gameStates,
+          p_profile: body.profile,
+          p_onboarding: body.onboarding,
+        });
+      } catch {
+        // ignore - device_id save is best-effort
+      }
+    }
+
     await client
       .schema("games_library")
       .from("audit_log")

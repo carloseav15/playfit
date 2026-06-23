@@ -17,9 +17,11 @@ function cacheModel(model: ProductPlayNextModel) {
 export function usePlayNextRecommendations({
   enabled,
   errorMessage,
+  onNeedsResync,
 }: {
   enabled: boolean;
   errorMessage: string;
+  onNeedsResync?: () => void;
 }) {
   const [model, setModel] = useState<ProductPlayNextModel | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,14 +53,20 @@ export function usePlayNextRecommendations({
           },
         });
 
+        const body = (await res.json()) as ProductPlayNextModel & { needsResync?: boolean };
+
+        if (body.needsResync) {
+          onNeedsResync?.();
+          return;
+        }
+
         if (!res.ok) {
           throw new Error(errorMessage);
         }
 
-        const data = (await res.json()) as ProductPlayNextModel;
         if (requestId === requestIdRef.current) {
-          cacheModel(data);
-          setModel(data);
+          cacheModel(body);
+          setModel(body);
         }
       } catch (error) {
         if (requestId === requestIdRef.current) {
@@ -75,7 +83,7 @@ export function usePlayNextRecommendations({
         }
       }
     },
-    [enabled, errorMessage],
+    [enabled, errorMessage, onNeedsResync],
   );
 
   useEffect(() => {

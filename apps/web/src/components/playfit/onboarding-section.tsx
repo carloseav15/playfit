@@ -144,6 +144,7 @@ export function OnboardingSection() {
     ui,
     setUi,
     updateState,
+    flushSave,
     searchGames,
     getSeedGame,
     onboardingSearchError,
@@ -333,6 +334,7 @@ export function OnboardingSection() {
       next.user.profile = buildAdaptiveProfile(next.user.onboarding, map, next.user.gameStates);
       next.user.onboardingCompletedAt = nowIso();
     });
+    flushSave();
     setUi((current) => ({
       ...current,
       activeTab: "today",
