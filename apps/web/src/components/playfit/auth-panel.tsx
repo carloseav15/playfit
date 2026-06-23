@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 
 interface AuthPanelProps {
@@ -89,7 +90,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: buildSiteUrl("/auth/callback"),
         },
       });
 
@@ -113,7 +114,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
     setBusy(true);
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/play`,
+        redirectTo: buildSiteUrl("/play"),
       });
       if (resetError) {
         setError(resetError.message);

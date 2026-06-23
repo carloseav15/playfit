@@ -160,6 +160,8 @@ secrets are configured.
 - Output directory: `apps/web/.next` because this is a monorepo
 - Environment variables configured in Vercel dashboard (see `.env.example`)
 - Production URL: `https://playfit-gold.vercel.app`
+- `NEXT_PUBLIC_SITE_URL` must match the canonical public URL so Supabase OAuth callbacks return to
+  production instead of any local fallback.
 
 ### Database
 

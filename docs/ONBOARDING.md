@@ -49,6 +49,8 @@ cp .env.example .env
 Variables in `.env`:
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase API URL (local: `http://127.0.0.1:54321`)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Anon key from `supabase start` output
+- `NEXT_PUBLIC_SITE_URL` — Public app origin for OAuth redirects (local:
+  `http://127.0.0.1:3000`, production: `https://playfit-gold.vercel.app`)
 - `SUPABASE_SERVICE_KEY` — Service role key from `supabase start` output
 - `RAWG_API_KEY` — Only needed for scraping scripts
 
