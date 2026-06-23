@@ -1,21 +1,23 @@
 # Roadmap and Known Limitations
 
 This document keeps public-review expectations honest. It is not a promise of dates; it explains
-what is intentionally deferred and what is already protected by tests or workflow gates.
+what is live, what is protected by tests or workflow gates, and what remains future work.
 
 ## Current Publish-Readiness Scope
 
 - Keep `/play` as the focused MVP entry point for first-contact recommendation flow.
 - Keep `/app` as the broader product shell, now aligned with `/play` local-first behavior.
+- Treat [playfit-gold.vercel.app](https://playfit-gold.vercel.app) as the current public product demo.
 - Preserve local data during development; do not reset local Supabase unless the database is
   disposable.
 - Use CI for reproducible source checks and manual workflows for environment-dependent verification.
 
-## Deferred Before Public Demo
+## Public Demo Follow-Up
 
-- Restore or provision a stable staging catalog before advertising a live demo URL.
-- Run a final manual Playwright pass against staging after deployment credentials are confirmed.
-- Confirm GitHub repository description, topics, and social preview assets.
+- Add a dedicated custom domain when the public URL should move away from the Vercel alias.
+- Keep production backups current before larger catalog or Auth changes.
+- Confirm GitHub repository description and topics match the product positioning.
+- Run manual Playwright and cover-integrity workflows after material UX or data changes.
 
 ## Deferred Data-Quality Work
 

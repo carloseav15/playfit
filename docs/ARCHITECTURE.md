@@ -2,7 +2,7 @@
 
 ## High-Level Overview
 
-Playfit is a **monorepo** with two workspaces: `apps/web` (Next.js 16 App Router) and `packages/core` (shared domain logic). The app uses **Supabase** for auth, database, and edge functions. All API routes are Next.js Route Handlers — there is no separate backend server.
+Playfit is a **monorepo** with two workspaces: `apps/web` (Next.js 16 App Router) and `packages/core` (shared domain logic). The app uses **Supabase** for auth, database, and edge functions, and deploys to **Vercel** as the public product demo at https://playfit-gold.vercel.app. All API routes are Next.js Route Handlers — there is no separate backend server.
 
 ## Diagram
 
@@ -92,18 +92,20 @@ sequenceDiagram
     participant Cache as api_cache table
     participant DB as Supabase
 
-    Browser->>API: POST /today { profile, gameStates, onboarding }
-    API->>Cache: get_cache("catalog:games")
+    Browser->>API: POST /today?device_id=...
+    API->>DB: get_profile(user_id or device_id) [SECURITY DEFINER]
+    DB-->>API: persisted profile + onboarding + game states
+    API->>Cache: get_cache("recs:*")
     alt Cache hit
-        Cache-->>API: cached SeedGame[]
+        Cache-->>API: cached recommendation model
     else Cache miss
-        API->>DB: SELECT * FROM games (paginated)
-        API->>DB: SELECT platforms + aliases
-        DB-->>API: raw data
-        API->>API: mapGameRowToSeedGame()
+        API->>DB: score_today_recommendations() RPC
+        DB-->>API: ranked game IDs + scores
+        API->>DB: fetch full game rows for ranked IDs
+        DB-->>API: game, platform, alias data
+        API->>API: hydrate + explain ranked games
         API->>Cache: set_cache() [best-effort]
     end
-    API->>API: buildTodayModel(games, state, profile)
     API-->>Browser: recommendation model
 ```
 
@@ -151,7 +153,9 @@ packages/core/               # Shared domain logic
 | Cache | Location | TTL | Used by |
 |---|---|---|---|
 | Catalog (all games) | `api_cache` table | 300s | `/api/recommendations/today`, `/similar` |
+| Recommendation model | `api_cache` table | 3600s | `/api/recommendations/today` |
 | Static assets | Vercel CDN (Next.js) | Immutable | `/covers/games/*` |
+| Social preview | Vercel CDN (Next.js) | Immutable | `/og.webp` |
 | Auth session | HTTP cookies (Supabase SSR) | JWT expiry | Middleware, API routes |
 | Profile data | Browser IndexedDB | Persistent | `@playfit/core/store` |
 

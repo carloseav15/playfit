@@ -13,7 +13,7 @@ Health check endpoint. Returns DB connection status and game count.
   "app": "playfit",
   "timestamp": "2026-06-13T23:00:00.000Z",
   "checks": {
-    "database": "connected (5,234 games)"
+    "database": "connected (63,682 games)"
   }
 }
 ```
@@ -339,25 +339,46 @@ Delete game state for a single game.
 
 ## POST /api/recommendations/today
 
-Get today's recommendation model. Uses cached catalog (5 min TTL in `api_cache` table).
+Get today's recommendation model. The route is session-scoped: it resolves the caller from a
+Supabase cookie, bearer token, or `device_id`, loads the persisted profile with `get_profile()`, and
+scores recommendations with the `score_today_recommendations()` RPC. Cached recommendation models use
+the `api_cache` table.
 
-**Request**:
+**Auth (resolution order):**
+1. SSR cookie via `auth.getUser()`
+2. `Authorization: Bearer <jwt>` header
+3. `device_id` query parameter (UUID v4)
+
+**Request body**:
+
+No body is required. Legacy payloads containing `profile`, `onboarding`, or `gameStates` are
+rejected because recommendation state must come from the persisted profile.
+
+**Response** `200` (no persisted session state):
+```json
+{ "needsResync": true }
+```
+
+**Response** `200` (scored model):
 ```json
 {
-  "profile": { /* ProductProfile or null */ },
-  "gameStates": { /* Record<string, ProductGameState> */ },
-  "onboarding": { /* ProductOnboardingDraft */ }
+  "primary": { /* RankedSeedGame — main play-next recommendation */ },
+  "alternatives": [ /* RankedSeedGame[] */ ],
+  "currentRun": [ /* RankedSeedGame[] */ ],
+  "nextUp": [ /* RankedSeedGame[] */ ],
+  "resume": [ /* RankedSeedGame[] */ ],
+  "picks": [ /* RankedSeedGame[] */ ]
 }
 ```
 
-**Response** `200`:
+**Error** `400` (legacy client payload):
 ```json
-{
-  "currentRun": [ /* RankedSeedGame[] — games with status=playing */ ],
-  "nextUp": [ /* RankedSeedGame[] — best matches sorted by score */ ],
-  "resume": [ /* RankedSeedGame[] — shelved/on-hold games sorted by score */ ],
-  "picks": [ /* RankedSeedGame[] — Playfit Picks sorted by current fit */ ]
-}
+{ "error": "Recommendations are session-scoped; do not send profile state." }
+```
+
+**Error** `401`:
+```json
+{ "error": "Recommendation session required" }
 ```
 
 Each `RankedSeedGame`:

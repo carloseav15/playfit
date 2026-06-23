@@ -2,18 +2,24 @@
 
 [![CI](https://github.com/carloseav15/playfit/actions/workflows/ci.yml/badge.svg)](https://github.com/carloseav15/playfit/actions/workflows/ci.yml)
 
-![Playfit Dashboard Mockup](apps/web/public/playfit_mvp_mockup.png)
+![Playfit product preview](apps/web/public/og.webp)
 
-Playfit is a Next.js App Router app that turns a game catalog, platform access, ratings, and profile
-signals into practical recommendations for what to start, resume, or skip.
+Playfit is an open source product and portfolio project for answering one specific question with
+maximum precision: **what should I play next?**
+
+It combines a large game catalog, platform access, ratings, onboarding signals, saved picks, and
+taste analysis into practical recommendations for what to start, resume, save, or skip.
+
+Live demo: [playfit-gold.vercel.app](https://playfit-gold.vercel.app)
 
 ## Why Review This Repo
 
-- Product-grade recommendation UX with inspectable confidence, match, and risk signals.
+- Product-grade recommendation UX with inspectable confidence, match, risk, and taste signals.
 - A Supabase-backed data model with RLS, RPC boundaries, catalog cleanup migrations, and shared cache.
 - A TypeScript monorepo that separates Next.js UI/API code from reusable domain logic.
+- Real production deployment on Vercel backed by Supabase Postgres.
 - Automated quality gates covering typecheck, lint, unit tests, build, audit, and migration validation.
-- Manual verification workflows for browser e2e and cover integrity checks when staging credentials are available.
+- Manual verification workflows for browser e2e, backups, and cover integrity checks when credentials are available.
 
 ## Stack
 
@@ -106,9 +112,11 @@ as the main app backend.
 Profile API behavior:
 
 - Authenticated users are resolved through Supabase `auth.getUser(jwt)`.
-- Anonymous local mode uses a browser `deviceId` and persists through `/api/profile` with the
-  server-side service-role client.
+- Anonymous mode uses a browser `deviceId` and persists through `/api/profile` via SECURITY DEFINER
+  Postgres functions.
 - `deviceId` is a convenience identifier for local/private use, not a strong security boundary.
+- The service role key is reserved for scripts, CI, migrations, and Supabase Edge Functions. It is
+  not required as normal Vercel runtime configuration.
 
 ## Data Quality
 
@@ -129,28 +137,33 @@ title groups for manual review.
 | DELETE | `/api/profile?device_id=` | Reset user profile | Cookie / Bearer / deviceId |
 | PATCH | `/api/profile/games/:gameId` | Update game state (status, rating, etc.) | Cookie / Bearer / deviceId |
 | DELETE | `/api/profile/games/:gameId` | Delete game state | Cookie / Bearer / deviceId |
-| POST | `/api/recommendations/today` | Today's recommendation (uses cached catalog) | None |
+| POST | `/api/recommendations/today` | Today's recommendation (session-scoped, cached scoring) | Cookie / Bearer / deviceId |
 | POST | `/api/recommendations/similar` | Similar + series games for a game ID | None |
 | POST | `/api/recommendations/profile` | Build adaptive profile from onboarding + states | Cookie / Bearer |
 
 ## Deployment
 
-**Staging** — manually deployed through `.github/workflows/deploy-staging.yml` when preview secrets
-are configured.
+**Live product** — [playfit-gold.vercel.app](https://playfit-gold.vercel.app)
 
-**Production** — the app is designed for Vercel + Supabase. Public production rollout is tracked
-separately from the open repository because a full catalog restore is required for parity.
+**Production** — GitHub `main` auto-deploys to Vercel. The production app uses a Supabase project
+with the durable catalog, profiles, user game states, Auth users, RLS policies, RPC functions, and
+the `migrate-profile` Edge Function.
+
+**Staging/manual verification** — `.github/workflows/deploy-staging.yml`,
+`.github/workflows/manual-verification.yml`, and backup workflows are available when the matching
+secrets are configured.
 
 ### Vercel
 
-- Framework: Next.js (`vercel.json`)
+- Framework: Next.js, linked as the `playfit` Vercel project
 - Build command: `npm run build`
+- Output directory: `apps/web/.next` because this is a monorepo
 - Environment variables configured in Vercel dashboard (see `.env.example`)
-- Custom domain: `playfit.app`
+- Production URL: `https://playfit-gold.vercel.app`
 
 ### Database
 
-- Staging uses Supabase cloud (connection details in GitHub secrets)
+- Production uses Supabase cloud in `us-east-1`
 - Manual backup via GitHub Actions (`.github/workflows/backup.yml`) when `SUPABASE_DB_URL` is configured
 - Local backup: `bash scripts/backup-db.sh`
 - Restore: `bash scripts/restore-backup.sh <path-to-backup.dump>`
@@ -174,14 +187,14 @@ development and portfolio demonstration.
 
 ## Known Limitations
 
-- Public deployment is intentionally deferred until the production/staging catalog restore path is
-  ready.
 - Duplicate catalog cleanup is tracked as a separate data-quality pass; current redirects and
   canonical IDs protect app lookups, but the catalog still has manual review queues.
 - `scripts/` contains operational catalog tooling that predates the current Biome formatting rules;
   app and package source are linted/formatted through workspace gates.
 - Third-party game metadata and cover art are included only where appropriate for local product
   development and portfolio demonstration.
+- `playfit-gold.vercel.app` is the current production URL; a dedicated custom domain can be added
+  later without changing the app architecture.
 
 ## Troubleshooting
 
@@ -202,7 +215,7 @@ Additional documentation is available in the `docs/` directory:
 - `PLAY-MVP.md` — product brief and UX contract for the `/play` MVP experience
 - `SCHEMA.md` — consolidated database schema (tables, columns, relationships)
 - `SCRIPTS.md` — reference for all scripts in `scripts/`
-- `ROADMAP.md` — known limitations, publish-readiness scope, and deferred work
+- `ROADMAP.md` — live-demo status, known limitations, and future work
 - `ONBOARDING.md` — step-by-step guide for new developers
 - `nextjs-16-canary.md` — breaking changes and upgrade notes for Next.js 16 canary
 - `AGENTS.md` (root) — development guide, migration strategy, auth architecture, UI kit conventions
