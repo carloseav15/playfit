@@ -51,7 +51,11 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
 
       try {
         const fn = isSignUp
-          ? supabase.auth.signUp({ email, password })
+          ? supabase.auth.signUp({
+              email,
+              password,
+              options: { emailRedirectTo: buildSiteUrl("/auth/callback") },
+            })
           : supabase.auth.signInWithPassword({ email, password });
 
         const { data, error: authError } = await fn;
