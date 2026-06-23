@@ -43,6 +43,7 @@ import {
   ensureGamesCached,
   getCachedGame,
 } from "@/lib/game-cache";
+import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
 
@@ -1131,7 +1132,7 @@ export function PlayfitProvider({
         const { error } = await supabase.auth.linkIdentity({
           provider: "google",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
+            redirectTo: buildSiteUrl("/auth/callback"),
           },
         });
         if (error) {
