@@ -20,12 +20,20 @@ npm install
 
 ```bash
 supabase start
-supabase db reset --local
 ```
 
 **Verify:**
 - Supabase Studio at http://127.0.0.1:54323
 - You should see 18+ tables in `games_library` schema
+
+If you need a disposable clean database, run:
+
+```bash
+supabase db reset --local
+```
+
+Do not run `supabase db reset --local` against the only copy of local data. It rebuilds the local
+database from migrations and removes existing local rows.
 
 **Troubleshooting:**
 - `Connection refused` → Docker not running or `supabase start` needed
@@ -54,7 +62,7 @@ bash scripts/seed-catalog.sh
 
 This script tries (in order):
 1. **Local seed dump** at `data/seed/games_library_seed.sql`
-2. **Staging pull** if `STAGING_SUPABASE_URL` + `STAGING_SUPABASE_SERVICE_KEY` are set
+2. **Remote/staging pull** if `STAGING_SUPABASE_URL` + `STAGING_SUPABASE_SERVICE_KEY` are set
 3. **Instructions** to create a dump from a populated DB or scrape from RAWG
 
 > If you have access to a populated DB: `mkdir -p data/seed && supabase db dump --local -f data/seed/games_library_seed.sql --schema games_library --data-only`
@@ -68,6 +76,8 @@ npm run dev
 ```
 
 Open http://127.0.0.1:3000
+
+The public product demo is deployed at https://playfit-gold.vercel.app.
 
 ## Step 7: Verification Checklist
 

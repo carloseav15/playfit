@@ -18,9 +18,9 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   name: "Playfit",
-  url: "https://playfit.app",
+  url: "https://playfit-gold.vercel.app",
   description:
-    "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
+    "Playfit helps you decide what to play next with precise, explainable recommendations built from your taste, library, and platform access.",
   applicationCategory: "LifestyleApplication",
   operatingSystem: "Web",
 };
@@ -36,13 +36,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://playfit.app"),
+  metadataBase: new URL("https://playfit-gold.vercel.app"),
   title: {
-    default: "Playfit | Game decisions you can trust",
+    default: "Playfit | Find what to play next",
     template: "%s | Playfit",
   },
   description:
-    "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
+    "Playfit helps you decide what to play next with precise, explainable recommendations built from your taste, library, and platform access.",
   icons: {
     icon: [
       {
@@ -56,18 +56,26 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "Playfit | Game decisions you can trust",
+    title: "Playfit | Find what to play next",
     description:
-      "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
+      "Precise, explainable game recommendations for deciding what to start, resume, save, or skip.",
     type: "website",
-    images: ["/screenshots/dashboard.jpg"],
+    url: "https://playfit-gold.vercel.app",
+    images: [
+      {
+        url: "/og.webp",
+        width: 1920,
+        height: 1200,
+        alt: "Playfit product screens showing play-next recommendations, game analysis, saved picks, taste mapping, and affinity map.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Playfit | Game decisions you can trust",
+    title: "Playfit | Find what to play next",
     description:
-      "Playfit turns your library into calm, honest reads for what to play, skip, or come back to.",
-    images: ["/screenshots/dashboard.jpg"],
+      "Precise, explainable game recommendations for deciding what to start, resume, save, or skip.",
+    images: ["/og.webp"],
   },
 };
 
