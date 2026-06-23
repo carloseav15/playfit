@@ -96,6 +96,7 @@ interface PlayfitContextValue {
   finderSearchError: string | null;
   onboardingSearchError: string | null;
   onboardingSearchPending: boolean;
+  flushSave: () => void;
   retrySave: () => Promise<void>;
   resetLocalState: () => void;
   resetTasteProfile: () => Promise<void>;
@@ -373,7 +374,7 @@ function useQueuedProfileSave({
     [setAuthUser, setUseLocalProfile, setUi, setIsSaving],
   );
 
-  return useCallback(
+  const enqueueSave = useCallback(
     (snapshot: ProductState, options: { successMessage?: string } = {}) => {
       pendingSnapshotRef.current = snapshot;
       pendingOptionsRef.current = options;
@@ -397,6 +398,22 @@ function useQueuedProfileSave({
     },
     [doSave, setIsSaving, setUi],
   );
+
+  const flushSave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const latest = pendingSnapshotRef.current;
+    if (latest) {
+      const latestOptions = pendingOptionsRef.current;
+      pendingSnapshotRef.current = null;
+      pendingOptionsRef.current = {};
+      doSave(latest, latestOptions);
+    }
+  }, [doSave]);
+
+  return { enqueueSave, flushSave };
 }
 
 export function PlayfitProvider({
@@ -431,7 +448,7 @@ export function PlayfitProvider({
   const searchRequestCounterRef = useRef(0);
   const onboardingSearchRequestCounterRef = useRef(0);
   const routerRef = useRef(useRouter());
-  const enqueueSave = useQueuedProfileSave({
+  const { enqueueSave, flushSave } = useQueuedProfileSave({
     setAuthUser,
     setUseLocalProfile,
     setUi,
@@ -1053,12 +1070,14 @@ export function PlayfitProvider({
       setStatusMessage(message: string | null) {
         updateUi((current) => (current ? { ...current, statusMessage: message } : current));
       },
+      flushSave,
       async retrySave() {
         await enqueueSave(state, { successMessage: "Saved." });
       },
       resetLocalState() {
         const clean = createInitialState();
         void enqueueSave(clean);
+        flushSave();
         setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
@@ -1147,6 +1166,7 @@ export function PlayfitProvider({
     updateState,
     updateUi,
     enqueueSave,
+    flushSave,
     setAuthUser,
     setUseLocalProfile,
     authUser,

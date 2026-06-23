@@ -1,5 +1,6 @@
 "use client";
 
+import { setCachedAuth } from "@playfit/core/store";
 import type { ProductDecisionFeedback, RankedSeedGame } from "@playfit/core/types";
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import { OnboardingSection } from "../playfit/onboarding-section";
@@ -51,7 +53,7 @@ export function shouldShowNoRecommendations({
 }
 
 export function DecisionShell() {
-  const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, setUseLocalProfile } =
+  const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } =
     usePlayfit();
   const pathname = usePathname();
   const [slowLoading, setSlowLoading] = useState(false);
@@ -70,6 +72,7 @@ export function DecisionShell() {
     usePlayNextRecommendations({
       enabled: profileReady,
       errorMessage: "Play Next could not be refreshed.",
+      onNeedsResync: resetLocalState,
     });
 
   const isInitialLoading = loading && !model;
@@ -256,7 +259,13 @@ export function DecisionShell() {
           {!calibrationOpen ? (
             <DecisionIntro
               onStart={() => setCalibrationOpen(true)}
-              onSignIn={() => setUseLocalProfile(false)}
+              onSignIn={async () => {
+                try {
+                  await supabase.auth.signOut();
+                } catch {}
+                setCachedAuth(null, null);
+                resetLocalState();
+              }}
             />
           ) : (
             <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
