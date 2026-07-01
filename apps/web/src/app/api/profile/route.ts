@@ -29,16 +29,28 @@ function createClient() {
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 async function fireMigrateProfile(
   fromUserId: string,
   toUserId: string,
   onboarding: Record<string, unknown>,
 ) {
+  if (!SUPABASE_SERVICE_KEY) {
+    console.error("fireMigrateProfile: SUPABASE_SERVICE_KEY is not set; skipping migration");
+    return;
+  }
   try {
+    // Edge Functions require a valid JWT on the Authorization header (verify_jwt).
+    // This is a trusted server-to-server call, so the service role key is used
+    // rather than forwarding the end user's token.
     await fetch(`${SUPABASE_URL}/functions/v1/migrate-profile`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        apikey: SUPABASE_SERVICE_KEY,
+      },
       body: JSON.stringify({ fromUserId, toUserId, onboarding }),
     });
   } catch {
