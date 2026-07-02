@@ -224,8 +224,8 @@ export function SettingsShell() {
             <div className="flex flex-col gap-1 max-w-md">
               <span className="text-sm font-extrabold text-foreground">Reset Taste Profile</span>
               <span className="text-xs text-muted-foreground leading-relaxed">
-                Deletes all taste preferences, ratings, and library history. Your active account
-                session stays, and you will restart calibration.
+                Deletes all taste preferences, ratings, library history, and platform selection.
+                Your active account session stays, and you will restart calibration.
               </span>
             </div>
             <div className="shrink-0 flex items-center gap-2">
