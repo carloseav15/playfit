@@ -60,6 +60,9 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
     .single();
 
   if (error) {
+    if (error.code === "PGRST116") {
+      return Response.json({ error: "Game not found" }, { status: 404 });
+    }
     return Response.json({ error: error.message }, { status: 500 });
   }
 

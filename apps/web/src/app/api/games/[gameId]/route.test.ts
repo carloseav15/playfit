@@ -137,7 +137,7 @@ describe("game detail API route", () => {
   it("returns 404 when game not found", async () => {
     mocks.single.mockResolvedValue({
       data: null,
-      error: { message: "Not found" },
+      error: { code: "PGRST116", message: "Cannot coerce the result to a single JSON object" },
     });
 
     const { GET } = await loadRoute();
@@ -145,8 +145,24 @@ describe("game detail API route", () => {
       params: Promise.resolve({ gameId: "nonexistent" }),
     });
 
+    expect(response.status).toBe(404);
+    const json = await response.json();
+    expect(json.error).toBe("Game not found");
+  });
+
+  it("keeps unexpected database failures as server errors", async () => {
+    mocks.single.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "Database unavailable" },
+    });
+
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/games/celeste"), {
+      params: Promise.resolve({ gameId: "celeste" }),
+    });
+
     expect(response.status).toBe(500);
     const json = await response.json();
-    expect(json.error).toBe("Not found");
+    expect(json.error).toBe("Database unavailable");
   });
 });
