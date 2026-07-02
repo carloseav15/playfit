@@ -118,7 +118,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
     setBusy(true);
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: buildSiteUrl("/play"),
+        redirectTo: buildSiteUrl("/"),
       });
       if (resetError) {
         setError(resetError.message);

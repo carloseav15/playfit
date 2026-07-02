@@ -9,6 +9,20 @@ loadEnvConfig(repoRoot);
 const nextConfig: NextConfig = {
   transpilePackages: ["@playfit/core"],
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.1.153"],
+  async redirects() {
+    return [
+      {
+        source: "/app",
+        destination: "/",
+        permanent: false,
+      },
+      {
+        source: "/app/:path*",
+        destination: "/:path*",
+        permanent: false,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

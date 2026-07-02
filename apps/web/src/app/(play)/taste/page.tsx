@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { TasteShell } from "@/components/playfit-mvp/taste-shell";
+import { TasteShell } from "@/components/playfit/taste-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {

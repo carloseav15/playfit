@@ -16,7 +16,7 @@ function getRedirectOrigin(request: Request, origin: string) {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/play";
+  const next = searchParams.get("next") ?? "/";
   const redirectOrigin = getRedirectOrigin(request, origin);
 
   if (code) {
@@ -27,5 +27,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${redirectOrigin}/play?error=auth_failed`);
+  return NextResponse.redirect(`${redirectOrigin}/?error=auth_failed`);
 }

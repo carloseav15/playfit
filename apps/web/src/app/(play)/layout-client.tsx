@@ -101,7 +101,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                   </span>
                 </Link>
               </>
-            ) : pathname === "/play/picks" ? (
+            ) : pathname === "/picks" ? (
               <>
                 <div className="flex items-center md:hidden absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
                   <span className="font-display text-base font-black tracking-tight text-foreground">
@@ -135,7 +135,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                   </span>
                 </Link>
               </>
-            ) : pathname === "/play/taste" ? (
+            ) : pathname === "/taste" ? (
               <>
                 <div className="flex items-center md:hidden absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
                   <span className="font-display text-base font-black tracking-tight text-foreground">
@@ -169,7 +169,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                   </span>
                 </Link>
               </>
-            ) : pathname?.startsWith("/play/game/") ? (
+            ) : pathname?.startsWith("/game/") ? (
               <>
                 <div className="flex items-center md:hidden w-full">
                   <Button
@@ -215,7 +215,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                   </span>
                 </Link>
               </>
-            ) : pathname === "/play/settings" ? (
+            ) : pathname === "/settings" ? (
               <>
                 <div className="flex items-center md:hidden absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
                   <span className="font-display text-base font-black tracking-tight text-foreground">
@@ -283,16 +283,14 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       <div className="flex-1 w-full flex flex-col">{children}</div>
 
-      {profileReady && !pathname?.startsWith("/play/game/") && (
+      {profileReady && !pathname?.startsWith("/game/") && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/90 backdrop-blur-xl md:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
           <div className="flex h-16 items-center justify-around px-4">
             <Link
-              href="/play"
+              href="/"
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider transition-colors w-20",
-                pathname === "/play"
-                  ? "text-accent"
-                  : "text-muted-foreground hover:text-foreground",
+                pathname === "/" ? "text-accent" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Compass className="size-5" />
@@ -300,10 +298,10 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
             </Link>
 
             <Link
-              href="/play/picks"
+              href="/picks"
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider transition-colors relative w-20",
-                pathname === "/play/picks"
+                pathname === "/picks"
                   ? "text-accent"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -320,10 +318,10 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
             </Link>
 
             <Link
-              href="/play/taste"
+              href="/taste"
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider transition-colors w-20",
-                pathname === "/play/taste"
+                pathname === "/taste"
                   ? "text-accent"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -333,10 +331,10 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
             </Link>
 
             <Link
-              href="/play/settings"
+              href="/settings"
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider transition-colors w-20",
-                pathname === "/play/settings"
+                pathname === "/settings"
                   ? "text-accent"
                   : "text-muted-foreground hover:text-foreground",
               )}

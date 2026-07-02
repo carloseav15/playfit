@@ -7,15 +7,15 @@ type PlayRouteTab = "picks" | "taste" | "settings";
 
 const tabConfig = {
   picks: {
-    href: "/play/picks",
+    href: "/picks",
     icon: ListChecks,
   },
   taste: {
-    href: "/play/taste",
+    href: "/taste",
     icon: SlidersHorizontal,
   },
   settings: {
-    href: "/play/settings",
+    href: "/settings",
     icon: Settings,
   },
 };

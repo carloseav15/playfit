@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PicksShell } from "@/components/playfit-mvp/picks-shell";
+import { PicksShell } from "@/components/playfit/picks-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {

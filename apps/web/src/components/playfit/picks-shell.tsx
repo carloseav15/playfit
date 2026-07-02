@@ -93,7 +93,7 @@ export function PicksShell() {
                 asChild
                 className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
               >
-                <Link href="/play">Start Play Next</Link>
+                <Link href="/">Start Play Next</Link>
               </Button>
             </CardContent>
           </Card>
@@ -133,7 +133,7 @@ export function PicksShell() {
                 asChild
                 className="text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
               >
-                <Link href="/play" className="flex items-center">
+                <Link href="/" className="flex items-center">
                   <ArrowLeft className="size-4 mr-1.5" />
                   Back
                 </Link>
@@ -170,7 +170,7 @@ export function PicksShell() {
                     asChild
                     className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
                   >
-                    <Link href="/play">Find Recommendations</Link>
+                    <Link href="/">Find Recommendations</Link>
                   </Button>
                 </CardContent>
               </Card>

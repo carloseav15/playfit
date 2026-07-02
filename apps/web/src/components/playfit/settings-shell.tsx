@@ -73,7 +73,7 @@ export function SettingsShell() {
                 asChild
                 className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
               >
-                <Link href="/play">Start Play Next</Link>
+                <Link href="/">Start Play Next</Link>
               </Button>
             </CardContent>
           </Card>
@@ -199,7 +199,7 @@ export function SettingsShell() {
     await resetTasteProfile();
     setActionPending(false);
     setConfirmReset(false);
-    router.push("/play");
+    router.push("/");
   };
 
   const handleDelete = async () => {
@@ -207,7 +207,7 @@ export function SettingsShell() {
     await deleteAccount();
     setActionPending(false);
     setConfirmDelete(false);
-    router.push("/play");
+    router.push("/");
   };
 
   const renderPrivacyCard = () => (
@@ -271,9 +271,8 @@ export function SettingsShell() {
                   Delete Cloud Profile
                 </span>
                 <span className="text-xs text-muted-foreground leading-relaxed">
-                  Permanently deletes your Playfit profile and synchronized taste data, clears
-                  local Playfit data, and signs you out. Your account sign-in credentials are not
-                  deleted.
+                  Permanently deletes your Playfit profile and synchronized taste data, clears local
+                  Playfit data, and signs you out. Your account sign-in credentials are not deleted.
                 </span>
               </div>
               <div className="shrink-0 flex items-center gap-2">
@@ -337,7 +336,7 @@ export function SettingsShell() {
                 asChild
                 className="text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
               >
-                <Link href="/play" className="flex items-center">
+                <Link href="/" className="flex items-center">
                   <ArrowLeft className="size-4 mr-1.5" />
                   Back
                 </Link>

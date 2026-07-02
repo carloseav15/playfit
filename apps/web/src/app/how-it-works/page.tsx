@@ -103,10 +103,7 @@ export default function HowItWorksPage() {
 
         <div className="flex flex-wrap gap-3">
           <Button asChild>
-            <Link href="/app">Open app</Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href="/">View landing</Link>
+            <Link href="/">Open app</Link>
           </Button>
         </div>
       </section>

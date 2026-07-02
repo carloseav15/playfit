@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SettingsShell } from "@/components/playfit-mvp/settings-shell";
+import { SettingsShell } from "@/components/playfit/settings-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
