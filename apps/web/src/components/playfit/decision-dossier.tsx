@@ -261,7 +261,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
           </CardHeader>
           <CardContent>
             <Button type="button" variant="secondary" asChild>
-              <Link href="/play">Back to Play Next</Link>
+              <Link href="/">Back to Play Next</Link>
             </Button>
           </CardContent>
         </Card>
@@ -283,7 +283,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
           </CardHeader>
           <CardContent>
             <Button type="button" asChild>
-              <Link href="/play">Start Play Next</Link>
+              <Link href="/">Start Play Next</Link>
             </Button>
           </CardContent>
         </Card>

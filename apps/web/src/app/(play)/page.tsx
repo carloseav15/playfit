@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DecisionShell } from "@/components/playfit-mvp/decision-shell";
+import { DecisionShell } from "@/components/playfit/decision-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {

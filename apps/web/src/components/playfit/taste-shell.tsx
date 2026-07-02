@@ -506,7 +506,7 @@ export function TasteShell() {
                 asChild
                 className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
               >
-                <Link href="/play">Start Play Next</Link>
+                <Link href="/">Start Play Next</Link>
               </Button>
             </CardContent>
           </Card>
@@ -544,7 +544,7 @@ export function TasteShell() {
               asChild
               className="text-xs hover:text-foreground hover:bg-secondary"
             >
-              <Link href="/play" className="flex items-center">
+              <Link href="/" className="flex items-center">
                 <ArrowLeft className="size-4 mr-1.5" />
                 Back to Play Next Recommendation
               </Link>

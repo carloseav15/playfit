@@ -24,9 +24,6 @@ export async function GET() {
 
     return Response.json({ platforms: mapped });
   } catch (e) {
-    return Response.json(
-      { error: e instanceof Error ? e.message : "unknown" },
-      { status: 500 },
-    );
+    return Response.json({ error: e instanceof Error ? e.message : "unknown" }, { status: 500 });
   }
 }

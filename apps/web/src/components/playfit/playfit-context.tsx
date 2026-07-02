@@ -25,7 +25,6 @@ import type {
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import type { User } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 import type React from "react";
 import {
   createContext,
@@ -104,8 +103,6 @@ interface PlayfitContextValue {
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
-  openDossier: (gameId: string) => void;
-  closeDossier: () => void;
 }
 
 const PlayfitContext = createContext<PlayfitContextValue | null>(null);
@@ -448,7 +445,6 @@ export function PlayfitProvider({
   const onboardingSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchRequestCounterRef = useRef(0);
   const onboardingSearchRequestCounterRef = useRef(0);
-  const routerRef = useRef(useRouter());
   const { enqueueSave, flushSave } = useQueuedProfileSave({
     setAuthUser,
     setUseLocalProfile,
@@ -1145,12 +1141,6 @@ export function PlayfitProvider({
               : current,
           );
         }
-      },
-      openDossier(gameId: string) {
-        routerRef.current.push(`/app/game/${gameId}`);
-      },
-      closeDossier() {
-        routerRef.current.replace("/app");
       },
     } satisfies PlayfitContextValue;
   }, [
