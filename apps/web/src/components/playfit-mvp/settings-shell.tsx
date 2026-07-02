@@ -268,11 +268,12 @@ export function SettingsShell() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-destructive/5 border border-destructive/10">
               <div className="flex flex-col gap-1 max-w-md">
                 <span className="text-sm font-extrabold text-destructive">
-                  Delete Cloud Account
+                  Delete Cloud Profile
                 </span>
                 <span className="text-xs text-muted-foreground leading-relaxed">
-                  Permanently deletes your account metadata, cloud-synchronized taste, and sign-in
-                  credentials from our servers. This action is irreversible.
+                  Permanently deletes your Playfit profile and synchronized taste data, clears
+                  local Playfit data, and signs you out. Your account sign-in credentials are not
+                  deleted.
                 </span>
               </div>
               <div className="shrink-0 flex items-center gap-2">
@@ -305,7 +306,7 @@ export function SettingsShell() {
                     onClick={() => setConfirmDelete(true)}
                     className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
                   >
-                    Delete Account
+                    Delete Cloud Profile
                   </Button>
                 )}
               </div>
