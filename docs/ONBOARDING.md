@@ -115,7 +115,7 @@ supabase/migrations/      # 39 migration files (see SCHEMA.md for consolidated v
 apps/web/src/
   app/api/                # All API endpoints
   app/app/                # Main app pages
-  app/play/               # Play feature
+  app/(play)/             # Play feature
   components/ui/          # Reusable UI kit
 packages/core/src/
   domain/                 # Pure domain logic

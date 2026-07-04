@@ -55,11 +55,11 @@ recommendation quickly and gives at least one signal back.
 ## Routes
 
 | Route | Purpose |
-|---|---|
-| `/play` | Main MVP entry and Play Next recommendation surface |
-| `/play/game/[gameId]` | Focused dossier explaining a recommendation |
-| `/play/picks` | Short ordered list of saved Playfit recommendations |
-| `/play/taste` | Explanation and correction layer for taste signals |
+|---|---|---|
+| `/` | Main MVP entry and Play Next recommendation surface |
+| `/game/[gameId]` | Focused dossier explaining a recommendation |
+| `/picks` | Short ordered list of saved Playfit recommendations |
+| `/taste` | Explanation and correction layer for taste signals |
 
 `/app` remains the broader product shell. It should not define the first-contact
 experience for this MVP.
@@ -87,9 +87,9 @@ Weak fit for the MVP:
 
 ## Experience Contract
 
-### `/play`
+### `/`
 
-For a new user, `/play` must show a lightweight launcher and immediately lead to
+For a new user, the home page must show a lightweight launcher and immediately lead to
 `Tune your taste`. It must not require login.
 
 The onboarding contract:
@@ -99,7 +99,7 @@ The onboarding contract:
 - Choose 1 game that missed or did not work.
 - Generate the first recommendation.
 
-For a calibrated user, `/play` must open directly on the decision surface:
+For a calibrated user, the home page must open directly on the decision surface:
 
 - One primary recommendation: `Play this next`.
 - 2-3 secondary alternatives.
@@ -121,7 +121,7 @@ Required actions:
 `Show another` must not train the profile. It is a local decision convenience,
 not a taste judgment.
 
-### `/play/game/[gameId]`
+### `/game/[gameId]`
 
 The dossier should deepen trust, not become a catalog page.
 
@@ -144,7 +144,7 @@ It should de-emphasize:
 - Backlog or wishlist management.
 - Collection details.
 
-### `/play/picks`
+### `/picks`
 
 `Playfit Picks` is a short, ordered list of games Playfit thinks are worth the
 user's time next.
@@ -159,7 +159,7 @@ It should include:
 It must not become a backlog, wishlist, or manually managed library. Users cannot
 add arbitrary games to this list in the MVP.
 
-### `/play/taste`
+### `/taste`
 
 `Your Taste` answers:
 
@@ -286,7 +286,7 @@ Those concepts can exist elsewhere, but they should not frame the MVP.
 
 The MVP is working if a first-time user can:
 
-1. Open `/play` without signing in.
+1. Open the app without signing in.
 2. Understand the promise immediately.
 3. Complete calibration without needing a library import.
 4. Receive one clear recommendation.
