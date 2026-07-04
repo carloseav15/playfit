@@ -117,7 +117,7 @@ apps/web/                    # Next.js 16 App Router
     app/                     # Pages + API routes
       api/                   # Route handlers (13 endpoints)
       app/                   # App shell (/app/*)
-      play/                  # Play feature (/play/*)
+      (play)/                # Play feature (routes at root: /, /game/[gameId], /picks, /taste, /settings)
       ui-kit/                # Living style guide
     components/
       ui/                    # 30 reusable UI components
@@ -185,11 +185,11 @@ packages/core/               # Shared domain logic
       └── OnboardingSection
     /app/game/:gameId   → GameDetailPage (dossier)
 
-  /play (public)        → PlayLayout
-    /play               → PlayPageClient
-    /play/game/:gameId  → PlayDossierClient
-    /play/picks         → PicksPageClient
-    /play/taste         → TastePageClient
+  / (public)             → PlayLayout
+    /                    → PlayPageClient
+    /game/:gameId        → PlayDossierClient
+    /picks               → PicksPageClient
+    /taste               → TastePageClient
 ```
 
 ### Component Directory Layout
@@ -282,8 +282,8 @@ risk = BASE_RISK (10) + tag_mismatch_penalties
 ### Playfit Picks
 
 `inPlayfitPicks` is an intent/curation flag on `ProductGameState`, persisted as
-`user_game_states.in_playfit_picks`. It is not a taste signal. `/play` excludes
-picked games from `nextUp`, and `/play/picks` shows them ordered by current fit.
+`user_game_states.in_playfit_picks`. It is not a taste signal. The home page excludes
+picked games from `nextUp`, and `/picks` shows them ordered by current fit.
 
 ### Search Scoring
 
