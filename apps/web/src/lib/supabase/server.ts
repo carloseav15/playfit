@@ -34,3 +34,17 @@ export function createAnonClient() {
     },
   );
 }
+
+export function createServiceRoleClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) throw new Error("SUPABASE_SERVICE_KEY is not set");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321",
+    serviceKey,
+    {
+      db: { schema: "games_library" },
+      auth: { persistSession: false },
+    },
+  );
+}
