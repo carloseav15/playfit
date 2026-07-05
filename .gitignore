@@ -39,3 +39,7 @@ reports/play-audit-*/
 reports/external-catalog/
 .vercel
 supabase/.temp/
+
+# IGDB mirror backups (multi-GB pg_dump; belongs on external storage, never in git)
+*.dump
+backups/
