@@ -313,7 +313,7 @@ function toGameRow(game, platformIds) {
     game_id: gameId,
     title: game.name,
     aliases: [],
-    genre_id: (game.genres || [])[0]?.slug || null,
+    genre_id: (game.genres || [])[0]?.slug?.replace(/-/g, "_") || null,
     release_year: releaseYear,
     release_state: released ? "released" : "unreleased",
     source_type: "finder",
