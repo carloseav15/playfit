@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.gamepedia.com",
       },
+      {
+        protocol: "https",
+        hostname: "images.igdb.com",
+      },
     ],
   },
 };
