@@ -24,6 +24,11 @@
     "test:e2e": "npm run test:e2e -w apps/web",
     "validate:migrations": "bash scripts/validate-migrations.sh",
     "check:covers": "node scripts/check-cover-integrity.mjs",
+    "igdb:mirror": "node scripts/sync-igdb-mirror.mjs",
+    "igdb:mirror:backup": "node scripts/backup-schema.mjs --schema igdb_raw",
+    "igdb:mirror:restore": "node scripts/restore-schema.mjs --schema igdb_raw",
+    "catalog:backup": "node scripts/backup-schema.mjs --schema games_library",
+    "catalog:restore": "node scripts/restore-schema.mjs --schema games_library",
     "catalog:import-external": "bash scripts/import-external-catalog-data.sh",
     "catalog:import-review-sentiment": "bash scripts/import-metacritic-review-sentiment.sh",
     "catalog:report-external": "bash scripts/export-external-catalog-match-report.sh"
@@ -35,5 +40,8 @@
   },
   "overrides": {
     "postcss": "8.5.15"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }
