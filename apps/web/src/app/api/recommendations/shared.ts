@@ -19,7 +19,7 @@ import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient, createSupabaseServerClient } from "@/lib/supabase/server";
 
 const PRODUCT_STATE_VERSION = 2;
-const CATALOG_VERSION = "20260620200001";
+const CATALOG_VERSION = "20260705030000";
 const RECS_CACHE_TTL = 3600;
 
 interface PersistedProfilePayload {

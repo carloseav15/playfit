@@ -146,8 +146,10 @@ describe("onboarding domain", () => {
 
     expect(profile.likedTags.story_rich).toBeGreaterThanOrEqual(1);
     expect(profile.likedTags.turn_based).toBeGreaterThanOrEqual(1);
-    expect(profile.dislikedTags.shooter).toBe(1);
-    expect(profile.dislikedTags.horror).toBe(1);
+    // "disliked-game" is rated 1/5 -> magnitude |1-3| = 2 (a full "hated it"
+    // counts for more than a mild "not for me" would).
+    expect(profile.dislikedTags.shooter).toBe(2);
+    expect(profile.dislikedTags.horror).toBe(2);
     expect(profile.ratedCount).toBe(2);
     expect(profile.signals.length).toBeGreaterThan(0);
   });
@@ -224,10 +226,65 @@ describe("onboarding domain", () => {
 
     const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
 
-    expect(profile.likedTags.cinematic).toBe(4);
+    // liked-a is rated 5 (magnitude 2) + liked-b rated 4 (magnitude 1) = 3,
+    // plus 2 anchor games tagged cinematic = 5 total positive evidence.
+    expect(profile.likedTags.cinematic).toBe(5);
     expect(profile.dislikedTags.cinematic).toBeUndefined();
-    expect(profile.dislikedTags.horror).toBe(1);
+    // "low" is rated 1/5 -> magnitude 2, not the old flat 1.
+    expect(profile.dislikedTags.horror).toBe(2);
     expect(profile.signals.map((signal) => signal.id)).not.toContain("tag-risk-cinematic");
+  });
+
+  it("treats a rating of 3 (mixed) as zero evidence and excludes it from ratedCount", () => {
+    const draft = createDraft();
+    draft.likedGameIds = ["anchor-a", "anchor-b", "anchor-c"];
+
+    const gamesById = new Map<string, SeedGame>([
+      ["anchor-a", createGame("anchor-a", "Anchor A", "jrpg", ["story_rich"])],
+      ["anchor-b", createGame("anchor-b", "Anchor B", "jrpg", ["story_rich"])],
+      ["anchor-c", createGame("anchor-c", "Anchor C", "jrpg", ["story_rich"])],
+      ["mixed-1", createGame("mixed-1", "Mixed 1", "action", ["horror"])],
+      ["mixed-2", createGame("mixed-2", "Mixed 2", "action", ["horror"])],
+      ["mixed-3", createGame("mixed-3", "Mixed 3", "action", ["horror"])],
+      ["mixed-4", createGame("mixed-4", "Mixed 4", "action", ["horror"])],
+      ["mixed-5", createGame("mixed-5", "Mixed 5", "action", ["horror"])],
+      ["mixed-6", createGame("mixed-6", "Mixed 6", "action", ["horror"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      "mixed-1": createGameState("mixed-1", 3),
+      "mixed-2": createGameState("mixed-2", 3),
+      "mixed-3": createGameState("mixed-3", 3),
+      "mixed-4": createGameState("mixed-4", 3),
+      "mixed-5": createGameState("mixed-5", 3),
+      "mixed-6": createGameState("mixed-6", 3),
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    // Six "mixed" (3/5) ratings should NOT push ratedCount into "high"
+    // confidence -- they carry zero evidence, not full-strength evidence.
+    expect(profile.ratedCount).toBe(0);
+    expect(profile.likedTags.horror).toBeUndefined();
+    expect(profile.dislikedTags.horror).toBeUndefined();
+  });
+
+  it("scales tag evidence by how far a rating is from neutral (3)", () => {
+    const draft = createDraft();
+
+    const gamesById = new Map<string, SeedGame>([
+      ["loved", createGame("loved", "Loved", "jrpg", ["metroidvania"])],
+      ["liked", createGame("liked", "Liked", "jrpg", ["metroidvania"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      loved: createGameState("loved", 5),
+      liked: createGameState("liked", 4),
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    // rating 5 -> magnitude 2, rating 4 -> magnitude 1: a "loved it" should
+    // count for more than a "liked it", not the same flat +1 each.
+    expect(profile.likedTags.metroidvania).toBe(3);
   });
 
   it("ignores unrated games when building adaptive profile", () => {
