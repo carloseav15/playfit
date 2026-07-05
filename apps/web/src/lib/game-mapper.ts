@@ -66,10 +66,17 @@ export function mapGameRowToSeedGame(
   };
 }
 
+// series_id/genre_id (text) have no FK constraint -- the real FK is on
+// series_ref/genre_ref (bigint, see games_series_ref_fkey/games_genre_ref_fkey).
+// Embedding via series_id/genre_id fails PostgREST's relationship lookup
+// entirely (PGRST200), silently returning an empty result from any caller.
+// release_label was also dropped from games_library.games at some point
+// (column no longer exists) but this select never got updated to match,
+// which made every query using it fail with "column does not exist".
 export const GAME_SELECT = `
   game_id, title, aliases, series_id, genre_id, release_year,
   release_state, source_type, source_ref, cover_url, tags,
-  notes, sort_date, release_label,
-  series:series_id(name),
-  genre:genre_id(name)
+  notes, sort_date,
+  series:series_ref(name),
+  genre:genre_ref(name)
 `;

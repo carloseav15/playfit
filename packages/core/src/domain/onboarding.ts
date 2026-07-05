@@ -56,9 +56,9 @@ function countTags(gameIds: string[], gamesById: Map<string, SeedGame>): Record<
   return counts;
 }
 
-function addTagEvidence(target: Record<string, number>, tags: string[]) {
+function addTagEvidence(target: Record<string, number>, tags: string[], magnitude: number) {
   for (const tag of tags) {
-    target[tag] = (target[tag] ?? 0) + 1;
+    target[tag] = (target[tag] ?? 0) + magnitude;
   }
 }
 
@@ -341,15 +341,22 @@ export function buildAdaptiveProfile(
     if (!game) return;
     if (record.rating == null || record.rating <= 0) return;
 
+    // Evidence magnitude = distance from neutral (3): a 5 pushes twice as hard
+    // as a 4, a 1 twice as hard as a 2. A 3 ("mixed") has magnitude 0 -- it
+    // doesn't move tag/genre evidence, and (unlike before) doesn't count
+    // toward ratedCount/confidence either, since it hasn't told us anything.
+    const magnitude = record.rating - 3;
+    if (magnitude === 0) return;
+
     ratedGameIds.add(record.gameId);
     ratedCount++;
 
-    const positive = record.rating >= 4;
-    const negative = record.rating <= 2;
+    const positive = magnitude > 0;
+    const negative = magnitude < 0;
 
     if (positive) {
       positiveOutcomeCount++;
-      addTagEvidence(positiveTags, game.tags);
+      addTagEvidence(positiveTags, game.tags, magnitude);
       const genreKey = game.genreId ?? game.primaryGenre;
       if (genreKey && !likedGenres.includes(genreKey)) {
         likedGenres.push(genreKey);
@@ -358,7 +365,7 @@ export function buildAdaptiveProfile(
 
     if (negative) {
       negativeOutcomeCount++;
-      addTagEvidence(negativeTags, game.tags);
+      addTagEvidence(negativeTags, game.tags, Math.abs(magnitude));
       const genreKey = game.genreId ?? game.primaryGenre;
       if (genreKey) {
         avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
@@ -373,7 +380,7 @@ export function buildAdaptiveProfile(
 
     ratedCount++;
     negativeOutcomeCount++;
-    addTagEvidence(negativeTags, game.tags);
+    addTagEvidence(negativeTags, game.tags, 1);
     const genreKey = game.genreId ?? game.primaryGenre;
     if (genreKey) {
       avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
