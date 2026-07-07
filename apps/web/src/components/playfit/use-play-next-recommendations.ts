@@ -2,9 +2,10 @@
 
 import { authenticatedFetch } from "@playfit/core/store";
 import type { ProductPlayNextModel, RankedSeedGame } from "@playfit/core/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
 import { addRecommendationsToSessionCache } from "./recommendation-cache";
+import { useRecommendationFetch } from "./use-recommendation-fetch";
 
 function cacheModel(model: ProductPlayNextModel) {
   const entries = [model.primary, ...model.alternatives].filter(
@@ -23,81 +24,54 @@ export function usePlayNextRecommendations({
   errorMessage: string;
   onNeedsResync?: () => void;
 }) {
-  const [model, setModel] = useState<ProductPlayNextModel | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const modelRef = useRef<ProductPlayNextModel | null>(null);
-  const requestIdRef = useRef(0);
-
-  useEffect(() => {
-    modelRef.current = model;
-  }, [model]);
+  const {
+    data: model,
+    refreshing,
+    loadError,
+    execute,
+    reset,
+  } = useRecommendationFetch<ProductPlayNextModel>(errorMessage);
 
   const fetchRecommendations = useCallback(
-    async ({ background = false }: { background?: boolean } = {}) => {
-      if (!enabled) return;
+    ({ background = false }: { background?: boolean } = {}) => {
+      if (!enabled) return Promise.resolve();
 
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
-      const hasExistingModel = modelRef.current !== null;
-      if (background && hasExistingModel) {
-        setRefreshing(true);
-      }
-      setLoadError(null);
+      return execute(
+        async () => {
+          const res = await authenticatedFetch("/api/recommendations/today", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+          });
 
-      try {
-        const res = await authenticatedFetch("/api/recommendations/today", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-        });
+          const body = (await res.json()) as ProductPlayNextModel & { needsResync?: boolean };
 
-        const body = (await res.json()) as ProductPlayNextModel & { needsResync?: boolean };
-
-        if (body.needsResync) {
-          onNeedsResync?.();
-          return;
-        }
-
-        if (!res.ok) {
-          throw new Error(errorMessage);
-        }
-
-        if (requestId === requestIdRef.current) {
-          cacheModel(body);
-          setModel(body);
-        }
-      } catch (error) {
-        if (requestId === requestIdRef.current) {
-          if (modelRef.current) {
-            setLoadError(null);
-          } else {
-            setLoadError(error instanceof Error ? error.message : errorMessage);
-            setModel(null);
+          if (body.needsResync) {
+            onNeedsResync?.();
+            return null;
           }
-        }
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setRefreshing(false);
-        }
-      }
+
+          if (!res.ok) {
+            throw new Error(errorMessage);
+          }
+
+          return body;
+        },
+        { background, keepStaleOnError: true, onSuccess: cacheModel },
+      );
     },
-    [enabled, errorMessage, onNeedsResync],
+    [enabled, errorMessage, onNeedsResync, execute],
   );
 
   useEffect(() => {
     if (!enabled) {
-      requestIdRef.current += 1;
-      modelRef.current = null;
-      setModel(null);
-      setLoadError(null);
-      setRefreshing(false);
+      reset();
       return;
     }
 
     void fetchRecommendations();
-  }, [enabled, fetchRecommendations]);
+  }, [enabled, fetchRecommendations, reset]);
 
   const refreshRecommendations = useCallback(() => {
     void fetchRecommendations({ background: true });

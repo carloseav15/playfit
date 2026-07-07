@@ -27,10 +27,19 @@ erDiagram
 
 ## Tables
 
+> **PK/FK note (2026-07-05):** `games`, `genres`, `series` and `platforms` each have a
+> surrogate `pk bigint generated always as identity` that is the real `PRIMARY KEY`. The
+> text slugs (`game_id`, `genres.id`, `series.id`, `platforms.id`) are `UNIQUE NOT NULL`
+> public identifiers, not the PK — they're still the stable, URL-safe ID everything external
+> uses, but internal foreign keys from satellite tables point at `pk` via `*_ref` bigint
+> columns (`game_ref`, `genre_ref`, `series_ref`, `platform_ref`), not at the text slug. See
+> `SURROGATE_KEYS_MIGRATION.md` for the full migration history.
+
 ### `games` — Master game catalog
 | Column | Type | Description |
 |---|---|---|
-| `game_id` | `text PK` | Unique slug/identifier (e.g. `rawg_zelda_breath_of_the_wild`) |
+| `pk` | `bigint PK GENERATED ALWAYS AS IDENTITY` | Real primary key; satellite tables reference this via `game_ref` |
+| `game_id` | `text UNIQUE NOT NULL` | Public URL-safe slug/identifier (e.g. `rawg_zelda_breath_of_the_wild`) — stable public ID, no longer the PK |
 | `title` | `text NOT NULL` | Display title |
 | `aliases` | `text[] DEFAULT '{}'` | Alternative names for search (denormalized cache of game_aliases) |
 | `release_year` | `integer` | Release year |
@@ -41,8 +50,10 @@ erDiagram
 | `tags` | `text[] DEFAULT '{}'` | Gameplay tags (denormalized cache of game_tags) |
 | `notes` | `text DEFAULT ''` | Internal notes |
 | `sort_date` | `date` | Sortable date for ordering |
-| `genre_id` | `text FK -> genres(id)` | Normalized genre |
-| `series_id` | `text FK -> series(id)` | Normalized series/franchise |
+| `genre_id` | `text` | Normalized genre slug (display/compat only, not a live FK) |
+| `series_id` | `text` | Normalized series/franchise slug (display/compat only, not a live FK) |
+| `genre_ref` | `bigint FK -> genres(pk)` | Real genre FK (nullable) |
+| `series_ref` | `bigint FK -> series(pk)` | Real series FK (nullable) |
 | `search_document` | `tsvector` | Stored tsvector for full-text search (title + aliases + series + genre) |
 | `created_at` | `timestamptz` | Row creation timestamp |
 | `updated_at` | `timestamptz` | Last update timestamp |
@@ -55,7 +66,8 @@ erDiagram
 ### `platforms` — Platform definitions
 | Column | Type | Description |
 |---|---|---|
-| `id` | `text PK` | Platform slug (e.g. `nintendo_switch`) |
+| `pk` | `bigint PK GENERATED ALWAYS AS IDENTITY` | Real primary key; satellite tables reference this via `platform_ref` |
+| `id` | `text UNIQUE NOT NULL` | Public platform slug (e.g. `nintendo_switch`) — no longer the PK |
 | `name` | `text NOT NULL` | Display name |
 | `rawg_id` | `integer` | RAWG API platform ID |
 | `family` | `text DEFAULT 'other'` | Platform family: `nintendo`, `playstation`, `xbox`, `sega`, `pc`, `apple`, `google`, `snk`, `atari`, `other` |
@@ -88,11 +100,13 @@ erDiagram
 ### `game_platforms` — Many-to-many: games ↔ platforms
 | Column | Type | Description |
 |---|---|---|
-| `game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE CASCADE` | Game ID |
-| `platform_id` | `text FK -> platforms(id) ON DELETE CASCADE` | Platform ID |
+| `game_id` | `text` | Game slug (display/compat only) |
+| `platform_id` | `text` | Platform slug (display/compat only) |
+| `game_ref` | `bigint FK -> games(pk) ON DELETE CASCADE NOT NULL` | Real game FK |
+| `platform_ref` | `bigint FK -> platforms(pk) ON DELETE CASCADE NOT NULL` | Real platform FK |
 | `created_at` | `timestamptz` | Row creation timestamp |
 | `updated_at` | `timestamptz` | Last update timestamp |
-| **PK** | `(game_id, platform_id)` | |
+| **PK** | `(game_ref, platform_ref)` | |
 
 **Indexes:** game_id, platform_id
 
@@ -101,7 +115,8 @@ erDiagram
 ### `genres` — Controlled genre vocabulary
 | Column | Type | Description |
 |---|---|---|
-| `id` | `text PK` | URL-safe slug (e.g. `role_playing_games_rpg`) |
+| `pk` | `bigint PK GENERATED ALWAYS AS IDENTITY` | Real primary key; referenced by `games.genre_ref` |
+| `id` | `text UNIQUE NOT NULL` | URL-safe slug (e.g. `role_playing_games_rpg`) — no longer the PK |
 | `name` | `text NOT NULL UNIQUE` | Display name (e.g. "Role-Playing Games (RPG)") |
 | `updated_at` | `timestamptz` | Last update timestamp |
 
@@ -110,7 +125,8 @@ erDiagram
 ### `series` — Game series/franchises
 | Column | Type | Description |
 |---|---|---|
-| `id` | `text PK` | URL-safe slug (e.g. `the_legend_of_zelda`) |
+| `pk` | `bigint PK GENERATED ALWAYS AS IDENTITY` | Real primary key; referenced by `games.series_ref` |
+| `id` | `text UNIQUE NOT NULL` | URL-safe slug (e.g. `the_legend_of_zelda`) — no longer the PK |
 | `name` | `text NOT NULL UNIQUE` | Display name (e.g. "The Legend of Zelda") |
 | `updated_at` | `timestamptz` | Last update timestamp |
 
@@ -128,11 +144,12 @@ erDiagram
 ### `game_tags` — Many-to-many: games ↔ tags
 | Column | Type | Description |
 |---|---|---|
-| `game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE CASCADE` | Game ID |
-| `tag_id` | `text FK -> tags(id)` | Tag ID |
+| `game_id` | `text` | Game slug (display/compat only) |
+| `tag_id` | `text FK -> tags(id)` | Tag ID — `tags` was not converted to a surrogate `pk`, so this FK is still real |
+| `game_ref` | `bigint FK -> games(pk) ON DELETE CASCADE NOT NULL` | Real game FK |
 | `created_at` | `timestamptz` | Row creation timestamp |
 | `updated_at` | `timestamptz` | Last update timestamp |
-| **PK** | `(game_id, tag_id)` | |
+| **PK** | `(game_ref, tag_id)` | |
 
 **Indexes:** game_id, tag_id
 
@@ -141,11 +158,12 @@ erDiagram
 ### `game_aliases` — Alternative search names
 | Column | Type | Description |
 |---|---|---|
-| `game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE CASCADE` | Game ID |
+| `game_id` | `text` | Game slug (display/compat only) |
+| `game_ref` | `bigint FK -> games(pk) ON DELETE CASCADE NOT NULL` | Real game FK |
 | `alias` | `text NOT NULL` | Alternative name for search |
 | `created_at` | `timestamptz` | Row creation timestamp |
 | `updated_at` | `timestamptz` | Last update timestamp |
-| **PK** | `(game_id, alias)` | |
+| **PK** | `(game_ref, alias)` | |
 
 **Indexes:** alias (btree), game_id (btree)
 
@@ -156,7 +174,8 @@ erDiagram
 |---|---|---|
 | `id` | `uuid PK DEFAULT gen_random_uuid()` | Internal row ID |
 | `user_id` | `uuid FK -> profiles(user_id) ON DELETE CASCADE` | User ID |
-| `game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE CASCADE` | Game ID |
+| `game_id` | `text` | Game slug (display/compat only) |
+| `game_ref` | `bigint FK -> games(pk) ON DELETE CASCADE NOT NULL` | Real game FK |
 | `status` | `text` | Check: `playing`, `on_hold`, `shelved`, `beaten`, `completed`, `abandoned`, `want_to_play` |
 | `rating` | `numeric(2,1)` | Rating 0.0-5.0 |
 | `in_backlog` | `boolean DEFAULT false` | In backlog |
@@ -166,9 +185,9 @@ erDiagram
 | `source` | `text NOT NULL` | Check: `onboarding`, `finder`, `manual` |
 | `created_at` | `timestamptz` | Row creation timestamp |
 | `updated_at` | `timestamptz` | Last update timestamp |
-| **UNIQUE** | `(user_id, game_id)` | |
+| **UNIQUE** | `(user_id, game_ref)` | |
 
-**Indexes:** user_id, game_id, (user_id, status)
+**Indexes:** user_id, game_ref, (user_id, status)
 
 ---
 
@@ -217,7 +236,7 @@ erDiagram
 | Column | Type | Description |
 |---|---|---|
 | `from_game_id` | `text PK` | Retired/non-canonical game ID |
-| `to_game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE RESTRICT` | Canonical target game ID |
+| `to_game_id` | `text FK -> games(game_id) ON UPDATE CASCADE ON DELETE RESTRICT` | Canonical target game ID — intentionally kept as a text FK (not converted to `game_ref`), since this is a historical redirect record, not a live catalog relation |
 | `reason` | `text DEFAULT 'duplicate_merge'` | Check: `duplicate_merge`, `manual_id_change`, `source_cleanup`, `catalog_retirement` |
 | `notes` | `text DEFAULT ''` | Human-readable notes |
 | `created_by` | `text DEFAULT 'manual'` | Source of the redirect |

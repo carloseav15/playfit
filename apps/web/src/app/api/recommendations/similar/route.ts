@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import { resolveGameRedirect } from "@/lib/game-redirects";
 import { createAnonClient } from "@/lib/supabase/server";
 import { fetchFullGamesById } from "../shared";
@@ -11,14 +12,14 @@ export async function POST(request: Request) {
   const { gameId } = (await request.json()) as { gameId: string };
 
   if (!gameId) {
-    return Response.json({ error: "gameId is required" }, { status: 400 });
+    return jsonError("gameId is required", 400);
   }
 
   const supabase = createAnonClient();
   const redirect = await resolveGameRedirect(supabase, gameId);
 
   if (redirect.error) {
-    return Response.json({ error: redirect.error }, { status: 500 });
+    return jsonError(redirect.error, 500);
   }
 
   const { data: baseGame, error: baseGameError } = await supabase
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (baseGameError || !baseGame) {
-    return Response.json({ error: "Game not found" }, { status: 404 });
+    return jsonError("Game not found", 404);
   }
 
   const [similarResult, seriesResult] = await Promise.all([

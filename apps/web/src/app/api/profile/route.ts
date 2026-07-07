@@ -5,6 +5,7 @@ import {
 } from "@playfit/core/schemas";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api-errors";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
@@ -55,10 +56,10 @@ async function checkRateLimit(
 
 function rateLimitFailure(result: RateLimitResult): Response | null {
   if (result === "limited") {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
+    return jsonError("Too many requests", 429);
   }
   if (result === "error") {
-    return Response.json({ error: "Rate limiter unavailable" }, { status: 503 });
+    return jsonError("Rate limiter unavailable", 503);
   }
   return null;
 }
@@ -66,7 +67,7 @@ function rateLimitFailure(result: RateLimitResult): Response | null {
 export async function GET(request: Request) {
   try {
     const context = await createRequestSupabaseContext(request);
-    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+    if (!context) return jsonError("Authentication required", 401);
 
     const rateLimitError = rateLimitFailure(
       await checkRateLimit(context.client, request, context.userId),
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("get_profile error:", error);
-      return Response.json({ error: "Failed to load profile" }, { status: 500 });
+      return jsonError("Failed to load profile", 500);
     }
 
     if (!data) {
@@ -89,14 +90,14 @@ export async function GET(request: Request) {
     return Response.json({ state: data }, { status: 200 });
   } catch (e) {
     console.error("GET /api/profile error:", e);
-    return Response.json({ error: "Failed to load profile" }, { status: 500 });
+    return jsonError("Failed to load profile", 500);
   }
 }
 
 export async function POST(request: Request) {
   try {
     const context = await createRequestSupabaseContext(request);
-    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+    if (!context) return jsonError("Authentication required", 401);
 
     const rateLimitError = rateLimitFailure(
       await checkRateLimit(context.client, request, context.userId),
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
     try {
       rawBody = await request.json();
     } catch {
-      return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+      return jsonError("Invalid JSON payload", 400);
     }
 
     const parsedBody = profileSaveRequestSchema.safeParse(rawBody);
@@ -135,10 +136,7 @@ export async function POST(request: Request) {
           (parsed.game_states && Object.keys(parsed.game_states).length > 0) ||
           parsed.profile !== null
         ) {
-          return Response.json(
-            { error: "Cannot overwrite non-empty profile with empty data" },
-            { status: 400 },
-          );
+          return jsonError("Cannot overwrite non-empty profile with empty data", 400);
         }
       }
     }
@@ -151,7 +149,7 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     await context.client
@@ -167,14 +165,14 @@ export async function POST(request: Request) {
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("POST /api/profile error:", e);
-    return Response.json({ error: "Failed to save profile" }, { status: 500 });
+    return jsonError("Failed to save profile", 500);
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const context = await createRequestSupabaseContext(request);
-    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+    if (!context) return jsonError("Authentication required", 401);
 
     const rateLimitError = rateLimitFailure(
       await checkRateLimit(context.client, request, context.userId),
@@ -196,12 +194,12 @@ export async function DELETE(request: Request) {
     });
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("DELETE /api/profile error:", e);
-    return Response.json({ error: "Failed to reset profile" }, { status: 500 });
+    return jsonError("Failed to reset profile", 500);
   }
 }

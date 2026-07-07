@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import {
   GAME_PLATFORM_SELECT,
   GAME_SELECT,
@@ -16,7 +17,7 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
   const redirect = await resolveGameRedirect(supabase, gameId);
 
   if (redirect.error) {
-    return Response.json({ error: redirect.error }, { status: 500 });
+    return jsonError(redirect.error, 500);
   }
 
   const { data: raw, error } = await supabase
@@ -28,14 +29,14 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
 
   if (error) {
     if (error.code === "PGRST116") {
-      return Response.json({ error: "Game not found" }, { status: 404 });
+      return jsonError("Game not found", 404);
     }
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
 
   const game = raw as GameRow | null;
   if (!game) {
-    return Response.json({ error: "Game not found" }, { status: 404 });
+    return jsonError("Game not found", 404);
   }
 
   const { data: rawPlatforms } = await supabase

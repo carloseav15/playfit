@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import { loadRecommendationState, scoreTodayModel } from "../shared";
 
 export const maxDuration = 30;
@@ -5,7 +6,7 @@ export const maxDuration = 30;
 export async function POST(request: Request) {
   const loaded = await loadRecommendationState(request);
   if (!loaded.ok) {
-    return Response.json({ error: loaded.error }, { status: loaded.status });
+    return jsonError(loaded.error, loaded.status);
   }
 
   try {
@@ -17,6 +18,6 @@ export async function POST(request: Request) {
     });
     return Response.json(model);
   } catch {
-    return Response.json({ error: "Failed to score recommendations" }, { status: 500 });
+    return jsonError("Failed to score recommendations", 500);
   }
 }

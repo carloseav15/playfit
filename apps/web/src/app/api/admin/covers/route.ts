@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { jsonError } from "@/lib/api-errors";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 function isAuthorized(req: NextRequest) {
@@ -16,7 +17,7 @@ function isAuthorized(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return jsonError("unauthorized", 401);
   }
 
   const offset = Number(req.nextUrl.searchParams.get("offset") ?? "0");
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
 
   return NextResponse.json({ items: data ?? [], total: count ?? null });
@@ -49,13 +50,13 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return jsonError("unauthorized", 401);
   }
 
   const body = await req.json().catch(() => null);
   const gameId = body?.gameId;
   if (typeof gameId !== "string" || !gameId) {
-    return NextResponse.json({ error: "gameId is required" }, { status: 400 });
+    return jsonError("gameId is required", 400);
   }
 
   const supabase = createServiceRoleClient();
@@ -67,7 +68,7 @@ export async function PATCH(req: NextRequest) {
     .single();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    return jsonError(fetchError.message, 500);
   }
 
   const { error } = await supabase
@@ -76,7 +77,7 @@ export async function PATCH(req: NextRequest) {
     .eq("game_id", gameId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
 
   return NextResponse.json({ ok: true });

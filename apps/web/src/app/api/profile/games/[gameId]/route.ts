@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const RATE_LIMIT_MAX = 60;
@@ -35,10 +36,10 @@ async function checkRateLimit(
 
 function rateLimitFailure(result: RateLimitResult): Response | null {
   if (result === "limited") {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
+    return jsonError("Too many requests", 429);
   }
   if (result === "error") {
-    return Response.json({ error: "Rate limiter unavailable" }, { status: 503 });
+    return jsonError("Rate limiter unavailable", 503);
   }
   return null;
 }
@@ -46,7 +47,7 @@ function rateLimitFailure(result: RateLimitResult): Response | null {
 export async function PATCH(request: Request, props: { params: Promise<{ gameId: string }> }) {
   try {
     const context = await createRequestSupabaseContext(request);
-    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+    if (!context) return jsonError("Authentication required", 401);
 
     const rateLimitError = rateLimitFailure(
       await checkRateLimit(context.client, request, context.userId),
@@ -59,7 +60,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
     try {
       rawBody = await request.json();
     } catch {
-      return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+      return jsonError("Invalid JSON payload", 400);
     }
 
     const body = rawBody as Record<string, unknown>;
@@ -77,20 +78,20 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
     });
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("PATCH /api/profile/games error:", e);
-    return Response.json({ error: "Failed to update game state" }, { status: 500 });
+    return jsonError("Failed to update game state", 500);
   }
 }
 
 export async function DELETE(request: Request, props: { params: Promise<{ gameId: string }> }) {
   try {
     const context = await createRequestSupabaseContext(request);
-    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+    if (!context) return jsonError("Authentication required", 401);
 
     const rateLimitError = rateLimitFailure(
       await checkRateLimit(context.client, request, context.userId),
@@ -105,12 +106,12 @@ export async function DELETE(request: Request, props: { params: Promise<{ gameId
     });
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("DELETE /api/profile/games error:", e);
-    return Response.json({ error: "Failed to delete game state" }, { status: 500 });
+    return jsonError("Failed to delete game state", 500);
   }
 }

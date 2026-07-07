@@ -1,4 +1,5 @@
 import type { SeedGame } from "@playfit/core/types";
+import { jsonError } from "@/lib/api-errors";
 import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
@@ -347,7 +348,7 @@ export async function GET(request: Request) {
     const { data, error, count } = await baseQuery.range(from, from + pageSize - 1);
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     const games = await mapRowsToSeedGames(supabase, (data as GameRow[]) ?? []);
@@ -390,7 +391,7 @@ export async function GET(request: Request) {
   const anySearchSucceeded =
     !ftsResult.error || titleResult.ok || aliasResult.ok || seriesResult.ok;
   if (!anySearchSucceeded) {
-    return Response.json({ error: searchErrors[0] ?? "Unable to search games" }, { status: 500 });
+    return jsonError(searchErrors[0] ?? "Unable to search games", 500);
   }
 
   const seen = new Map<string, GameRow>();
