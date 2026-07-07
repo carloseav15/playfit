@@ -52,7 +52,7 @@ describe("PlayNextCard", () => {
       />,
     );
 
-    expect(html).toContain("Add to Playfit Picks");
+    expect(html).toContain("Save to Picks");
     expect(html).not.toContain("Maybe later");
     expect(html).not.toContain("I&#x27;ll play this");
   });
