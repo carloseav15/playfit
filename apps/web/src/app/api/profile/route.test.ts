@@ -1,45 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getUser: vi.fn(),
+  createContext: vi.fn(),
   rpc: vi.fn(),
-}));
-
-vi.mock("@/lib/device-id", () => ({
-  isValidDeviceId: vi.fn(() => true),
+  insert: vi.fn(() => ({
+    maybeSingle: vi.fn().mockResolvedValue({ error: null, data: null }),
+  })),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createAnonClient: vi.fn(() => {
-    return {
-      auth: {
-        getUser: mocks.getUser,
-      },
-      rpc: mocks.rpc,
-      schema: vi.fn(() => ({
-        from: vi.fn((table: string) => {
-          if (table === "audit_log") {
-            return {
-              select: vi.fn(),
-              insert: vi.fn(() => ({
-                maybeSingle: vi.fn().mockResolvedValue({ error: null, data: null }),
-              })),
-            };
-          }
-          return {
-            select: vi.fn(),
-            insert: vi.fn(),
-          };
-        }),
-      })),
-    };
-  }),
+  createRequestSupabaseContext: mocks.createContext,
 }));
+
+const authenticatedUserId = "550e8400-e29b-41d4-a716-446655440000";
+const client = {
+  rpc: mocks.rpc,
+  schema: vi.fn(() => ({
+    from: vi.fn(() => ({ insert: mocks.insert })),
+  })),
+};
 
 function validPayload() {
   const now = "2026-01-01T00:00:00.000Z";
   return {
-    deviceId: "device-123",
+    deviceId: "660e8400-e29b-41d4-a716-446655440000",
     gameStates: {
       chrono_trigger: {
         gameId: "chrono_trigger",
@@ -67,7 +51,7 @@ function validPayload() {
 
 function emptyPayload() {
   return {
-    deviceId: "device-123",
+    deviceId: "660e8400-e29b-41d4-a716-446655440000",
     gameStates: {},
     profile: null,
     onboarding: {
@@ -100,7 +84,7 @@ function mockRpcWithProfileResponses(responses: { data: unknown; error: null }[]
 
 describe("profile API route", () => {
   beforeEach(() => {
-    mocks.getUser.mockResolvedValue({ data: { user: null } });
+    mocks.createContext.mockResolvedValue({ client, userId: authenticatedUserId });
     mockRpcWithProfileResponses([]);
   });
 
@@ -108,33 +92,10 @@ describe("profile API route", () => {
     vi.clearAllMocks();
   });
 
-  it("saves a valid anonymous device profile", async () => {
+  it("uses the authenticated session identity and ignores the compatibility deviceId", async () => {
     const { POST } = await loadRoute();
     const response = await POST(
-      new Request("http://playfit.test/api/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(validPayload()),
-      }),
-    );
-
-    await expect(response.json()).resolves.toEqual({ ok: true });
-    expect(response.status).toBe(200);
-    expect(mocks.rpc).toHaveBeenCalledWith("upsert_profile", {
-      p_user_id: "device-123",
-      p_game_states: expect.objectContaining({
-        chrono_trigger: expect.objectContaining({ title: "Chrono Trigger" }),
-      }),
-      p_profile: null,
-      p_onboarding: expect.objectContaining({ step: "anchors" }),
-    });
-  });
-
-  it("prefers the verified auth user over a client device id", async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-    const { POST } = await loadRoute();
-    const response = await POST(
-      new Request("http://playfit.test/api/profile", {
+      new Request("http://playfit.test/api/profile?device_id=other-device", {
         method: "POST",
         headers: {
           authorization: "Bearer valid-jwt",
@@ -145,10 +106,82 @@ describe("profile API route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.rpc).toHaveBeenCalledWith(
+    expect(mocks.rpc).toHaveBeenCalledWith("check_rate_limit", {
+      p_ip_address: "unknown",
+      p_endpoint: "/api/profile",
+      p_max_requests: 60,
+      p_window_seconds: 60,
+      p_user_id: authenticatedUserId,
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("upsert_profile", {
+      p_user_id: authenticatedUserId,
+      p_game_states: expect.objectContaining({
+        chrono_trigger: expect.objectContaining({ title: "Chrono Trigger" }),
+      }),
+      p_profile: null,
+      p_onboarding: expect.objectContaining({ step: "anchors" }),
+    });
+    expect(mocks.rpc).not.toHaveBeenCalledWith(
       "upsert_profile",
-      expect.objectContaining({ p_user_id: "auth-user-1" }),
+      expect.objectContaining({ p_user_id: validPayload().deviceId }),
     );
+  });
+
+  it("rejects requests without a verified Supabase session", async () => {
+    mocks.createContext.mockResolvedValue(null);
+    const { GET } = await loadRoute();
+    const response = await GET(
+      new Request("http://playfit.test/api/profile?device_id=550e8400-e29b-41d4-a716-446655440000"),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 only when the rate limit is exhausted", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: false, error: null });
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/profile"));
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ error: "Too many requests" });
+  });
+
+  it("returns 503 when the rate limiter RPC fails", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "database unavailable" } });
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/profile"));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "Rate limiter unavailable" });
+  });
+
+  it("loads only the authenticated user's profile", async () => {
+    const state = { game_states: {}, profile: null, onboarding: {} };
+    mockRpcWithProfileResponses([{ data: state, error: null }]);
+    const { GET } = await loadRoute();
+    const response = await GET(
+      new Request("http://playfit.test/api/profile?device_id=660e8400-e29b-41d4-a716-446655440000"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ state });
+    expect(mocks.rpc).toHaveBeenCalledWith("get_profile", { p_user_id: authenticatedUserId });
+  });
+
+  it("does not hide a profile RPC failure as an empty profile", async () => {
+    mocks.rpc.mockImplementation((functionName: string) => {
+      if (functionName === "check_rate_limit") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: null, error: { message: "not authorized" } });
+    });
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/profile"));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "Failed to load profile" });
   });
 
   it("rejects malformed JSON", async () => {
@@ -161,9 +194,8 @@ describe("profile API route", () => {
       }),
     );
 
-    await expect(response.json()).resolves.toEqual({ error: "Invalid JSON payload" });
     expect(response.status).toBe(400);
-    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
+    await expect(response.json()).resolves.toEqual({ error: "Invalid JSON payload" });
   });
 
   it("rejects payloads outside the profile schema", async () => {
@@ -175,93 +207,60 @@ describe("profile API route", () => {
         body: JSON.stringify({ deviceId: "device-123", profile: null }),
       }),
     );
-    const json = await response.json();
 
     expect(response.status).toBe(400);
-    expect(json.error).toBe("Invalid profile payload");
-    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
+    expect((await response.json()).error).toBe("Invalid profile payload");
   });
 
-  it("rejects empty save when authenticated user has existing data", async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
+  it("rejects an empty overwrite when the authenticated user has existing data", async () => {
     mockRpcWithProfileResponses([
       {
         data: { game_states: { chrono_trigger: {} }, profile: { summary: "test" } },
         error: null,
       },
     ]);
-
     const { POST } = await loadRoute();
     const response = await POST(
       new Request("http://playfit.test/api/profile", {
         method: "POST",
-        headers: {
-          authorization: "Bearer valid-jwt",
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(emptyPayload()),
       }),
     );
 
     expect(response.status).toBe(400);
-    const json = await response.json();
-    expect(json.error).toBe("Cannot overwrite non-empty profile with empty data");
-    expect(mocks.rpc).not.toHaveBeenCalledWith("upsert_profile", expect.anything());
-  });
-
-  it("migrates device profile data to authenticated user", async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-
-    mockRpcWithProfileResponses([
-      { data: null, error: null },
-      {
-        data: {
-          game_states: { chrono_trigger: { gameId: "chrono_trigger", title: "Chrono Trigger" } },
-          profile: { summary: "test" },
-        },
-        error: null,
-      },
-    ]);
-
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
-
-    const { POST } = await loadRoute();
-    const response = await POST(
-      new Request("http://playfit.test/api/profile", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer valid-jwt",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(validPayload()),
-      }),
+    expect((await response.json()).error).toBe(
+      "Cannot overwrite non-empty profile with empty data",
     );
-
-    expect(response.status).toBe(200);
-    const json = await response.json();
-    expect(json.migrated).toBe(true);
   });
 
-  it("allows empty save when auth user has no existing profile", async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: "auth-user-1" } } });
-    mockRpcWithProfileResponses([
-      { data: null, error: null },
-      { data: null, error: null },
-    ]);
-
+  it("allows an empty save when the authenticated user has no profile", async () => {
+    mockRpcWithProfileResponses([{ data: null, error: null }]);
     const { POST } = await loadRoute();
     const response = await POST(
       new Request("http://playfit.test/api/profile", {
         method: "POST",
-        headers: {
-          authorization: "Bearer valid-jwt",
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(emptyPayload()),
       }),
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.rpc).toHaveBeenCalledWith("upsert_profile", expect.anything());
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "upsert_profile",
+      expect.objectContaining({ p_user_id: authenticatedUserId }),
+    );
+  });
+
+  it("deletes only the authenticated user's profile", async () => {
+    const { DELETE } = await loadRoute();
+    const response = await DELETE(
+      new Request("http://playfit.test/api/profile?device_id=other-device", { method: "DELETE" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("delete_profile", {
+      p_user_id: authenticatedUserId,
+    });
   });
 });

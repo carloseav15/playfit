@@ -19,7 +19,6 @@ interface GameRow {
   tags: string[];
   notes: string;
   sort_date: string | null;
-  release_label: string;
   platforms?: string[];
   platform_names?: string[];
 }
@@ -70,7 +69,7 @@ async function fetchGames(supabase: SeedSupabase): Promise<GameRow[]> {
     const { data, error } = await supabase
       .schema("games_library")
       .from("game_platforms")
-      .select("game_id, platform_id, platforms:platform_id(name)")
+      .select("game_id, platform_id, platforms:platform_ref(name)")
       .range(gpFrom, gpFrom + pageSize - 1);
 
     if (error) throw new Error(`Failed to load game platforms: ${error.message}`);
@@ -224,7 +223,7 @@ function mapGames(gameRows: GameRow[], platformById: Map<string, ProductPlatform
       availablePlatformNames: resolvedPlatformNames,
       releaseState,
       sortDate: row.sort_date || undefined,
-      releaseLabel: row.release_label || undefined,
+      releaseLabel: row.release_year != null ? String(row.release_year) : undefined,
     } satisfies SeedGame;
   });
 }

@@ -54,8 +54,9 @@ interface QueryState {
 }
 
 vi.mock("@/lib/game-mapper", () => ({
+  GAME_PLATFORM_SELECT: "game_id, platform_id, platforms:platform_ref(name)",
   GAME_SELECT:
-    "game_id, title, aliases, series_id, genre_id, release_year, release_state, source_type, source_ref, cover_url, tags, notes, sort_date, release_label, series:series_id(name), genre:genre_id(name)",
+    "game_id, title, aliases, series_id, genre_id, release_year, release_state, source_type, source_ref, cover_url, tags, notes, sort_date, series:series_ref(name), genre:genre_ref(name)",
   mapGameRowToSeedGame: vi.fn((game: GameRow) => ({
     gameId: game.game_id,
     title: game.title,
@@ -75,7 +76,6 @@ vi.mock("@/lib/game-mapper", () => ({
     availablePlatformNames: [],
     releaseState: "released",
     sortDate: game.sort_date ?? undefined,
-    releaseLabel: game.release_label ?? undefined,
   })),
 }));
 

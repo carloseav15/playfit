@@ -41,7 +41,6 @@ erDiagram
 | `tags` | `text[] DEFAULT '{}'` | Gameplay tags (denormalized cache of game_tags) |
 | `notes` | `text DEFAULT ''` | Internal notes |
 | `sort_date` | `date` | Sortable date for ordering |
-| `release_label` | `text DEFAULT ''` | Display label (e.g. "Q1 2025") |
 | `genre_id` | `text FK -> genres(id)` | Normalized genre |
 | `series_id` | `text FK -> series(id)` | Normalized series/franchise |
 | `search_document` | `tsvector` | Stored tsvector for full-text search (title + aliases + series + genre) |

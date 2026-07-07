@@ -1,9 +1,45 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { load } from "cheerio";
 
-const APPLY_FILE = new URL("../reports/gamesdatabase-snes-apply.json", import.meta.url);
+const CONFIG = {
+  ds: {
+    systemFolder: "Nintendo_DS",
+    urlSlug: "nintendo-ds",
+  },
+  gba: {
+    systemFolder: "Nintendo_Game_Boy_Advance",
+    urlSlug: "nintendo-game-boy-advance",
+  },
+  ps1: {
+    systemFolder: "Sony_Playstation",
+    urlSlug: "sony-playstation",
+  },
+  psp: {
+    systemFolder: "Sony_PSP",
+    urlSlug: "sony-psp",
+  },
+  saturn: {
+    systemFolder: "Sega_Saturn",
+    urlSlug: "sega-saturn",
+  },
+  snes: {
+    systemFolder: "Nintendo_SNES",
+    urlSlug: "nintendo-snes",
+  },
+};
+
+const platform = process.argv[2];
+if (!platform || !CONFIG[platform]) {
+  console.error("Please specify a valid platform as the first argument:");
+  console.error(`  node scripts/download-gamesdatabase-covers.mjs <ds|gba|ps1|psp|saturn|snes>`);
+  process.exit(1);
+}
+
+const { systemFolder, urlSlug } = CONFIG[platform];
+
+const APPLY_FILE = new URL(`../reports/gamesdatabase-${platform}-apply.json`, import.meta.url);
 const COVERS_DIR = new URL("../apps/web/public/covers/games/", import.meta.url);
-const OUT_FILE = new URL("../reports/gamesdatabase-snes-covers-downloaded.json", import.meta.url);
+const OUT_FILE = new URL(`../reports/gamesdatabase-${platform}-covers-downloaded.json`, import.meta.url);
 const DELAY_MS = 350;
 
 function sleep(ms) {
@@ -29,9 +65,10 @@ async function fetchMediaPage(url) {
 function extractBigImagePath(html) {
   const $ = load(html);
   const imgs = $("img");
+  const regex = new RegExp(`\\/Media\\/SYSTEM\\/${systemFolder}\\/Box\\/big\\/(.+)\\.jpg`, "i");
   for (const img of imgs) {
     const src = $(img).attr("src") || "";
-    const match = src.match(/\/Media\/SYSTEM\/Nintendo_SNES\/Box\/big\/(.+)\.jpg/i);
+    const match = src.match(regex);
     if (match) return match[0];
   }
   return null;
@@ -50,6 +87,11 @@ function isValidJpeg(buf) {
 }
 
 async function main() {
+  if (!existsSync(APPLY_FILE)) {
+    console.error(`Apply file does not exist: ${APPLY_FILE}`);
+    process.exit(1);
+  }
+
   const applyData = JSON.parse(readFileSync(APPLY_FILE, "utf8"));
   const targets = applyData.filter((r) => r.needs_cover);
 
@@ -65,6 +107,7 @@ async function main() {
 
   const doneIds = new Set(results.map((r) => r.game_id));
   const remaining = targets.filter((t) => !doneIds.has(t.game_id));
+  console.log(`Platform: ${platform} (${systemFolder})`);
   console.log(`Targets: ${targets.length} total, ${remaining.length} remaining`);
 
   let ok = results.filter((r) => r.ok).length;
@@ -78,12 +121,12 @@ async function main() {
     const urlsToTry = [];
     if (publisherSlug && year) {
       urlsToTry.push(
-        `https://www.gamesdatabase.org/media/nintendo-snes/artwork-box/${year}/${publisherSlug}/${t.slug}`,
+        `https://www.gamesdatabase.org/media/${urlSlug}/artwork-box/${year}/${publisherSlug}/${t.slug}`,
       );
     }
     if (year) {
       urlsToTry.push(
-        `https://www.gamesdatabase.org/media/nintendo-snes/artwork-box/${year}/${t.slug}`,
+        `https://www.gamesdatabase.org/media/${urlSlug}/artwork-box/${year}/${t.slug}`,
       );
     }
 

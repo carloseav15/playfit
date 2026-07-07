@@ -2,7 +2,7 @@ import { buildAdaptiveProfile } from "@playfit/core/domain";
 import { productGameStateSchema, productStateSchema } from "@playfit/core/schemas";
 import type { SeedGame } from "@playfit/core/types";
 import { z } from "zod";
-import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
+import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
 interface GameRow {
@@ -19,7 +19,6 @@ interface GameRow {
   tags: string[] | null;
   notes: string;
   sort_date: string | null;
-  release_label: string | null;
   series: unknown;
   genre: unknown;
 }
@@ -85,7 +84,7 @@ export async function POST(request: Request) {
     supabase
       .schema("games_library")
       .from("game_platforms")
-      .select("game_id, platform_id, platforms:platform_id(name)")
+      .select(GAME_PLATFORM_SELECT)
       .in("game_id", fetchedIds),
     supabase
       .schema("games_library")

@@ -1,71 +1,59 @@
-import { isValidDeviceId } from "@/lib/device-id";
-import { createAnonClient } from "@/lib/supabase/server";
+import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
-function createClient() {
-  return createAnonClient();
-}
+type RateLimitResult = "allowed" | "limited" | "error";
 
-async function checkRateLimit(request: Request): Promise<boolean> {
+async function checkRateLimit(
+  client: RequestSupabaseContext["client"],
+  request: Request,
+  userId: string,
+): Promise<RateLimitResult> {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
 
-  const client = await createClient();
   const { data, error } = await client.rpc("check_rate_limit", {
     p_ip_address: ip,
     p_endpoint: "/api/profile/games",
     p_max_requests: RATE_LIMIT_MAX,
     p_window_seconds: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
-    p_user_id: null,
+    p_user_id: userId,
   });
 
   if (error) {
     console.error("checkRateLimit error:", error);
-    return false;
+    return "error";
   }
 
-  return data === true;
+  if (data === true) return "allowed";
+  if (data === false) return "limited";
+  return "error";
 }
 
-async function getUserId(request: Request): Promise<string | null> {
-  const serverSupabase = await createClient();
-  const {
-    data: { user },
-  } = await serverSupabase.auth.getUser();
-  if (user?.id) return user.id;
-
-  const authHeader = request.headers.get("authorization");
-  const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!jwt) return null;
-
-  const { data } = await serverSupabase.auth.getUser(jwt);
-  if (data?.user?.id) return data.user.id;
-
+function rateLimitFailure(result: RateLimitResult): Response | null {
+  if (result === "limited") {
+    return Response.json({ error: "Too many requests" }, { status: 429 });
+  }
+  if (result === "error") {
+    return Response.json({ error: "Rate limiter unavailable" }, { status: 503 });
+  }
   return null;
 }
 
 export async function PATCH(request: Request, props: { params: Promise<{ gameId: string }> }) {
-  if (!(await checkRateLimit(request))) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
-  }
-
-  const { gameId } = await props.params;
-
   try {
-    const userId = await getUserId(request);
-    const deviceId = new URL(request.url).searchParams.get("device_id");
-    if (deviceId && !isValidDeviceId(deviceId)) {
-      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
-    }
-    const resolvedId = userId ?? deviceId;
+    const context = await createRequestSupabaseContext(request);
+    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
 
-    if (!resolvedId) {
-      return Response.json({ error: "No user identifier" }, { status: 400 });
-    }
+    const rateLimitError = rateLimitFailure(
+      await checkRateLimit(context.client, request, context.userId),
+    );
+    if (rateLimitError) return rateLimitError;
+
+    const { gameId } = await props.params;
 
     let rawBody: unknown;
     try {
@@ -76,9 +64,8 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
 
     const body = rawBody as Record<string, unknown>;
 
-    const client = await createClient();
-    const { error } = await client.rpc("upsert_game_state", {
-      p_user_id: resolvedId,
+    const { error } = await context.client.rpc("upsert_game_state", {
+      p_user_id: context.userId,
       p_game_id: gameId,
       p_status: body.status ?? null,
       p_rating: body.rating ?? null,
@@ -101,27 +88,19 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
 }
 
 export async function DELETE(request: Request, props: { params: Promise<{ gameId: string }> }) {
-  if (!(await checkRateLimit(request))) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
-  }
-
-  const { gameId } = await props.params;
-
   try {
-    const userId = await getUserId(request);
-    const deviceId = new URL(request.url).searchParams.get("device_id");
-    if (deviceId && !isValidDeviceId(deviceId)) {
-      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
-    }
-    const resolvedId = userId ?? deviceId;
+    const context = await createRequestSupabaseContext(request);
+    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
 
-    if (!resolvedId) {
-      return Response.json({ error: "No user identifier" }, { status: 400 });
-    }
+    const rateLimitError = rateLimitFailure(
+      await checkRateLimit(context.client, request, context.userId),
+    );
+    if (rateLimitError) return rateLimitError;
 
-    const client = await createClient();
-    const { error } = await client.rpc("delete_game_state", {
-      p_user_id: resolvedId,
+    const { gameId } = await props.params;
+
+    const { error } = await context.client.rpc("delete_game_state", {
+      p_user_id: context.userId,
       p_game_id: gameId,
     });
 

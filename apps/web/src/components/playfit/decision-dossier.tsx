@@ -114,7 +114,7 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
           className="flex-1 h-11 md:h-10 text-xs font-bold"
         >
           <CheckCircle2 className="size-4" />
-          Already played
+          Already Played
         </Button>
         <Button
           type="button"

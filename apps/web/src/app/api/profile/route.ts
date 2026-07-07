@@ -5,8 +5,7 @@ import {
 } from "@playfit/core/schemas";
 import { z } from "zod";
 
-import { isValidDeviceId } from "@/lib/device-id";
-import { createAnonClient } from "@/lib/supabase/server";
+import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
   onboardingCompletedAt: z.string().nullable(),
@@ -24,120 +23,66 @@ const profileSaveRequestSchema = z
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
-function createClient() {
-  return createAnonClient();
-}
+type RateLimitResult = "allowed" | "limited" | "error";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-async function fireMigrateProfile(
-  fromUserId: string,
-  toUserId: string,
-  onboarding: Record<string, unknown>,
-) {
-  if (!SUPABASE_SERVICE_KEY) {
-    console.error("fireMigrateProfile: SUPABASE_SERVICE_KEY is not set; skipping migration");
-    return;
-  }
-  try {
-    // Edge Functions require a valid JWT on the Authorization header (verify_jwt).
-    // This is a trusted server-to-server call, so the service role key is used
-    // rather than forwarding the end user's token.
-    await fetch(`${SUPABASE_URL}/functions/v1/migrate-profile`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-        apikey: SUPABASE_SERVICE_KEY,
-      },
-      body: JSON.stringify({ fromUserId, toUserId, onboarding }),
-    });
-  } catch {
-    // Edge Function is best-effort; migration will retry on next profile save
-  }
-}
-
-async function checkRateLimit(request: Request, userId?: string | null): Promise<boolean> {
+async function checkRateLimit(
+  client: RequestSupabaseContext["client"],
+  request: Request,
+  userId: string,
+): Promise<RateLimitResult> {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
 
-  const client = await createClient();
   const { data, error } = await client.rpc("check_rate_limit", {
     p_ip_address: ip,
     p_endpoint: "/api/profile",
     p_max_requests: RATE_LIMIT_MAX,
     p_window_seconds: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
-    p_user_id: userId ?? null,
+    p_user_id: userId,
   });
 
   if (error) {
     console.error("checkRateLimit error:", error);
-    return false;
+    return "error";
   }
 
-  return data === true;
+  if (data === true) return "allowed";
+  if (data === false) return "limited";
+  return "error";
 }
 
-async function getUserId(request: Request): Promise<string | null> {
-  try {
-    const serverSupabase = await createClient();
-    const {
-      data: { user },
-    } = await serverSupabase.auth.getUser();
-    if (user?.id) return user.id;
-  } catch (e) {
-    console.error("getUserId (cookie) error:", e);
+function rateLimitFailure(result: RateLimitResult): Response | null {
+  if (result === "limited") {
+    return Response.json({ error: "Too many requests" }, { status: 429 });
   }
-
-  const authHeader = request.headers.get("authorization");
-  const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!jwt) return null;
-
-  try {
-    const serverSupabase = await createClient();
-    const { data } = await serverSupabase.auth.getUser(jwt);
-    if (data?.user?.id) return data.user.id;
-  } catch (e) {
-    console.error("getUserId (bearer) error:", e);
+  if (result === "error") {
+    return Response.json({ error: "Rate limiter unavailable" }, { status: 503 });
   }
-
   return null;
 }
 
 export async function GET(request: Request) {
   try {
-    const userId = await getUserId(request);
-    if (!(await checkRateLimit(request, userId))) {
-      return Response.json({ error: "Too many requests" }, { status: 429 });
-    }
-    const deviceId = new URL(request.url).searchParams.get("device_id");
-    if (deviceId && !isValidDeviceId(deviceId)) {
-      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
-    }
-    const resolvedId = userId ?? deviceId;
+    const context = await createRequestSupabaseContext(request);
+    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
 
-    if (!resolvedId) {
-      return Response.json({ state: null }, { status: 200 });
-    }
+    const rateLimitError = rateLimitFailure(
+      await checkRateLimit(context.client, request, context.userId),
+    );
+    if (rateLimitError) return rateLimitError;
 
-    const client = await createClient();
-    const { data, error } = await client.rpc("get_profile", {
-      p_user_id: resolvedId,
+    const { data, error } = await context.client.rpc("get_profile", {
+      p_user_id: context.userId,
     });
 
-    if (error || !data) {
-      // Fallback: authenticated user with no profile, try device migration
-      if (userId && deviceId && deviceId !== userId) {
-        const { data: deviceData } = await client.rpc("get_profile", {
-          p_user_id: deviceId,
-        });
-        if (deviceData) {
-          return Response.json({ state: deviceData }, { status: 200 });
-        }
-      }
+    if (error) {
+      console.error("get_profile error:", error);
+      return Response.json({ error: "Failed to load profile" }, { status: 500 });
+    }
+
+    if (!data) {
       return Response.json({ state: null }, { status: 200 });
     }
 
@@ -150,10 +95,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const userId = await getUserId(request);
-    if (!(await checkRateLimit(request, userId))) {
-      return Response.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const context = await createRequestSupabaseContext(request);
+    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
+
+    const rateLimitError = rateLimitFailure(
+      await checkRateLimit(context.client, request, context.userId),
+    );
+    if (rateLimitError) return rateLimitError;
 
     let rawBody: unknown;
     try {
@@ -171,18 +119,12 @@ export async function POST(request: Request) {
     }
 
     const body = parsedBody.data;
-    const resolvedId = userId ?? body.deviceId;
-    if (!resolvedId) {
-      return Response.json({ error: "No user identifier" }, { status: 400 });
-    }
-
-    const client = await createClient();
 
     // Protection A: reject empty overwrite of existing data
     const isEmptySave = Object.keys(body.gameStates).length === 0 && body.profile === null;
-    if (isEmptySave && userId) {
-      const { data: existing } = await client.rpc("get_profile", {
-        p_user_id: userId,
+    if (isEmptySave) {
+      const { data: existing } = await context.client.rpc("get_profile", {
+        p_user_id: context.userId,
       });
       if (existing) {
         const parsed = existing as {
@@ -201,40 +143,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Protection B: migrate anonymous device profile to authenticated user
-    if (userId && body.deviceId && body.deviceId !== userId) {
-      const { data: authProfile } = await client.rpc("get_profile", {
-        p_user_id: userId,
-      });
-      const authParsed = authProfile as {
-        game_states?: Record<string, unknown>;
-        profile?: unknown;
-      } | null;
-      const isAuthEmpty =
-        !authParsed ||
-        (Object.keys(authParsed.game_states ?? {}).length === 0 && !authParsed.profile);
-
-      if (isAuthEmpty) {
-        const { data: deviceProfile } = await client.rpc("get_profile", {
-          p_user_id: body.deviceId,
-        });
-        const deviceParsed = deviceProfile as {
-          game_states?: Record<string, unknown>;
-          profile?: unknown;
-        } | null;
-
-        if (
-          deviceParsed &&
-          (Object.keys(deviceParsed.game_states ?? {}).length > 0 || deviceParsed.profile !== null)
-        ) {
-          void fireMigrateProfile(body.deviceId, userId, body.onboarding);
-          return Response.json({ ok: true, migrated: true }, { status: 200 });
-        }
-      }
-    }
-
-    const { error } = await client.rpc("upsert_profile", {
-      p_user_id: resolvedId,
+    const { error } = await context.client.rpc("upsert_profile", {
+      p_user_id: context.userId,
       p_game_states: body.gameStates,
       p_profile: body.profile,
       p_onboarding: body.onboarding,
@@ -244,25 +154,11 @@ export async function POST(request: Request) {
       return Response.json({ error: error.message }, { status: 500 });
     }
 
-    // Also save under device_id so data survives session loss
-    if (body.deviceId && body.deviceId !== resolvedId) {
-      try {
-        await client.rpc("upsert_profile", {
-          p_user_id: body.deviceId,
-          p_game_states: body.gameStates,
-          p_profile: body.profile,
-          p_onboarding: body.onboarding,
-        });
-      } catch {
-        // ignore - device_id save is best-effort
-      }
-    }
-
-    await client
+    await context.client
       .schema("games_library")
       .from("audit_log")
       .insert({
-        user_id: userId ?? resolvedId,
+        user_id: context.userId,
         action: "profile.write",
         ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
       })
@@ -277,34 +173,27 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const userId = await getUserId(request);
-    if (!(await checkRateLimit(request, userId))) {
-      return Response.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const context = await createRequestSupabaseContext(request);
+    if (!context) return Response.json({ error: "Authentication required" }, { status: 401 });
 
-    const deviceId = new URL(request.url).searchParams.get("device_id");
-    if (deviceId && !isValidDeviceId(deviceId)) {
-      return Response.json({ error: "Invalid device identifier" }, { status: 400 });
-    }
-    const resolvedId = userId ?? deviceId;
+    const rateLimitError = rateLimitFailure(
+      await checkRateLimit(context.client, request, context.userId),
+    );
+    if (rateLimitError) return rateLimitError;
 
-    if (!resolvedId) {
-      return Response.json({ error: "No user identifier" }, { status: 400 });
-    }
-
-    const client = await createClient();
-
-    await client
+    await context.client
       .schema("games_library")
       .from("audit_log")
       .insert({
-        user_id: userId ?? resolvedId,
+        user_id: context.userId,
         action: "profile.delete",
         ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
       })
       .maybeSingle();
 
-    const { error } = await client.rpc("delete_profile", { p_user_id: resolvedId });
+    const { error } = await context.client.rpc("delete_profile", {
+      p_user_id: context.userId,
+    });
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 });

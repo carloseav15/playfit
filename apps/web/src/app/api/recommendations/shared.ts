@@ -14,9 +14,8 @@ import type {
   SeedGame,
 } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
-import { isValidDeviceId } from "@/lib/device-id";
-import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
-import { createAnonClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
+import { createAnonClient, createRequestSupabaseContext } from "@/lib/supabase/server";
 
 const PRODUCT_STATE_VERSION = 2;
 const CATALOG_VERSION = "20260705030000";
@@ -50,7 +49,6 @@ interface GameRow {
   tags: string[] | null;
   notes: string;
   sort_date: string | null;
-  release_label: string | null;
   series: unknown;
   genre: unknown;
 }
@@ -86,27 +84,6 @@ function simpleHash(data: unknown): string {
     hash = (hash << 5) + hash + json.charCodeAt(i);
   }
   return (hash >>> 0).toString(36);
-}
-
-export async function getRequestUserId(request: Request): Promise<string | null> {
-  const authHeader = request.headers.get("authorization");
-  const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (jwt) {
-    const supabase = createAnonClient();
-    const { data } = await supabase.auth.getUser(jwt);
-    return data.user?.id ?? null;
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user?.id) return user.id;
-
-  const deviceId = new URL(request.url).searchParams.get("device_id");
-  if (deviceId && isValidDeviceId(deviceId)) return deviceId;
-
-  return null;
 }
 
 function mapPersistedState(data: PersistedProfilePayload): ProductState {
@@ -159,42 +136,28 @@ function computeStateVersion(data: PersistedProfilePayload, state: ProductState)
 export async function loadRecommendationState(
   request: Request,
 ): Promise<LoadedRecommendationState> {
-  const userId = await getRequestUserId(request);
-  if (!userId) {
+  const context = await createRequestSupabaseContext(request);
+  if (!context) {
     return { ok: false, status: 401, error: "Recommendation session required" };
   }
 
-  const supabase = createAnonClient();
-  const { data, error } = await supabase.rpc("get_profile", { p_user_id: userId });
+  const { data, error } = await context.client.rpc("get_profile", {
+    p_user_id: context.userId,
+  });
   if (error) {
     return { ok: false, status: 500, error: "Failed to load recommendation state" };
   }
 
-  let resolvedUserId = userId;
-  let resolvedData = data;
-
-  // Fallback: if no data for userId, try device_id (covers session loss / pending migration)
-  if (!resolvedData) {
-    const deviceId = new URL(request.url).searchParams.get("device_id");
-    if (deviceId && deviceId !== userId && isValidDeviceId(deviceId)) {
-      const { data: deviceData } = await supabase.rpc("get_profile", { p_user_id: deviceId });
-      if (deviceData) {
-        resolvedUserId = deviceId;
-        resolvedData = deviceData;
-      }
-    }
-  }
-
-  if (!resolvedData) {
+  if (!data) {
     return { ok: false, status: 200, error: "needs_resync" };
   }
 
   try {
-    const payload = resolvedData as PersistedProfilePayload;
+    const payload = data as PersistedProfilePayload;
     const state = mapPersistedState(payload);
     return {
       ok: true,
-      userId: resolvedUserId,
+      userId: context.userId,
       state,
       stateVersion: computeStateVersion(payload, state),
     };
@@ -237,7 +200,7 @@ export async function fetchFullGamesById(gameIds: string[]): Promise<Map<string,
     supabase
       .schema("games_library")
       .from("game_platforms")
-      .select("game_id, platform_id, platforms:platform_id(name)")
+      .select(GAME_PLATFORM_SELECT)
       .in("game_id", fetchedIds),
     supabase
       .schema("games_library")

@@ -44,6 +44,7 @@ const CONCURRENCY = 20;
 // Same console platform allowlist as fetch-igdb-new-games.mjs, mapped to
 // Playfit's own platform ids (verified against games_library.platforms).
 const IGDB_TO_PLAYFIT_PLATFORM = {
+  4: "n64",
   37: "3ds",
   137: "3ds",
   59: "atari_2600",

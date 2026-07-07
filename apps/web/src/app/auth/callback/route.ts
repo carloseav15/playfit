@@ -13,10 +13,21 @@ function getRedirectOrigin(request: Request, origin: string) {
   return origin;
 }
 
+function sanitizeNextPath(rawNext: string | null) {
+  if (!rawNext) return "/";
+  // Only allow same-origin relative paths: must start with a single "/" and
+  // never "//" or "/\" (both can be interpreted as protocol-relative URLs by
+  // browsers, which would redirect off-origin).
+  if (!rawNext.startsWith("/") || rawNext.startsWith("//") || rawNext.startsWith("/\\")) {
+    return "/";
+  }
+  return rawNext;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = sanitizeNextPath(searchParams.get("next"));
   const redirectOrigin = getRedirectOrigin(request, origin);
 
   if (code) {
