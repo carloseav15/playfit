@@ -183,15 +183,3 @@ export function cosineSimilarity(tagsA: string[], tagsB: string[]): number {
   const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
   return magnitude === 0 ? 0 : dotProduct / magnitude;
 }
-
-export function vectorMagnitude(vector: Record<string, number>): number {
-  return Math.sqrt(Object.values(vector).reduce((sum, val) => sum + val * val, 0));
-}
-
-export function dotProduct(a: Record<string, number>, b: Record<string, number>): number {
-  let sum = 0;
-  for (const key of Object.keys(a)) {
-    if (b[key]) sum += a[key] * b[key];
-  }
-  return sum;
-}

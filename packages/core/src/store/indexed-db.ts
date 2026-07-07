@@ -1,5 +1,5 @@
 import { productStateSchema } from "../schemas";
-import type { ProductGameState, ProductState } from "../types";
+import type { ProductState } from "../types";
 
 const DB_VERSION = 2;
 
@@ -103,11 +103,6 @@ async function apiPost(path: string, body: unknown): Promise<Response> {
   return authenticatedFetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
-async function apiPatch(path: string, body: unknown): Promise<Response> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  return authenticatedFetch(path, { method: "PATCH", headers, body: JSON.stringify(body) });
-}
-
 async function apiDelete(path: string): Promise<Response> {
   return authenticatedFetch(path, { method: "DELETE" });
 }
@@ -194,41 +189,4 @@ export async function resetProductState() {
   const url = getUserId() ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
 
   await apiDelete(url);
-}
-
-export type SaveGameStateResult = { ok: true } | { ok: false; reason: "error"; error: string };
-
-export async function saveGameState(
-  gameId: string,
-  gameState: Partial<ProductGameState>,
-): Promise<SaveGameStateResult> {
-  const body: Record<string, unknown> = {
-    status: gameState.status ?? null,
-    rating: gameState.rating ?? null,
-    inBacklog: gameState.inBacklog ?? null,
-    inWishlist: gameState.inWishlist ?? null,
-    inPlayfitPicks: gameState.inPlayfitPicks ?? null,
-    excluded: gameState.excluded ?? null,
-    source: gameState.source ?? "manual",
-  };
-
-  const res = await apiPatch(`/api/profile/games/${encodeURIComponent(gameId)}`, body);
-
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
-  }
-
-  return { ok: true };
-}
-
-export async function deleteGameState(gameId: string): Promise<SaveGameStateResult> {
-  const res = await apiDelete(`/api/profile/games/${encodeURIComponent(gameId)}`);
-
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
-  }
-
-  return { ok: true };
 }
