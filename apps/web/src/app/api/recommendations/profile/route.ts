@@ -2,6 +2,7 @@ import { buildAdaptiveProfile } from "@playfit/core/domain";
 import { productGameStateSchema, productStateSchema } from "@playfit/core/schemas";
 import type { SeedGame } from "@playfit/core/types";
 import { z } from "zod";
+import { jsonError } from "@/lib/api-errors";
 import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.json();
   } catch {
-    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return jsonError("Invalid JSON payload", 400);
   }
 
   const parsedBody = profileRequestSchema.safeParse(rawBody);
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     .in("game_id", [...gameIds]);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
 
   const games = (rawGames as GameRow[]) ?? [];

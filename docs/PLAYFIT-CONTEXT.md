@@ -1,11 +1,11 @@
 # PlayfitContext — Frontend State Management
 
-PlayfitContext is the **central state manager** for the Playfit app shell (`/app/*` routes). It handles auth, profile persistence, game state, UI state, and search.
+PlayfitContext is the **central state manager** for the Playfit app shell (`(play)` route group, promoted to the root `/` entry point). It handles auth, profile persistence, game state, UI state, and search.
 
 ## Architecture
 
 ```
-PlayfitRouteProvider (apps/web/src/components/playfit/playfit-route-provider.tsx)
+PlayLayoutClient (apps/web/src/app/(play)/layout-client.tsx)
   └── PlayfitProvider (playfit-context.tsx)
         └── PlayfitContext.Provider
               └── usePlayfit() hook (consumer API)
@@ -129,13 +129,21 @@ Profile saves are **debounced and queued** via `useQueuedProfileSave()`:
 
 ```
 applyDecisionFeedback(gameId, feedback)
-  ├── "play"      → set status="playing", clear backlog, clear excluded
-  ├── "later"     → set status="shelved", set inBacklog=true, clear excluded
-  ├── "loved"     → set rating=5, rebuild profile
-  ├── "liked"     → set rating=4, rebuild profile
-  ├── "mixed"     → set rating=3, rebuild profile
-  └── "not_for_me" → set rating=2, set excluded=true, rebuild profile
+  ├── "play"          → set status="playing", clear backlog/picks/excluded
+  ├── "later"         → set status="shelved", set inBacklog=true, clear excluded
+  ├── "loved"         → set rating=5, rebuild profile
+  ├── "liked"         → set rating=4, rebuild profile
+  ├── "mixed"         → set rating=3, rebuild profile
+  ├── "not_for_me"    → set rating=2, set excluded=true, rebuild profile
+  ├── "played_loved"  → set status="completed", set rating=5, rebuild profile
+  ├── "played_liked"  → set status="completed", set rating=4, rebuild profile
+  ├── "played_mixed"  → set status="completed", set rating=3, rebuild profile
+  └── "played_dropped" → set status="abandoned", set rating=2, set excluded=true, rebuild profile
 ```
+
+`played_*` variants are produced by the "already played this?" flow (marking a game as
+previously played, independent of the "play"/"later" pick decisions above) — see
+`packages/core/src/domain/feedback.ts` for the authoritative mapping.
 
 ## Auth Flow
 

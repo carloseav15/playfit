@@ -7,8 +7,9 @@ import type {
   ProductProfile,
   ProductTodayModel,
 } from "@playfit/core/types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
+import { useRecommendationFetch } from "./use-recommendation-fetch";
 
 type TodayRecommendationCacheScope = "decision" | "picks";
 
@@ -35,9 +36,14 @@ export function useTodayRecommendations({
   errorMessage: string;
   cacheScope: TodayRecommendationCacheScope;
 }) {
-  const [model, setModel] = useState<ProductTodayModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: model,
+    loading,
+    loadError,
+    execute,
+    reset,
+    abandonInFlight,
+  } = useRecommendationFetch<ProductTodayModel>(errorMessage);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const serializedRef = useRef("");
@@ -58,49 +64,32 @@ export function useTodayRecommendations({
 
   useEffect(() => {
     if (!enabled || !profile) {
-      setModel(null);
-      setLoadError(null);
-      setLoading(false);
+      reset();
       return;
     }
 
     const gameStateChanged = serializedGameStates !== serializedRef.current;
     serializedRef.current = serializedGameStates;
 
-    let cancelled = false;
+    const fetchRecommendations = () =>
+      execute(
+        async () => {
+          const res = await authenticatedFetch("/api/recommendations/model", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-playfit-refresh-key": `${serializedGameStates.length}:${serializedOnboarding.length}`,
+            },
+          });
 
-    async function fetchRecommendations() {
-      setLoading(true);
-      setLoadError(null);
+          if (!res.ok) {
+            throw new Error(errorMessage);
+          }
 
-      try {
-        const res = await authenticatedFetch("/api/recommendations/model", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-playfit-refresh-key": `${serializedGameStates.length}:${serializedOnboarding.length}`,
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error(errorMessage);
-        }
-
-        const data = (await res.json()) as ProductTodayModel;
-
-        if (!cancelled) {
-          addGamesToCache(selectCacheGames(data, cacheScope));
-          setModel(data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : errorMessage);
-          setModel(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
+          return (await res.json()) as ProductTodayModel;
+        },
+        { onSuccess: (data) => addGamesToCache(selectCacheGames(data, cacheScope)) },
+      );
 
     if (gameStateChanged) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -110,13 +99,23 @@ export function useTodayRecommendations({
     }
 
     return () => {
-      cancelled = true;
+      abandonInFlight();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
     };
-  }, [enabled, profile, serializedGameStates, serializedOnboarding, errorMessage, cacheScope]);
+  }, [
+    enabled,
+    profile,
+    serializedGameStates,
+    serializedOnboarding,
+    errorMessage,
+    cacheScope,
+    execute,
+    reset,
+    abandonInFlight,
+  ]);
 
   return { model, loading, loadError };
 }

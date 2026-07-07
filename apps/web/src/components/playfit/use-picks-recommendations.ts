@@ -2,8 +2,9 @@
 
 import { authenticatedFetch } from "@playfit/core/store";
 import type { ProductGameState, ProductProfile, RankedSeedGame } from "@playfit/core/types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
+import { useRecommendationFetch } from "./use-recommendation-fetch";
 
 export function usePicksRecommendations({
   enabled,
@@ -16,9 +17,9 @@ export function usePicksRecommendations({
   gameStates: Record<string, ProductGameState>;
   errorMessage: string;
 }) {
-  const [picks, setPicks] = useState<RankedSeedGame[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { data, loading, loadError, execute, reset, abandonInFlight } =
+    useRecommendationFetch<RankedSeedGame[]>(errorMessage);
+  const picks = data ?? [];
   const serializedRef = useRef("");
 
   const serializedKey = useMemo(() => {
@@ -32,9 +33,7 @@ export function usePicksRecommendations({
 
   useEffect(() => {
     if (!enabled || !profile) {
-      setPicks([]);
-      setLoadError(null);
-      setLoading(false);
+      reset();
       return;
     }
 
@@ -43,36 +42,28 @@ export function usePicksRecommendations({
 
     if (!changed && picks.length > 0) return;
 
-    let cancelled = false;
-
-    async function fetchPicks() {
-      if (picks.length === 0) setLoading(true);
-      setLoadError(null);
-
-      try {
+    void execute(
+      async () => {
         const res = await authenticatedFetch("/api/recommendations/picks");
         if (!res.ok) throw new Error(errorMessage);
-        const data = (await res.json()) as RankedSeedGame[];
-        if (!cancelled) {
-          addGamesToCache(data.map((p) => p.game));
-          setPicks(data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : errorMessage);
-          setPicks([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void fetchPicks();
+        return (await res.json()) as RankedSeedGame[];
+      },
+      { onSuccess: (data) => addGamesToCache(data.map((p) => p.game)) },
+    );
 
     return () => {
-      cancelled = true;
+      abandonInFlight();
     };
-  }, [enabled, profile, serializedKey, errorMessage, picks.length]);
+  }, [
+    enabled,
+    profile,
+    serializedKey,
+    errorMessage,
+    picks.length,
+    execute,
+    reset,
+    abandonInFlight,
+  ]);
 
   return { picks, loading, loadError };
 }

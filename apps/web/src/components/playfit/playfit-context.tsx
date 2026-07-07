@@ -9,7 +9,6 @@ import {
   createInitialState,
   loadProductState,
   resetProductState,
-  saveProductState,
   setCachedAuth,
 } from "@playfit/core/store";
 import type {
@@ -24,7 +23,6 @@ import type {
   SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
-import type { User } from "@supabase/supabase-js";
 import type React from "react";
 import {
   createContext,
@@ -36,6 +34,7 @@ import {
   useState,
 } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { getErrorMessage } from "@/lib/api-errors";
 import {
   addGamesToCache,
   clearGameCache,
@@ -45,10 +44,12 @@ import {
 import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
+import type { AuthUser } from "./use-playfit-auth";
+import { usePlayfitAuth } from "./use-playfit-auth";
+import { useQueuedProfileSave } from "./use-queued-profile-save";
 
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
-type AuthUser = { id: string; email: string; isAnonymous: boolean };
 const PLAYFIT_PICKS_LIMIT = 100;
 
 export interface ProductUiState {
@@ -201,219 +202,6 @@ function rebuildAdaptiveProfileFromCache(draft: ProductState) {
   draft.user.profile = buildAdaptiveProfile(draft.user.onboarding, map, draft.user.gameStates);
 }
 
-function usePlayfitAuth(localFirst = false) {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authBusy, setAuthBusy] = useState(true);
-  const [useLocalProfile, setUseLocalProfile] = useState(false);
-
-  const handleAuth = useCallback((userId: string, email: string, isAnonymous = false) => {
-    setUseLocalProfile(false);
-    setAuthUser({ id: userId, email, isAnonymous });
-  }, []);
-
-  const handleLocalProfile = useCallback(() => {
-    setUseLocalProfile(true);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    function mapAuthUser(user: User) {
-      const isAnonymous = user.is_anonymous === true;
-      return {
-        id: user.id,
-        email: isAnonymous ? "Guest profile" : (user.email ?? ""),
-        isAnonymous,
-      };
-    }
-
-    async function ensureSession() {
-      try {
-        const res = await supabase.auth.getSession();
-        const session = res.data.session;
-        if (cancelled) return;
-
-        if (session?.user) {
-          setCachedAuth(session.access_token ?? null, session.user.id);
-          setUseLocalProfile(false);
-          setAuthUser(mapAuthUser(session.user));
-          return;
-        }
-
-        if (localFirst) {
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (cancelled) return;
-
-          if (!error && data.session?.user) {
-            setCachedAuth(data.session.access_token ?? null, data.session.user.id);
-            setUseLocalProfile(false);
-            setAuthUser(mapAuthUser(data.session.user));
-            return;
-          }
-
-          setUseLocalProfile(true);
-          setAuthUser(null);
-        }
-      } finally {
-        if (!cancelled) setAuthBusy(false);
-      }
-    }
-
-    void ensureSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setCachedAuth(session.access_token, session.user.id);
-        setUseLocalProfile(false);
-        setAuthUser(mapAuthUser(session.user));
-      } else {
-        setCachedAuth(null, null);
-        setAuthUser(null);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [localFirst]);
-
-  return {
-    authUser,
-    authBusy,
-    useLocalProfile,
-    setAuthUser,
-    setUseLocalProfile,
-    handleAuth,
-    handleLocalProfile,
-  };
-}
-
-function useQueuedProfileSave({
-  setAuthUser,
-  setUseLocalProfile,
-  setUi,
-  setIsSaving,
-}: {
-  setAuthUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
-  setUseLocalProfile: React.Dispatch<React.SetStateAction<boolean>>;
-  setUi: React.Dispatch<React.SetStateAction<ProductUiState | null>>;
-  setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const saveSequenceRef = useRef(0);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSnapshotRef = useRef<ProductState | null>(null);
-  const pendingOptionsRef = useRef<{ successMessage?: string }>({});
-
-  const doSave = useCallback(
-    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
-      const sequence = ++saveSequenceRef.current;
-      setIsSaving(true);
-      setUi((currentUi) => (currentUi ? { ...currentUi, saveStatus: "saving" } : currentUi));
-
-      const task = saveQueueRef.current
-        .catch(() => undefined)
-        .then(async () => {
-          try {
-            const result = await saveProductState(snapshot);
-            if (!result.ok && result.reason === "auth_expired") {
-              setAuthUser(null);
-              setUseLocalProfile(false);
-              return;
-            }
-
-            if (sequence !== saveSequenceRef.current) return;
-
-            if (!result.ok) {
-              setUi((currentUi) =>
-                currentUi
-                  ? {
-                      ...currentUi,
-                      saveStatus: "error",
-                      statusMessage: "Couldn't save. We'll retry when you're back online.",
-                    }
-                  : currentUi,
-              );
-            } else {
-              setUi((currentUi) =>
-                currentUi
-                  ? {
-                      ...currentUi,
-                      saveStatus: "saved",
-                      statusMessage: options.successMessage ?? currentUi.statusMessage,
-                    }
-                  : currentUi,
-              );
-            }
-          } catch {
-            if (sequence !== saveSequenceRef.current) return;
-            setUi((currentUi) =>
-              currentUi
-                ? {
-                    ...currentUi,
-                    saveStatus: "error",
-                    statusMessage: "Couldn't save. We'll retry when you're back online.",
-                  }
-                : currentUi,
-            );
-          } finally {
-            if (sequence === saveSequenceRef.current) {
-              setIsSaving(false);
-            }
-          }
-        });
-
-      saveQueueRef.current = task;
-      return task;
-    },
-    [setAuthUser, setUseLocalProfile, setUi, setIsSaving],
-  );
-
-  const enqueueSave = useCallback(
-    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
-      pendingSnapshotRef.current = snapshot;
-      pendingOptionsRef.current = options;
-
-      setIsSaving(true);
-      setUi((currentUi) => (currentUi ? { ...currentUi, saveStatus: "saving" } : currentUi));
-
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      debounceTimerRef.current = setTimeout(() => {
-        const latest = pendingSnapshotRef.current;
-        const latestOptions = pendingOptionsRef.current;
-        pendingSnapshotRef.current = null;
-        pendingOptionsRef.current = {};
-        if (latest) {
-          doSave(latest, latestOptions);
-        }
-      }, 1000);
-    },
-    [doSave, setIsSaving, setUi],
-  );
-
-  const flushSave = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    const latest = pendingSnapshotRef.current;
-    if (latest) {
-      const latestOptions = pendingOptionsRef.current;
-      pendingSnapshotRef.current = null;
-      pendingOptionsRef.current = {};
-      doSave(latest, latestOptions);
-    }
-  }, [doSave]);
-
-  return { enqueueSave, flushSave };
-}
-
 export function PlayfitProvider({
   children,
   platforms,
@@ -549,7 +337,7 @@ export function PlayfitProvider({
         }
       } catch (error) {
         if (!cancelled) {
-          setBootError(error instanceof Error ? error.message : "Unexpected boot error.");
+          setBootError(getErrorMessage(error, "Unexpected boot error."));
         }
       }
     }

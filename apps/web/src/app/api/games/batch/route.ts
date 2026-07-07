@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { resolveGameRedirects } from "@/lib/game-redirects";
 import { createAnonClient } from "@/lib/supabase/server";
@@ -41,14 +42,14 @@ export async function POST(request: Request) {
   }
 
   if (gameIds.length > 500) {
-    return Response.json({ error: "Too many game IDs (max 500)" }, { status: 400 });
+    return jsonError("Too many game IDs (max 500)", 400);
   }
 
   const supabase = createAnonClient();
   const redirects = await resolveGameRedirects(supabase, gameIds);
 
   if (redirects.error) {
-    return Response.json({ error: redirects.error }, { status: 500 });
+    return jsonError(redirects.error, 500);
   }
 
   const { data: rawGames, error } = await supabase
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     .in("game_id", redirects.ids);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
 
   const games = (rawGames as GameRow[]) ?? [];

@@ -1,3 +1,4 @@
+import { getErrorMessage, jsonError } from "@/lib/api-errors";
 import { createAnonClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -10,7 +11,7 @@ export async function GET() {
       .order("id", { ascending: true });
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     const mapped = (platforms ?? []).map((row) => ({
@@ -24,6 +25,6 @@ export async function GET() {
 
     return Response.json({ platforms: mapped });
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : "unknown" }, { status: 500 });
+    return jsonError(getErrorMessage(e, "unknown"), 500);
   }
 }

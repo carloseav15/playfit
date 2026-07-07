@@ -1,6 +1,7 @@
 import { scoreSeedGame } from "@playfit/core/domain";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
+import { jsonError } from "@/lib/api-errors";
 import { buildStateForScoring, fetchFullGamesById, loadRecommendationState } from "../shared";
 
 const PICKS_CACHE_TTL = 300;
@@ -8,7 +9,7 @@ const PICKS_CACHE_TTL = 300;
 export async function GET(request: Request) {
   const loaded = await loadRecommendationState(request);
   if (!loaded.ok) {
-    return Response.json({ error: loaded.error }, { status: loaded.status });
+    return jsonError(loaded.error, loaded.status);
   }
 
   const profile = loaded.state.user.profile;

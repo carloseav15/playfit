@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api-errors";
 import { buildPlayNextModel, loadRecommendationState } from "../shared";
 
 export const maxDuration = 30;
@@ -10,7 +11,7 @@ async function rejectLegacyPayload(request: Request) {
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return jsonError("Invalid JSON payload", 400);
   }
 
   if (
@@ -18,10 +19,7 @@ async function rejectLegacyPayload(request: Request) {
     typeof parsed === "object" &&
     ("profile" in parsed || "onboarding" in parsed || "gameStates" in parsed)
   ) {
-    return Response.json(
-      { error: "Recommendations are session-scoped; do not send profile state." },
-      { status: 400 },
-    );
+    return jsonError("Recommendations are session-scoped; do not send profile state.", 400);
   }
 
   return null;
@@ -36,7 +34,7 @@ export async function POST(request: Request) {
     if (loaded.status === 200) {
       return Response.json({ needsResync: true });
     }
-    return Response.json({ error: loaded.error }, { status: loaded.status });
+    return jsonError(loaded.error, loaded.status);
   }
 
   try {
@@ -47,6 +45,6 @@ export async function POST(request: Request) {
     });
     return Response.json(model);
   } catch {
-    return Response.json({ error: "Failed to score recommendations" }, { status: 500 });
+    return jsonError("Failed to score recommendations", 500);
   }
 }
