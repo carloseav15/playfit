@@ -1,6 +1,8 @@
 # Migración a claves subrogadas (`pk`/`*_ref`) — estado y siguientes pasos
 
-Este documento es el handoff de una migración de esquema hecha **solo en la base de datos** (schema `games_library`, proyecto local Supabase). Ningún archivo de `product/` ni `intelligence-lab/` fue tocado a nivel de queries/tipos — la app sigue funcionando exactamente igual que antes de este cambio. Este doc es la referencia para la Fase 2 (adaptar el código de la app).
+Este documento conserva el historial de la migración del schema local `games_library` y su estado de adopción. La expansión inicial fue solo de base de datos; desde entonces el runtime web sí fue adaptado y verificado contra las relaciones subrogadas.
+
+**Estado 2026-07-05:** `pk`/`*_ref` son el contrato relacional vigente. Las rutas web comparten selects que embeben `series:series_ref`, `genre:genre_ref` y `platforms:platform_ref`; el endpoint individual volvió a responder contra la base local. Los slugs de texto (`game_id`, `series_id`, `genre_id`, `platform_id`) permanecen como identificadores públicos y datos de compatibilidad, no como FKs. Los scripts de mantenimiento deben seguir resolviendo y escribiendo los `*_ref` obligatorios.
 
 ## Por qué
 
@@ -35,17 +37,17 @@ Nullable (porque el `game_id` original también es nullable en esa tabla): `game
 
 Verificación de integridad tras la migración: **0 filas con `*_ref` null donde el texto original no era null**, en todas las tablas. Backfill 100% consistente.
 
-## Qué falta (Fase 2 — requiere tocar `product/` y `intelligence-lab/`)
+## Plan original de Fase 2 y estado actual
 
-Esto **no se hizo hoy** porque requiere correr y probar la app (165 archivos dependen de `game_id` como texto: 138 en `product/`, 27 en `intelligence-lab/`), algo que no se puede hacer a ciegas desde una sesión que solo tiene acceso a la DB.
+Esta era la lista de transición. Los puntos de lectura del runtime web ya se adaptaron; las escrituras de scripts siguen requiriendo revisión cada vez que se reactive un importador histórico.
 
 1. **Migrar queries de escritura para poblar los `*_ref`.** Cualquier `INSERT` nuevo a las tablas satélite debe resolver y setear `game_ref`/`platform_ref`/`genre_ref`/`series_ref` además del texto (o en vez del texto, ver punto 4). Buscar en `product/` los inserts a estas tablas (principalmente en `product/scripts/*.mjs` de backfill/scraping y en las rutas API de escritura).
-2. **Migrar joins/embeds de lectura** que hoy dependen del FK de texto (PostgREST resuelve embeds por la relación de FK — una vez las relaciones "canónicas" pasen a ser por `pk`, hay que revisar los `select=*,relation(...)` que usan las relaciones viejas).
+2. **Completado para el runtime web:** los joins/embeds activos usan los FKs `*_ref`. PostgREST resuelve la relación por esas constraints; no volver a introducir embeds como `platforms:platform_id(name)`.
 3. **Regenerar tipos TypeScript** (`generate_typescript_types`) después de cada paso de esta fase, y correr el type-checker para encontrar todos los puntos de ajuste automáticamente en vez de grepear a mano.
-4. **Decidir el punto de corte:** cuando el código ya lea/escriba por `pk`/`*_ref`, se puede:
+4. **Punto de corte completado en la DB:**
    - Promover `games.pk` (y equivalentes) a `PRIMARY KEY` real, y
    - Convertir el `game_id` (y `genre_id`/`series_id`/`platform_id`) de PK/FK a una columna `UNIQUE` normal — sigue existiendo para URLs y display, pero deja de ser el mecanismo de integridad referencial.
-   - Esto es la Fase 3 ("Contract"). No hacerla hasta que la Fase 2 esté completa y probada — mientras tanto ambos caminos (texto y `*_ref`) coexisten sin conflicto.
+   - La Fase 3 ya promovió las claves subrogadas. Los campos de texto continúan por contrato público, pero no deben recuperar responsabilidad referencial.
 5. **Regla nueva para todo el equipo, desde ya:** ningún `game_id`/`genre_id`/`series_id`/`platform_id` se reescribe in-place una vez creado. Toda fusión de duplicados usa `game_redirects` (ya existe) o, a partir de ahora, simplemente repunta `game_ref` al `pk` ganador y borra la fila perdedora — no hace falta tocar el texto en ninguna tabla satélite.
 
 ## Otros cambios de datos aplicados hoy (relacionados)
@@ -103,7 +105,7 @@ Al revisar las 18 funciones `SECURITY DEFINER` una por una se confirmó una **vu
 
 **Sin tocar (no son sensibles a identidad):** `get_cache`, `set_cache`, `get_full_catalog`, `score_today_recommendations` — no reciben ni exponen datos de un usuario específico.
 
-**Riesgo residual conocido, no resuelto:** `migrate_profile` sigue sin validar `p_from_user_id` (es imposible hacerlo sin saber si ese id fue alguna vez una sesión anónima real de Supabase Auth o un id generado por el cliente — no se investigó el código de la app para esto, según lo pedido). En teoría, alguien podría copiar el perfil de otro usuario real hacia el suyo propio si conoce su UUID exacto. Vale revisarlo cuando se audite el flujo de auth de la app.
+**Riesgo cerrado en el runtime 2026-07-05:** la app dejó de migrar perfiles remotos por `deviceId`. El flujo soportado crea una sesión anónima Supabase y enlaza Google sobre esa misma identidad, conservando `user_id`; las RPC protegidas reciben siempre el cliente autenticado y validan `auth.uid()`.
 
 ## Sexta pasada (2026-07-04, mismo día — limpieza de deuda propia)
 
@@ -119,5 +121,5 @@ Al revisar las 18 funciones `SECURITY DEFINER` una por una se confirmó una **vu
 ## Lo que quedó pendiente (requiere una decisión de alguien, no es mecánico)
 
 - **32 géneros "híbridos"** (`action_jrpg`, `arena_fighter_rpg_hybrid`, `card_horror_adventure`, `life_sim_action_rpg`, etc.) — candidatos a modelarse como `game_genres` (tabla puente many-to-many) en vez de un genre_id escalar. **No se auto-dividieron** porque no todos se descomponen limpio en dos tokens existentes (ej. `arena_fighter_rpg_hybrid` no tiene un genre "arena_fighter" separado), y decidir la semántica de cada uno es un juicio de producto, no una limpieza de datos.
-- `release_label` (columna casi muerta, 65,416/65,419 filas vacías, usada en 25 archivos de `product/`) y `platform_names` (redundante, derivable por join, usada en 10 archivos) — no se tocaron porque romperían la app; requieren coordinación de código primero.
+- **`release_label` y `platform_names` quedaron eliminadas.** Las rutas actuales comparten `GAME_SELECT`, derivan la etiqueta visible desde `release_year` y resuelven plataformas mediante `game_platforms`; ningún `select` de runtime solicita ya esas columnas.
 - Los 167 grupos de duplicados de título (doom, ridge_racer, final_fantasy_vii, etc.) que no pasaron por el detector estándar — no se auto-fusionaron, fusionar duplicados reales borra filas y requiere revisión caso a caso.

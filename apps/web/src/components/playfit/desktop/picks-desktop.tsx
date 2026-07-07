@@ -59,7 +59,7 @@ export function PicksDesktop({
             asChild
             className="text-xs text-accent hover:text-accent/80 hover:bg-transparent h-auto p-0 mt-0.5"
           >
-            <Link href={`/play/game/${gameId}`} className="flex items-center">
+            <Link href={`/game/${gameId}`} className="flex items-center">
               <Eye className="size-3.5 mr-1" />
               See details
             </Link>

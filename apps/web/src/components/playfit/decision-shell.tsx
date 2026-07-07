@@ -546,7 +546,7 @@ export function DecisionShell() {
                     {alternatives.map((entry) => (
                       <Link
                         key={entry.game.gameId}
-                        href={`/play/game/${entry.game.gameId}`}
+                        href={`/game/${entry.game.gameId}`}
                         className="group flex items-center justify-between gap-4 p-4 transition-all duration-300 hover:bg-secondary/25 no-underline"
                       >
                         <div className="flex items-center gap-3.5 min-w-0">

@@ -101,7 +101,7 @@ export function PicksMobile({
 
   return (
     <div className="flex items-center justify-between p-3 bg-card border border-border rounded-2xl hover:border-border/80 transition-all gap-3 w-full min-w-0">
-      <Link href={`/play/game/${gameId}`} className="flex items-center gap-3 min-w-0 flex-1">
+      <Link href={`/game/${gameId}`} className="flex items-center gap-3 min-w-0 flex-1">
         <CoverArt
           game={entry.game}
           className="aspect-[2/3] w-12 rounded-lg shadow-sm border border-border/40 shrink-0"

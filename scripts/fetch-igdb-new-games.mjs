@@ -40,7 +40,7 @@ const MIN_REVIEWS = argValue("--min-reviews") ? Number(argValue("--min-reviews")
 // pc/mac/linux/android/ios - the platforms where IGDB's unreviewed indie/
 // mobile/web noise concentrates. Includes id 508 (Nintendo Switch 2).
 const CONSOLE_IDS = new Set([
-  37, 137, 59, 23, 20, 159, 35, 21, 33, 24, 22, 29, 79, 80, 136, 18, 99, 51, 46, 7, 8, 9, 48, 167,
+  4, 37, 137, 59, 23, 20, 159, 35, 21, 33, 24, 22, 29, 79, 80, 136, 18, 99, 51, 46, 7, 8, 9, 48, 167,
   38, 32, 64, 19, 58, 130, 508, 5, 41, 12, 49, 11, 169,
 ]);
 

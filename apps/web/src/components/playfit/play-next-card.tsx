@@ -159,7 +159,7 @@ export function PlayNextCard({
                 asChild
                 className="text-xs hover:text-accent"
               >
-                <Link href={`/play/game/${entry.game.gameId}`}>
+                <Link href={`/game/${entry.game.gameId}`}>
                   Why?
                   <ChevronRight className="size-3.5 ml-0.5" />
                 </Link>
@@ -318,7 +318,7 @@ export function PlayNextCard({
             )}
           >
             <ListPlus className="size-4 mr-2" />
-            {inPlayfitPicks ? "Saved in Playfit Picks" : "Add to Playfit Picks"}
+            {inPlayfitPicks ? "Saved in Playfit Picks" : "Save to Picks"}
           </Button>
 
           <div className="flex flex-col gap-2 p-2.5 sm:p-3 rounded-2xl bg-secondary/50 border border-border/50">
@@ -373,7 +373,7 @@ export function PlayNextCard({
             asChild
             className="text-xs text-accent hover:text-accent/80 h-11 sm:h-9 justify-center sm:justify-start"
           >
-            <Link href={`/play/game/${entry.game.gameId}`}>
+            <Link href={`/game/${entry.game.gameId}`}>
               <Eye className="size-4 mr-1.5" />
               See analysis
             </Link>

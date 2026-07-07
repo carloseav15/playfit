@@ -223,6 +223,21 @@ FROM ${TEMP_SCHEMA}.games g
 WHERE array_length(g.aliases, 1) > 0
 ON CONFLICT DO NOTHING;
 
+-- 6h. Profiles
+INSERT INTO ${ORIG_SCHEMA}.profiles (
+  id, user_id, game_states, profile, onboarding, created_at, updated_at
+)
+SELECT
+  p.id,
+  p.user_id,
+  p.game_states,
+  p.profile,
+  p.onboarding,
+  p.created_at,
+  p.updated_at
+FROM ${TEMP_SCHEMA}.profiles p
+ON CONFLICT (id) DO NOTHING;
+
 COMMIT;
 EOSQL
 

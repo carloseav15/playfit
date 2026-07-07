@@ -1,5 +1,5 @@
 import type { SeedGame } from "@playfit/core/types";
-import { GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
+import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
 const LOW_QUALITY_TERMS = [
@@ -126,7 +126,6 @@ interface GameRow {
   tags: string[] | null;
   notes: string;
   sort_date: string | null;
-  release_label: string | null;
   series: unknown;
   genre: unknown;
 }
@@ -160,7 +159,7 @@ async function mapRowsToSeedGames(supabase: SupabaseClient, games: GameRow[]): P
     supabase
       .schema("games_library")
       .from("game_platforms")
-      .select("game_id, platform_id, platforms:platform_id(name)")
+      .select(GAME_PLATFORM_SELECT)
       .in("game_id", fetchedIds),
     supabase
       .schema("games_library")

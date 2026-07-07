@@ -1,320 +1,101 @@
 # Architecture
 
-## High-Level Overview
+## Overview
 
-Playfit is a **monorepo** with two workspaces: `apps/web` (Next.js 16 App Router) and `packages/core` (shared domain logic). The app uses **Supabase** for auth, database, and edge functions, and deploys to **Vercel** as the public product demo at https://playfit-gold.vercel.app. All API routes are Next.js Route Handlers — there is no separate backend server.
-
-## Diagram
+`product` is an npm workspace with a Next.js web application (`apps/web`) and shared domain code (`packages/core`). Next.js Route Handlers are the runtime backend. Supabase provides authentication and the `games_library` Postgres schema; catalog-maintenance scripts run outside the web runtime.
 
 ```mermaid
-graph TD
-    subgraph Client["Browser"]
-        A["Next.js App Router<br/>apps/web"]
-        B["PlayfitContext<br/>(React Context)"]
-        C["@playfit/core/store<br/>(IndexedDB persistence)"]
-        D["UI Kit<br/>30 components"]
-        E["Proxy<br/>(request pass-through)"]
-    end
-
-    subgraph Server["Next.js Server"]
-        F["API Routes<br/>apps/web/src/app/api/*"]
-        G["Edge Function<br/>migrate-profile"]
-    end
-
-    subgraph Database["Supabase Postgres"]
-        H["games_library schema"]
-        I["SECURITY DEFINER fns<br/>get_profile, upsert_profile<br/>get_cache, set_cache"]
-        J["RLS policies"]
-    end
-
-    subgraph External["External Services"]
-        K["RAWG API<br/>(scraping only)"]
-    end
-
-    A --> E
-    E --> A
-    A --> B
-    B --> C
-    B --> F
-    F -->|anon client| H
-    F -->|rpc calls| I
-    I --> H
-    G -->|service_role client| H
-    K -.->|scripts/scrape-rawg.mjs| H
+flowchart LR
+  UI[Next.js App Router] --> State[PlayfitProvider]
+  State --> API[Route Handlers]
+  State --> Local[Browser cache]
+  API --> Auth[Supabase Auth]
+  API --> DB[(games_library)]
+  Core[packages/core] --> State
+  Core --> API
+  Scripts[scripts] --> DB
 ```
 
-## Data Flow
+## Runtime layout
 
-### Profile CRUD (Authenticated User)
-
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant Middleware
-    participant API as /api/profile
-    participant DB as Supabase
-    participant EF as Edge Function
-
-    Browser->>Middleware: Request /app/*
-    Middleware->>Browser: Continue request
-
-    Browser->>API: GET /api/profile
-    API->>Supabase: auth.getUser() (cookie)
-    Supabase-->>API: user.id
-    API->>API: check_rate_limit()
-    API->>DB: get_profile(user_id) [SECURITY DEFINER]
-    DB-->>API: profile data
-    API-->>Browser: { state }
-
-    Browser->>API: POST /api/profile { gameStates, profile, onboarding }
-    API->>Supabase: auth.getUser()
-    Supabase-->>API: user.id
-    API->>API: check_rate_limit()
-    alt Has deviceId + authenticated
-        API->>DB: get_profile(deviceId)
-        DB-->>API: device profile exists
-        API->>EF: POST migrate-profile { fromUserId, toUserId }
-        EF->>DB: migrate_profile() + delete_profile()
-        API-->>Browser: { ok, migrated: true }
-    else Normal save
-        API->>DB: upsert_profile() [SECURITY DEFINER]
-        DB-->>API: ok
-        API-->>Browser: { ok }
-    end
+```text
+apps/web/src/
+  app/
+    (play)/                 # /, /game/[gameId], /picks, /taste, /settings
+    api/
+      games/                # catalog search, batch and detail
+      profile/              # profile and per-game state persistence
+      recommendations/      # today, picks, taste model, similar and dossier
+      admin/covers/         # authenticated cover maintenance
+    auth/callback/          # OAuth callback
+    admin/covers/           # cover administration UI
+    how-it-works/ legal/ ui-kit/
+  components/playfit/       # product UI and route-specific desktop/mobile shells
+  lib/
+    supabase/               # browser, SSR and request-authenticated clients
+    game-mapper.ts          # shared catalog select and DB-to-domain mapping
+    game-cache.ts           # client game cache
+packages/core/src/
+  domain/                   # recommendation and profile rules
+  store/                    # API persistence adapter and cached auth
+  schemas.ts types.ts       # shared runtime schemas and contracts
+supabase/migrations/        # versioned database contract
+scripts/                    # local catalog ingestion, audit and backup tools
 ```
 
-### Recommendations
+## Identity and persistence
+
+The root play experience starts or restores a Supabase session. A guest normally uses an anonymous Supabase user; linking Google with `linkIdentity` upgrades that user without changing its `user_id` or profile.
+
+Every protected API request creates one authenticated Supabase context from either a bearer JWT or the SSR cookie session. That same client is reused for rate limiting and identity-bound RPCs. Missing or invalid sessions return `401`; a consumed limit returns `429`; an unavailable limiter returns `503`.
+
+`deviceId` remains accepted in selected request bodies for mobile contract compatibility, but it is not a remote identity and is never used for authorization. A true local-only fallback may keep browser state when anonymous sign-in is unavailable; it does not grant remote persistence.
+
+## Main data flows
+
+### Profile and game state
 
 ```mermaid
 sequenceDiagram
-    participant Browser
-    participant API as /api/recommendations
-    participant Cache as api_cache table
-    participant DB as Supabase
-
-    Browser->>API: POST /today?device_id=...
-    API->>DB: get_profile(user_id or device_id) [SECURITY DEFINER]
-    DB-->>API: persisted profile + onboarding + game states
-    API->>Cache: get_cache("recs:*")
-    alt Cache hit
-        Cache-->>API: cached recommendation model
-    else Cache miss
-        API->>DB: score_today_recommendations() RPC
-        DB-->>API: ranked game IDs + scores
-        API->>DB: fetch full game rows for ranked IDs
-        DB-->>API: game, platform, alias data
-        API->>API: hydrate + explain ranked games
-        API->>Cache: set_cache() [best-effort]
-    end
-    API-->>Browser: recommendation model
+  participant C as Web client
+  participant A as Next.js API
+  participant S as Supabase Auth
+  participant D as games_library
+  C->>A: Request with bearer token or SSR cookie
+  A->>S: Validate current user
+  S-->>A: user_id
+  A->>D: check_rate_limit using authenticated client
+  A->>D: get/upsert/delete profile or game state
+  D-->>A: Result scoped to auth.uid()
+  A-->>C: JSON response
 ```
 
-## Workspace Structure
+Client mutations update React state immediately and then persist through `/api/profile` or `/api/profile/games/[gameId]`. Zod schemas in `packages/core` validate the shared payloads. Database functions also require `p_user_id = auth.uid()`; the API check is not the security boundary by itself.
 
-```
-apps/web/                    # Next.js 16 App Router
-  src/
-    app/                     # Pages + API routes
-      api/                   # Route handlers (13 endpoints)
-      app/                   # App shell (/app/*)
-      (play)/                # Play feature (routes at root: /, /game/[gameId], /picks, /taste, /settings)
-      ui-kit/                # Living style guide
-    components/
-      ui/                    # 30 reusable UI components
-      playfit/               # Business components (product)
-      playfit-mvp/           # Business components (MVP variant)
-    lib/
-      supabase/              # Supabase clients (server + anon)
-      game-mapper.ts         # DB row → SeedGame mapper
-      game-redirects.ts      # Canonical ID resolution
-      api-cache.ts           # Postgres cache helpers
-      device-id.ts           # Device ID validation
-  e2e/                       # Playwright tests
+### Catalog and recommendations
 
-packages/core/               # Shared domain logic
-  src/
-    domain/                  # Pure functions: recommendations, onboarding, feedback
-    store/                   # IndexedDB persistence layer
-    data/                    # Seeds, tags
-    schemas.ts               # Zod schemas
-    types.ts                 # Shared TypeScript types
+Catalog routes read public catalog data from Supabase. `GAME_SELECT` and `GAME_PLATFORM_SELECT` are the shared PostgREST contracts, including surrogate-key relationships such as `series_ref`, `genre_ref`, and `platform_ref`. `mapGameRowToSeedGame` produces the domain model used by web and mobile clients.
+
+Recommendation routes combine the authenticated profile with catalog scoring RPCs. Postgres-backed cache helpers reduce repeated model/catalog work. Canonical redirects are resolved before individual game lookup.
+
+## Security boundaries
+
+- Runtime code uses the anon key plus the caller's session; it does not use `service_role` for user data.
+- Profile RPCs bind their requested user to `auth.uid()` and have a fixed safe `search_path`.
+- Public catalog tables and views expose only intended reads. User-owned tables stay RLS-scoped.
+- `service_role` is reserved for controlled local/admin scripts that explicitly require it.
+- Migrations are the source of truth for grants, RLS, functions, and schema changes.
+
+## Verification
+
+From `product/`:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+supabase db lint --local --schema games_library
 ```
 
-## Key Architectural Decisions
-
-- **No `service_role` key in runtime**: Profile CRUD uses SECURITY DEFINER Postgres functions, never exposes the service key to the API route runtime. The `SUPABASE_SERVICE_KEY` is only used in CI scripts and migration tools.
-- **Anonymous support via deviceId**: Browser generates a UUID v4 stored in localStorage. The API uses this as a pseudo-user ID for local-first usage without auth.
-- **Postgres as cache layer**: The `api_cache` table serves as a shared cache between serverless instances (TTL 5 min). Used by `/api/recommendations/today` and `/similar`.
-- **Canonical game IDs**: Game redirects (`game_redirects` table) resolve retired/duplicate IDs to canonical ones. All API game lookups go through `resolveGameRedirect()`.
-- **Next.js 16 canary**: Pinned to `16.3.0-canary.34` to avoid PostCSS audit issues. See `docs/nextjs-16-canary.md` for breaking changes.
-
-## Caching Strategy
-
-| Cache | Location | TTL | Used by |
-|---|---|---|---|
-| Catalog (all games) | `api_cache` table | 300s | `/api/recommendations/today`, `/similar` |
-| Recommendation model | `api_cache` table | 3600s | `/api/recommendations/today` |
-| Static assets | Vercel CDN (Next.js) | Immutable | `/covers/games/*` |
-| Social preview | Vercel CDN (Next.js) | Immutable | `/og.webp` |
-| Auth session | HTTP cookies (Supabase SSR) | JWT expiry | Middleware, API routes |
-| Profile data | Browser IndexedDB | Persistent | `@playfit/core/store` |
-
-## Security Model
-
-- **RLS**: `games` + `platforms` are world-readable. `profiles` + `user_game_states` are user-scoped. `rate_limits` + `audit_log` have INSERT-only policies.
-- **Rate limiting**: `check_rate_limit()` RPC enforces 30 req/min per IP for `/api/profile`, 60 req/min for `/api/profile/games`.
-- **Device ID validation**: UUID v4 regex check on query params for anonymous access.
-- **Edge Function**: Sanitizes error messages (no key leaks), uses try/catch at top level.
-
-## Frontend Page Hierarchy
-
-```
-/ (public)              → HomePage (landing)
-  /how-it-works         → HowItWorksPage
-  /legal/privacy        → PrivacyPage
-  /legal/terms          → TermsPage
-  /ui-kit               → UiKitPage (living style guide)
-
-  /app                  → AppLayout → PlayfitRouteProvider (local-first)
-    /app                → ProductApp
-      ├── TodaySection
-      ├── LibrarySection
-      ├── FinderSection
-      ├── UpcomingSection
-      ├── ProfileSection
-      └── OnboardingSection
-    /app/game/:gameId   → GameDetailPage (dossier)
-
-  / (public)             → PlayLayout
-    /                    → PlayPageClient
-    /game/:gameId        → PlayDossierClient
-    /picks               → PicksPageClient
-    /taste               → TastePageClient
-```
-
-### Component Directory Layout
-
-```
-components/
-  ui/              # 30 reusable, generic UI components (button, card, dialog, etc.)
-                   # Exported in index.ts, living docs at /ui-kit
-
-  playfit/         # Production business components
-    product-app.tsx       # Shell with sidebar nav + tab routing
-    playfit-context.tsx   # Central state (see docs/PLAYFIT-CONTEXT.md)
-    playfit-route-provider.tsx  # Provider wrapper with ErrorBoundary
-    today-section.tsx     # Today recommendation view
-    library-section.tsx   # My Games view
-    finder-section.tsx    # Discover / search view
-    upcoming-section.tsx  # Upcoming releases view
-    profile-section.tsx   # User profile view
-    onboarding-section.tsx # Cold-start onboarding wizard
-    carousel.tsx          # Game card carousel
-    carousel-card.tsx     # Individual game card
-    cover-art.tsx         # Game cover image component
-    section-head.tsx      # Section header with optional action
-    metric.tsx            # Stat metric display
-    star-rating.tsx       # Star rating input/display
-    status-toast.tsx      # Save status toast notification
-    auth-panel.tsx        # Sign in / continue locally panel
-    game-detail-page.tsx  # Game dossier page
-    product-utils.ts      # Utility functions
-
-  playfit-mvp/      # MVP variant components (simpler, single-use)
-    decision-shell.tsx     # Decision UI shell (play next)
-    decision-dossier.tsx   # Decision dossier
-    play-page-client.tsx   # Play page entry
-    play-next-card.tsx     # Next play recommendation card
-    play-dossier-client.tsx # Play dossier entry
-    picks-shell.tsx        # Playfit Picks list
-    taste-shell.tsx        # Your Taste explanation + correction view
-    feedback-bar.tsx       # Feedback collection bar
-```
-
-### Navigation Flow
-
-Tabs (Today / My Games / Discover / Upcoming / Profile / Setup) render within the `ProductShell` layout via `ActiveSection` which maps `ui.activeTab` → section component. Tab switching updates URL hash (`#library`, `#finder`, etc.) for deep-linking. Authentication is handled inside the product shell and API calls; the current proxy is a request pass-through.
-
-## Domain Business Rules
-
-### Recommendation Scoring (`packages/core/src/domain/recommendations.ts`)
-
-Each game gets an **affinity** and **risk** score, then ranked by `affinity - risk`:
-
-```
-affinity = BASE_AFFINITY (15) + tag_match_bonuses
-risk = BASE_RISK (10) + tag_mismatch_penalties
-```
-
-**Key constants:**
-
-| Constant | Value | Effect |
-|---|---|---|
-| `STRONG_FIT_THRESHOLD` | 78 | Confidence label threshold |
-| `PROMISING_FIT_THRESHOLD` | 62 | Promising match threshold |
-| `HIGH_FRICTION_THRESHOLD` | 58 | Caution threshold |
-| `GENRE_MATCH_BONUS` | 8 | Bonus per matching genre |
-| `GENRE_MISMATCH_PENALTY` | 6 | Penalty per mismatched genre |
-| `SOULS_LIKE_RISK` | 15 | Fixed risk for souls-like games |
-| `HORROR_RISK` | 12 | Fixed risk for horror games |
-
-**Confidence levels:**
-
-| Rated Games | Confidence |
-|---|---|
-| 0–2 | low |
-| 3–5 | medium |
-| 6+ | high |
-
-**Profile signals** are built from liked/disliked tags aggregated across all rated games. Tags with `count > 3` generate "Strong history" messages, `2-3` generate "Emerging pattern", `1` generates "Early signal".
-
-### Decision Feedback (`packages/core/src/domain/feedback.ts`)
-
-| Feedback | Effect |
-|---|---|
-| `play` | Sets status=playing, clears backlog, clears excluded |
-| `later` | Sets status=shelved, inBacklog=true |
-| `loved` | Sets rating=5, rebuilds profile |
-| `liked` | Sets rating=4, rebuilds profile |
-| `mixed` | Sets rating=3, rebuilds profile |
-| `not_for_me` | Sets rating=2, excluded=true, rebuilds profile |
-
-### Playfit Picks
-
-`inPlayfitPicks` is an intent/curation flag on `ProductGameState`, persisted as
-`user_game_states.in_playfit_picks`. It is not a taste signal. The home page excludes
-picked games from `nextUp`, and `/picks` shows them ordered by current fit.
-
-### Search Scoring
-
-| Match Type | Score |
-|---|---|
-| Exact title match | 160 |
-| Exact alias match | 150 |
-| Title starts with query | 126 |
-| Title includes query | 96 |
-| Any token match | 72+ |
-
-**Quality penalties** (subtracted from score):
-- Low-quality terms in title (demo, soundtrack, etc.): -22 each
-- No tags: -20
-- Unknown genre: -16
-- No cover: -6
-
-### Duplicate / Redirect Resolution
-
-Game IDs can be redirected via `game_redirects` table. `resolveGameRedirect(supabase, gameId)` follows chains up to 5 hops with cycle detection. All API game lookups pass through redirect resolution before querying.
-
-### Tag Weights
-
-Tags have configurable weights (1-4) affecting scoring impact:
-
-| Weight | Tags |
-|---|---|
-| 4 | souls_like |
-| 3.5 | unforgiving, immersive_sim |
-| 3 | story_rich, branching_narrative, tactical, deck_building, metroidvania |
-| 2.5 | lore_heavy, stealth, puzzle, rhythm, survival, roguelike, chill, horror, cozy |
-| 2 | text_based, open_world, sandbox, pick_up_and_play, accessible |
-| 1.5 | linear, hub_based, long_sessions, dark, lighthearted |
-| 1 | minimalist_story, short_sessions |
+Database resets are destructive to the local catalog and IGDB mirror. Back up the relevant schema before any explicitly approved reset; routine verification must not reset the database.

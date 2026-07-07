@@ -10,6 +10,10 @@ maximum precision: **what should I play next?**
 It combines a large game catalog, platform access, ratings, onboarding signals, saved picks, and
 taste analysis into practical recommendations for what to start, resume, save, or skip.
 
+This started from a personal frustration: picking up popular, hyped games and having them
+mostly miss. Playfit exists to answer "what should I play next" from actual taste signals —
+what you loved, what you dropped, and why — instead of from what's popular.
+
 Live demo: [playfit-gold.vercel.app](https://playfit-gold.vercel.app)
 
 ## Why Review This Repo

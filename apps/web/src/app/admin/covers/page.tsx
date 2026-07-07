@@ -163,7 +163,6 @@ export default function AdminCoversPage() {
             onChange={(e) => setSecretInput(e.target.value)}
             placeholder="Admin secret"
             className="rounded border border-border bg-background px-3 py-2"
-            autoFocus
           />
           <button type="submit" className="rounded bg-primary px-3 py-2 text-primary-foreground">
             Entrar
@@ -177,6 +176,7 @@ export default function AdminCoversPage() {
   const filterToggle = (
     <div className="flex items-center gap-2 text-xs">
       <button
+        type="button"
         id="source-filter-toggle"
         onClick={() => toggleSourceFilter(sourceFilter === "steamcdn" ? null : "steamcdn")}
         className={`rounded border px-2 py-1 ${
@@ -232,7 +232,9 @@ export default function AdminCoversPage() {
           {(current.platform_names ?? []).join(", ") || "sin plataforma"}
         </p>
         <p className="text-xs text-muted-foreground">
-          {current.metacritic_score != null ? `Metacritic ${current.metacritic_score}` : "sin score"}
+          {current.metacritic_score != null
+            ? `Metacritic ${current.metacritic_score}`
+            : "sin score"}
           {" · "}
           {sourceLabel(current.cover_url)}
         </p>
@@ -240,21 +242,21 @@ export default function AdminCoversPage() {
 
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={() => void handleRemove()}
           className="rounded border border-red-500 px-4 py-2 text-red-500"
         >
           ← Quitar cover
         </button>
         <button
+          type="button"
           onClick={handleKeep}
           className="rounded bg-primary px-4 py-2 text-primary-foreground"
         >
           Mantener →
         </button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Flechas: ← quitar · → / Enter mantener
-      </p>
+      <p className="text-xs text-muted-foreground">Flechas: ← quitar · → / Enter mantener</p>
     </div>
   );
 }

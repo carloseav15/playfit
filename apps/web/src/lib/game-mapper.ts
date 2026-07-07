@@ -1,6 +1,6 @@
 import type { SeedGame } from "@playfit/core/types";
 
-interface GameRow {
+export interface GameRow {
   game_id: string;
   title: string;
   aliases: string[] | null;
@@ -14,9 +14,19 @@ interface GameRow {
   tags: string[] | null;
   notes: string;
   sort_date: string | null;
-  release_label: string | null;
   series?: unknown;
   genre?: unknown;
+}
+
+export interface GamePlatformRow {
+  game_id?: string;
+  platform_id: string;
+  platforms: unknown;
+}
+
+export interface GameAliasRow {
+  game_id?: string;
+  alias: string;
 }
 
 function resolveJoinedName(value: unknown): string | null {
@@ -32,8 +42,8 @@ function resolveJoinedName(value: unknown): string | null {
 
 export function mapGameRowToSeedGame(
   game: GameRow,
-  platforms: { platform_id: string; platforms: unknown }[],
-  aliases: { alias: string }[],
+  platforms: GamePlatformRow[],
+  aliases: GameAliasRow[],
 ): SeedGame {
   const platformIds = platforms.map((p) => p.platform_id);
   const platformNames = platforms
@@ -62,7 +72,6 @@ export function mapGameRowToSeedGame(
     availablePlatformNames: platformNames,
     releaseState: game.release_state === "unreleased" ? "unreleased" : "released",
     sortDate: game.sort_date || undefined,
-    releaseLabel: game.release_label || undefined,
   };
 }
 
@@ -70,9 +79,8 @@ export function mapGameRowToSeedGame(
 // series_ref/genre_ref (bigint, see games_series_ref_fkey/games_genre_ref_fkey).
 // Embedding via series_id/genre_id fails PostgREST's relationship lookup
 // entirely (PGRST200), silently returning an empty result from any caller.
-// release_label was also dropped from games_library.games at some point
-// (column no longer exists) but this select never got updated to match,
-// which made every query using it fail with "column does not exist".
+// Keep this shared select aligned with the live schema; display labels are
+// derived from release_year rather than stored separately.
 export const GAME_SELECT = `
   game_id, title, aliases, series_id, genre_id, release_year,
   release_state, source_type, source_ref, cover_url, tags,
@@ -80,3 +88,5 @@ export const GAME_SELECT = `
   series:series_ref(name),
   genre:genre_ref(name)
 `;
+
+export const GAME_PLATFORM_SELECT = "game_id, platform_id, platforms:platform_ref(name)";

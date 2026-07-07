@@ -1,11 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+import { type NextRequest, NextResponse } from "next/server";
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 function isAuthorized(req: NextRequest) {
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return false;
-  return req.headers.get("x-admin-secret") === secret;
+  const provided = req.headers.get("x-admin-secret");
+  if (!provided) return false;
+  const secretBuf = Buffer.from(secret);
+  const providedBuf = Buffer.from(provided);
+  if (secretBuf.length !== providedBuf.length) return false;
+  return timingSafeEqual(secretBuf, providedBuf);
 }
 
 export async function GET(req: NextRequest) {

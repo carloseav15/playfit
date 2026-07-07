@@ -10,4 +10,7 @@ export default defineConfig({
       "@": resolve(appRoot, "src"),
     },
   },
+  test: {
+    environment: "happy-dom",
+  },
 });

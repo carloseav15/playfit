@@ -521,7 +521,7 @@ export function TasteMapVisualizer({
                         asChild
                         className="h-7 px-2.5 rounded-lg text-xs font-bold text-accent hover:text-accent hover:bg-accent/10"
                       >
-                        <Link href={`/play/game/${node.game.gameId}`}>
+                        <Link href={`/game/${node.game.gameId}`}>
                           See Details
                           <ChevronRight className="size-3 ml-0.5" />
                         </Link>
