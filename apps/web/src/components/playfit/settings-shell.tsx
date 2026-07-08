@@ -3,7 +3,7 @@
 import { ArrowLeft, Laptop, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { useHeader } from "../playfit/header-context";
 import { usePlayfit } from "../playfit/playfit-context";
 import { SettingsDesktop } from "./desktop/settings-desktop";
 import { SettingsMobile } from "./mobile/settings-mobile";
-import { PlayRouteTabs } from "./play-route-tabs";
 
 export function SettingsShell() {
   const {
@@ -26,7 +25,6 @@ export function SettingsShell() {
     resetTasteProfile,
     deleteAccount,
   } = usePlayfit();
-  const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -345,7 +343,6 @@ export function SettingsShell() {
                 Settings
               </h1>
             </div>
-            <PlayRouteTabs pathname={pathname} className="w-full sm:w-auto" />
           </div>
 
           {/* Mobile sub-views */}

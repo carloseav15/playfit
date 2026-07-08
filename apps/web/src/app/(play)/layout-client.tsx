@@ -29,6 +29,13 @@ export function PlayLayoutClient({
   );
 }
 
+const desktopNavItems = [
+  { href: "/", label: "Play Next", Icon: Compass },
+  { href: "/picks", label: "My Picks", Icon: ListChecks },
+  { href: "/taste", label: "My Taste", Icon: SlidersHorizontal },
+  { href: "/settings", label: "Settings", Icon: Settings },
+];
+
 function PlayLayoutContent({ children }: { children: React.ReactNode }) {
   const { state } = usePlayfit();
   const { config: headerConfig } = useHeaderContext();
@@ -277,6 +284,31 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                 </span>
               </Link>
             )}
+            <nav className="hidden md:flex items-center gap-1 rounded-2xl border border-border/60 bg-secondary/60 p-1">
+              {desktopNavItems.map(({ href, label, Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-bold no-underline transition-all",
+                      active
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
+                    )}
+                  >
+                    <Icon className="size-4" />
+                    {label}
+                    {href === "/picks" && picksCount > 0 && (
+                      <span className="flex size-4 items-center justify-center rounded-full bg-accent text-[9px] font-black text-white">
+                        {picksCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
             <ThemeToggle className="relative right-0 top-0 size-10 z-40 hidden md:flex" />
           </div>
         </header>

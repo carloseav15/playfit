@@ -4,7 +4,6 @@ import type { RankedSeedGame } from "@playfit/core/types";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import { StatusToast } from "../playfit/status-toast";
 import type { AlreadyPlayedFeedback } from "./already-played-panel";
 import { PicksDesktop } from "./desktop/picks-desktop";
 import { PicksMobile } from "./mobile/picks-mobile";
-import { PlayRouteTabs } from "./play-route-tabs";
 import { usePicksRecommendations } from "./use-picks-recommendations";
 
 function PickCard({
@@ -66,7 +64,6 @@ function PickCard({
 
 export function PicksShell() {
   const { applyDecisionFeedback, setPlayfitPick, state } = usePlayfit();
-  const pathname = usePathname();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
   const { picks, loading, loadError } = usePicksRecommendations({
@@ -142,11 +139,6 @@ export function PicksShell() {
                 Saved Picks
               </h1>
             </div>
-            <PlayRouteTabs
-              pathname={pathname}
-              tasteLabel="Your Taste"
-              className="w-full sm:w-auto"
-            />
           </div>
 
           {loadError ? (
