@@ -5,7 +5,6 @@ import type { ProductDecisionFeedback, RankedSeedGame } from "@playfit/core/type
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +22,6 @@ import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { DecisionIntro } from "./decision-intro";
 import { PlayNextCard } from "./play-next-card";
-import { PlayRouteTabs } from "./play-route-tabs";
 import { usePlayNextRecommendations } from "./use-play-next-recommendations";
 
 export function shouldRefreshRecommendationsAfterSave({
@@ -55,7 +53,6 @@ export function shouldShowNoRecommendations({
 export function DecisionShell() {
   const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } =
     usePlayfit();
-  const pathname = usePathname();
   const [slowLoading, setSlowLoading] = useState(false);
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [recommendationRefreshPending, setRecommendationRefreshPending] = useState(false);
@@ -223,14 +220,6 @@ export function DecisionShell() {
     setStatusMessage(`Noted: ${reason.toLowerCase()}.`);
   }
 
-  const picksCount = Object.values(state.user.gameStates).filter(
-    (record) =>
-      record.inPlayfitPicks &&
-      record.status !== "completed" &&
-      record.status !== "beaten" &&
-      record.status !== "abandoned" &&
-      !record.excluded,
-  ).length;
   const positiveSignalCount = state.user.onboarding.likedGameIds.length;
   const negativeSignalCount = state.user.onboarding.dislikedGameIds.length;
   const tasteSignalCount = positiveSignalCount + negativeSignalCount;
@@ -492,12 +481,6 @@ export function DecisionShell() {
                 <CardTitle as="h2" className="text-xl font-black tracking-tight text-foreground">
                   {recommendationGroupTitle(visiblePool)}
                 </CardTitle>
-                <PlayRouteTabs
-                  pathname={pathname}
-                  picksCount={picksCount}
-                  showIcons
-                  className="hidden md:flex gap-1.5"
-                />
               </div>
 
               <div className="grid gap-1">

@@ -6,7 +6,7 @@ import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { ArrowLeft, Check, CheckCircle2, ListPlus, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,6 @@ import {
 } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
-import { PlayRouteTabs } from "./play-route-tabs";
 import { addRecommendationsToSessionCache, getCachedRecommendation } from "./recommendation-cache";
 import { RecommendationMetric } from "./recommendation-metric";
 import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
@@ -138,7 +137,6 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
 
 export function DecisionDossier({ gameId }: { gameId: string }) {
   const { getSeedGame, state } = usePlayfit();
-  const pathname = usePathname();
   const router = useRouter();
   const [recommendationEntry, setRecommendationEntry] = useState<RankedSeedGame | null>(() =>
     getCachedRecommendation(gameId),
@@ -316,11 +314,6 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
               <ArrowLeft className="size-4 mr-1.5" />
               Back
             </Button>
-            <PlayRouteTabs
-              pathname={pathname}
-              order={["taste", "picks"]}
-              className="w-full sm:w-auto"
-            />
           </div>
 
           <div className="grid min-w-0 gap-6 rounded-3xl border border-border bg-card p-5 shadow-lg lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)] lg:p-7">

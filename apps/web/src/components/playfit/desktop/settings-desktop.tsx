@@ -16,9 +16,9 @@ export function SettingsDesktop({
   return (
     <div className="hidden md:flex flex-col gap-6">
       {renderThemeCard()}
+      <PlatformsTabContent />
       {renderAccountCard()}
       {renderPrivacyCard()}
-      <PlatformsTabContent />
     </div>
   );
 }

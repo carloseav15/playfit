@@ -35,17 +35,6 @@ export function PicksDesktop({
 
   return (
     <Card className="group relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-border/80 hover:shadow-md">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => onRemove(gameId)}
-        className="absolute right-4 top-4 z-20 size-8 rounded-full border border-border/60 bg-secondary text-muted-foreground hover:bg-destructive/15 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-        aria-label="Remove recommendation"
-      >
-        <Trash2 className="size-4" />
-      </Button>
-
       <CardContent className="grid gap-5 p-6 md:grid-cols-[100px_minmax(0,1fr)]">
         <div className="flex flex-col items-center gap-2">
           <CoverArt
@@ -126,6 +115,15 @@ export function PicksDesktop({
               >
                 <XCircle className="size-4 mr-1.5 text-destructive" />
                 No, skip this
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onRemove(gameId)}
+                className="flex-1 border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
+              >
+                <Trash2 className="size-4 mr-1.5 text-destructive" />
+                Remove Pick
               </Button>
             </div>
           </div>
