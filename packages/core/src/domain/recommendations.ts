@@ -1,4 +1,3 @@
-import Fuse from "fuse.js";
 import { cosineSimilarity } from "../data/tags";
 import type {
   GameAccessStatus,
@@ -36,25 +35,6 @@ const CONFIDENCE_RANK: Record<ProductConfidence, number> = {
   medium: 2,
   high: 3,
 };
-
-const SEARCH_KEYS = [
-  { name: "title", weight: 0.7 },
-  { name: "aliases", weight: 0.15 },
-  { name: "series", weight: 0.1 },
-  { name: "tags", weight: 0.05 },
-];
-
-const LOW_QUALITY_SEARCH_TERMS = [
-  "bonus disc",
-  "classic nes series",
-  "collector's edition",
-  "demo",
-  "demo disc",
-  "not for resale",
-  "picross",
-  "soundtrack",
-  "wii u",
-];
 
 const TAG_WEIGHTS: Record<string, number> = {
   story_rich: 3,
@@ -225,50 +205,6 @@ function caveatCopy(tag: string, confidence: RankedSeedGame["confidence"]) {
   if (confidence === "high") return `Strong watch-out around ${label}`;
   if (confidence === "medium") return `Emerging watch-out around ${label}`;
   return `Early caveat around ${label}`;
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function directSearchScore(game: SeedGame, query: string) {
-  const title = normalizeSearchText(game.title);
-  const series = normalizeSearchText(game.series);
-  const aliases = game.aliases?.map(normalizeSearchText) ?? [];
-
-  if (title === query) return 160;
-  if (aliases.some((alias) => alias === query)) return 150;
-  if (series === query) return 138;
-  if (title.startsWith(query)) return 126;
-  if (aliases.some((alias) => alias.startsWith(query))) return 116;
-  if (series.startsWith(query)) return 108;
-  if (title.includes(query)) return 96;
-  if (aliases.some((alias) => alias.includes(query))) return 88;
-  if (series.includes(query)) return 78;
-  return 0;
-}
-
-function searchQualityPenalty(game: SeedGame) {
-  const searchable = normalizeSearchText(
-    [game.title, game.series, ...(game.aliases ?? [])].join(" "),
-  );
-  let penalty = 0;
-
-  for (const term of LOW_QUALITY_SEARCH_TERMS) {
-    if (searchable.includes(normalizeSearchText(term))) {
-      penalty += 22;
-    }
-  }
-
-  if (!isScoredGame(game)) penalty += 20;
-  if ((game.genreId ?? game.primaryGenre) === "unknown") penalty += 16;
-  if (!game.coverPath) penalty += 6;
-
-  return penalty;
 }
 
 function isPlayableNow(entry: RankedSeedGame) {
@@ -688,67 +624,8 @@ export function buildTodayModel(
 
   return { currentRun, nextUp, resume, picks };
 }
-
-export function buildFinderIndex(games: SeedGame[]) {
-  return new Fuse(games, {
-    includeScore: true,
-    ignoreLocation: true,
-    threshold: 0.34,
-    keys: SEARCH_KEYS,
-  });
-}
-
-export function searchSeedGames(games: SeedGame[], query: string, index: Fuse<SeedGame>) {
-  const normalized = normalizeSearchText(query);
-
-  if (!normalized) {
-    return [...games]
-      .filter(isScoredGame)
-      .sort((left, right) => searchQualityPenalty(left) - searchQualityPenalty(right))
-      .slice(0, 12);
-  }
-
-  const scored = new Map<string, { game: SeedGame; score: number }>();
-
-  for (const game of games) {
-    const directScore = directSearchScore(game, normalized);
-    if (directScore > 0) {
-      scored.set(game.gameId, {
-        game,
-        score: directScore - searchQualityPenalty(game),
-      });
-    }
-  }
-
-  for (const result of index.search(normalized)) {
-    const current = scored.get(result.item.gameId);
-    const fuzzyScore =
-      72 - Math.round((result.score ?? 1) * 60) - searchQualityPenalty(result.item);
-    scored.set(result.item.gameId, {
-      game: result.item,
-      score: Math.max(current?.score ?? Number.NEGATIVE_INFINITY, fuzzyScore),
-    });
-  }
-
-  return [...scored.values()]
-    .sort(
-      (left, right) => right.score - left.score || left.game.title.localeCompare(right.game.title),
-    )
-    .map(({ game }) => game)
-    .slice(0, 12);
-}
-
-export function findExactSeedGame(games: SeedGame[], query: string) {
-  const normalized = query.trim().toLowerCase();
-
-  if (!normalized) {
-    return null;
-  }
-
-  return (
-    games.find((game) => game.title.toLowerCase() === normalized) ??
-    games.find((game) => game.aliases?.some((alias) => alias.toLowerCase() === normalized)) ??
-    games.find((game) => game.series.toLowerCase() === normalized) ??
-    null
-  );
-}
+export {
+  buildFinderIndex,
+  findExactSeedGame,
+  searchSeedGames,
+} from "./search";

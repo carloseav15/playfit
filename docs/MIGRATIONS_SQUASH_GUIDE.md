@@ -1,87 +1,115 @@
-# Guía de Squash de Migraciones y Restauración Segura
+# Guía de Backup/Restore y Squash de Migraciones
 
-Esta guía describe cómo realizar un squash de las 104+ migraciones acumuladas en el proyecto `playfit` y restablecer el esquema local de Supabase de forma limpia, **sin perder en ningún momento tus perfiles locales o los datos de tu catálogo**.
+> **Actualizado 2026-07-07.** La versión anterior de esta guía (Pasos 3-4 con
+> `restore-backup.sh`) quedó **confirmada como insegura**: ese script solo cubría 9 de
+> las 67 tablas reales (`games_library` + `games_library_private` + `igdb_raw`), y esas 9
+> usaban una forma vieja del esquema (pre-claves-surrogadas) que ya no coincide con las
+> columnas actuales. `scripts/restore-backup.sh` queda marcado como deprecado — no lo uses.
+> Este documento ahora describe el flujo real de backup/restore, validado contra un
+> proyecto Supabase descartable (contenedores y puertos separados del proyecto local
+> principal) el 2026-07-07: conteos de filas y checksums de datos idénticos en las 67
+> tablas de las 3 schemas, más un bug real encontrado y corregido en el camino (ver
+> abajo). El squash de migraciones en sí (Paso 2) todavía no está validado — no lo
+> ejecutes hasta que esa parte del trabajo esté probada por separado.
+
+---
+
+## Alcance real
+
+Tres schemas importan para poder recuperar la base ante una pérdida total, no solo uno:
+
+- `games_library`: 39 tablas base + 15 vistas (catálogo, perfiles, tags, etc.)
+- `games_library_private`: 24 tablas base (logs de auditoría de merges de duplicados,
+  limpiezas, y algunas tablas `tmp_*` de un análisis de cobertura pasado)
+- `igdb_raw`: 4 tablas, dominadas por `igdb_raw.entities` (mirror crudo de la API de
+  IGDB, ~8.3M filas, ~4.5GB — la mayor parte del tamaño total de la base)
+
+Fuera de alcance (decisión explícita, 2026-07-07): el schema `auth` de Supabase — las
+~51 cuentas locales son de prueba, aceptable recrearlas si se pierden.
 
 ---
 
 ## Prerrequisitos
 - Docker en funcionamiento.
-- Supabase CLI instalado. Puedes comprobar el estado local con:
-  ```bash
-  npx supabase status
-  ```
+- Supabase CLI instalado.
+- El disco duro externo `/Volumes/Elements` conectado (destino por defecto de los
+  backups — hay ~3TB libres ahí; el disco principal suele andar con poco margen).
 
 ---
 
-## Paso 1: Realizar un Backup de los Datos Actuales
-Antes de realizar cualquier cambio, exportaremos todos los datos mutados y de configuración actuales (esquema `games_library`) a un archivo `.dump` de PostgreSQL personalizado.
+## Paso 1: Backup
 
 Desde el directorio raíz de `product`:
 ```bash
-./scripts/backup-db.sh
+./scripts/backup-all.sh
 ```
-*Esto creará un archivo con formato `playfit_YYYYMMDD_HHMMSS.dump` en tu carpeta local `~/db-backups/` y te indicará el tamaño del backup (ej. `✓ Done (5.4MB)`).*
+
+Esto corre `scripts/backup-schema.mjs` para cada uno de los 3 schemas
+(`games_library`, `games_library_private`, `igdb_raw`), dejando un `.dump` con formato
+custom de `pg_dump` por schema en `/Volumes/Elements/Backups/<schema>/`. Podés apuntar a
+otro destino con `./scripts/backup-all.sh --out <dir>` o la variable de entorno
+`PLAYFIT_BACKUP_ROOT`.
 
 ---
 
-## Paso 2: Ejecutar el Squash de las Migraciones
-El squash unifica todas las migraciones incrementales dentro de la carpeta `supabase/migrations/` en un único archivo consolidado que representa el estado del esquema de hoy.
+## Paso 2: Squash de migraciones (pendiente de validar — no ejecutar todavía)
 
-Ejecuta el comando oficial de la CLI de Supabase:
-```bash
-npx supabase db squash
-```
-*Este comando consolidará tu historial en un archivo limpio sin afectar a tu base de datos en ejecución.*
+El squash de las 107 migraciones actuales en un esquema base limpio es un trabajo
+separado, todavía no probado contra un proyecto descartable. No corras
+`npx supabase db squash` como parte de este flujo hasta que esa validación esté hecha.
 
 ---
 
-## Paso 3: Reiniciar la Base de Datos Local con el Esquema Squasheado
-Para validar que el nuevo esquema unificado se compila y aplica perfectamente desde cero, reiniciaremos el contenedor de base de datos local de Supabase.
+## Paso 3: Reiniciar la base local
 
 > [!WARNING]
-> Este paso restablece los contenedores de base de datos a su estado inicial vacío de migraciones, por lo que **eliminará temporalmente** los datos del catálogo y perfiles locales en el contenedor local. Asegúrate de haber completado con éxito el Paso 1.
+> Este paso elimina **todo** el contenido de `games_library`, `games_library_private` e
+> `igdb_raw` en el contenedor local (los 67 tablas de las 3 schemas). Asegurate de haber
+> completado el Paso 1 con éxito antes de seguir.
 
-Ejecuta:
 ```bash
 npx supabase db reset
 ```
-*Esto descargará el esquema anterior, aplicará la migración squasheada unificada y dejará una base de datos local limpia y con la estructura correcta.*
 
 ---
 
-## Paso 4: Restaurar Todos tus Datos y Perfiles
-Ahora restauraremos todo el catálogo de juegos, plataformas, tags y perfiles locales que tenías antes del reinicio usando nuestro script de restauración corregido.
+## Paso 4: Restaurar
 
-1. Identifica el nombre exacto de tu último archivo de backup generado en el Paso 1 (ej. `playfit_20260706_015500.dump`).
-2. Ejecuta el restore apuntando a ese archivo:
-   ```bash
-   ./scripts/restore-backup.sh ~/db-backups/playfit_20260706_015500.dump
-   ```
-
-El script automáticamente:
-1. Creará un esquema de importación temporal.
-2. Cargará los datos del dump en un contenedor PG temporal.
-3. Transferirá y transformará los datos de juegos, géneros, series y alias al nuevo esquema.
-4. **Restaurará la tabla `profiles`** para recuperar todas tus partidas guardadas locales y onboarding.
-5. Limpiará los esquemas temporales.
-
----
-
-## Paso 5: Verificación de Éxito
-Al finalizar el paso anterior, el script imprimirá el resumen de conteo de registros restaurados. Deberías ver cifras similares a las siguientes:
-```sql
-=== Verifying results ===
- count             
--------------------
- games:16702
- game_platforms:32450
- game_tags:41200
- game_aliases:254
- series:1145
- genres:34
- tags:512
- profiles: [Tu cantidad de perfiles previos]
- platforms:24
+```bash
+./scripts/restore-all.sh
 ```
 
-¡Listo! Tu historial de base de datos local ahora está limpio con un set consolidado de migraciones, y todos tus perfiles y catálogo han sido restaurados exitosamente.
+Corre `scripts/restore-schema.mjs` para cada uno de los 3 schemas, restaurando el dump
+más reciente de cada uno (`pg_restore --clean --if-exists`, seguro de re-correr). Para
+`games_library` específicamente, el script fuerza además un recálculo de
+`games.search_document` después del restore — ver la nota de bug abajo.
+
+---
+
+## Paso 5: Verificación
+
+```bash
+./scripts/backup-all.sh --out /tmp/verify   # o cualquier chequeo manual de conteos
+```
+
+O manualmente, comparar conteos por tabla en las 3 schemas contra los del backup. El
+detalle completo de qué se validó (conteos + checksums de datos en las 67 tablas) está
+en la sesión de trabajo del 2026-07-07, no en un script fijo — no hay una lista corta de
+"tablas esperadas" como en la versión vieja de esta guía, porque son 67 tablas y crecen.
+
+---
+
+## Bug encontrado y corregido durante la validación (2026-07-07)
+
+`games_library.games.search_document` es una columna `generated always as (...) stored`
+que llama a `get_series_name()`/`get_genre_name()` — funciones marcadas `immutable` que
+en realidad consultan otras tablas (`series`, `genres`). `pg_restore` no garantiza que
+esas tablas estén cargadas antes que `games` (las FKs se agregan recién al final del
+restore, así que el orden de carga de datos no respeta dependencias), así que el valor
+generado puede quedar incompleto justo después de un restore — le faltan los lexemas de
+género/serie si esas tablas todavía no tenían datos en el momento en que Postgres
+recalculó la columna. `scripts/restore-schema.mjs` ahora corre un `UPDATE` sin efecto
+(`SET game_id = game_id`) sobre `games_library.games` al final del restore de ese schema
+específicamente para forzar el recálculo una vez que todo está cargado. Confirmado con
+antes/después: sin el fix, el checksum de `games` no coincidía con el original a pesar de
+que los conteos de filas sí coincidían; con el fix, coincide exactamente.

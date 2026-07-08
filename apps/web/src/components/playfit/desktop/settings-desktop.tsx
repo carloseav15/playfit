@@ -1,6 +1,6 @@
 "use client";
 
-import { PlatformsTabContent } from "../taste-shell";
+import { PlatformsTabContent } from "../platforms-tab-content";
 
 interface SettingsDesktopProps {
   renderThemeCard: () => React.ReactNode;

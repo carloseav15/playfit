@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { calculateGameCoordinates, scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import { usePlayfit } from "../playfit/playfit-context";
@@ -18,86 +19,6 @@ interface GameNode {
   type: "liked" | "disliked" | "pending";
   score?: number;
   state?: ProductGameState;
-}
-
-function calculateGameCoordinates(game: SeedGame): { x: number; y: number } {
-  let x = 0; // Chill (-) vs Demanding (+)
-  let y = 0; // Story/Linear (-) vs Open World/Systems (+)
-
-  // X-axis: Chill vs Demanding
-  const demandingTags = [
-    "souls_like",
-    "unforgiving",
-    "demanding",
-    "survival",
-    "tactical",
-    "deck_building",
-    "stealth",
-  ];
-  const chillTags = [
-    "chill",
-    "cozy",
-    "accessible",
-    "short_sessions",
-    "pick_up_and_play",
-    "lighthearted",
-  ];
-
-  // Y-axis: Story/Linear vs Open World/Systems
-  const systemsTags = ["open_world", "sandbox", "roguelike", "puzzle", "rhythm", "deck_building"];
-  const storyTags = [
-    "story_rich",
-    "lore_heavy",
-    "linear",
-    "branching_narrative",
-    "text_based",
-    "horror",
-    "dark",
-  ];
-
-  game.tags.forEach((tag) => {
-    if (demandingTags.includes(tag)) x += 28;
-    if (chillTags.includes(tag)) x -= 28;
-    if (systemsTags.includes(tag)) y += 28;
-    if (storyTags.includes(tag)) y -= 28;
-  });
-
-  // Fallback by genre if no tags matched
-  if (x === 0 && y === 0) {
-    const genre = (game.genreId ?? game.primaryGenre ?? "").toLowerCase();
-    if (genre.includes("rpg") || genre.includes("role_playing")) {
-      x += 10;
-      y -= 20;
-    } else if (genre.includes("action") || genre.includes("shooter")) {
-      x += 20;
-      y += 15;
-    } else if (genre.includes("adventure") || genre.includes("indie")) {
-      x -= 15;
-      y -= 15;
-    } else if (genre.includes("strategy") || genre.includes("simulation")) {
-      x += 25;
-      y += 25;
-    } else if (genre.includes("puzzle") || genre.includes("casual")) {
-      x -= 25;
-      y += 20;
-    }
-  }
-
-  // Add deterministic jitter based on gameId to prevent complete overlapping
-  let hash = 0;
-  for (let i = 0; i < game.gameId.length; i++) {
-    hash = game.gameId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const jitterX = (hash % 16) - 8;
-  const jitterY = ((hash >> 4) % 16) - 8;
-
-  x += jitterX;
-  y += jitterY;
-
-  return {
-    x: Math.max(-90, Math.min(90, x)),
-    y: Math.max(-90, Math.min(90, y)),
-  };
 }
 
 export function TasteMapVisualizer({
@@ -198,10 +119,6 @@ export function TasteMapVisualizer({
     if (nextIndex >= nodes.length) nextIndex = 0;
     setActiveNode(nodes[nextIndex]);
   };
-
-  // Translate coordinate from [-100, 100] scale to SVG Viewbox [20, 380]
-  const scaleX = (val: number) => 200 + (val / 100) * 160;
-  const scaleY = (val: number) => 200 - (val / 100) * 160; // Invert Y for standard Cartesian
 
   return (
     <Card className="rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
@@ -341,8 +258,8 @@ export function TasteMapVisualizer({
 
             {/* Plot Nodes */}
             {nodes.map((node) => {
-              const cx = scaleX(node.x);
-              const cy = scaleY(node.y);
+              const cx = scaleCoordinateX(node.x);
+              const cy = scaleCoordinateY(node.y);
               const isActive = activeNode?.game.gameId === node.game.gameId;
 
               let fillColor = "#6b7280";

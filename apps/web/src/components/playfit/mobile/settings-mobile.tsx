@@ -10,7 +10,7 @@ import {
   User,
   UserCheck,
 } from "lucide-react";
-import { PlatformsTabContent } from "../taste-shell";
+import { PlatformsTabContent } from "../platforms-tab-content";
 
 interface SettingsMobileProps {
   subView: "menu" | "appearance" | "platforms" | "account" | "privacy";

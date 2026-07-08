@@ -1,10 +1,10 @@
-import { createAnonClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
-type Client = ReturnType<typeof createAnonClient>;
+type Client = ReturnType<typeof createServiceRoleClient>;
 
 export async function getCache<T>(key: string, client?: Client): Promise<T | null> {
   try {
-    const supabase = client ?? createAnonClient();
+    const supabase = client ?? createServiceRoleClient();
     const { data } = await supabase.rpc("get_cache", { p_key: key });
     return (data as T | null) ?? null;
   } catch {
@@ -19,7 +19,7 @@ export async function setCache<T>(
   client?: Client,
 ): Promise<void> {
   try {
-    const supabase = client ?? createAnonClient();
+    const supabase = client ?? createServiceRoleClient();
     await supabase.rpc("set_cache", {
       p_key: key,
       p_value: value as Record<string, unknown>,

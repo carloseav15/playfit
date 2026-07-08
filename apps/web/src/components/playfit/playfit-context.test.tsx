@@ -1,8 +1,6 @@
-import { createInitialState } from "@playfit/core/store";
-import type { ProductState } from "@playfit/core/types";
-import { render, screen, act, cleanup } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PlayfitProvider, usePlayfit } from "./playfit-context";
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -31,7 +29,12 @@ vi.mock("@playfit/core/store", () => ({
     user: {
       deviceId: "test-device-id",
       onboardingCompletedAt: "2026-07-06T00:00:00Z",
-      onboarding: { step: "completed", likedGameIds: ["game1"], dislikedGameIds: [], platforms: [] },
+      onboarding: {
+        step: "completed",
+        likedGameIds: ["game1"],
+        dislikedGameIds: [],
+        platforms: [],
+      },
       gameStates: {},
       profile: null,
     },
@@ -40,7 +43,12 @@ vi.mock("@playfit/core/store", () => ({
     user: {
       deviceId: "test-device-id",
       onboardingCompletedAt: "2026-07-06T00:00:00Z",
-      onboarding: { step: "completed", likedGameIds: ["game1"], dislikedGameIds: [], platforms: [] },
+      onboarding: {
+        step: "completed",
+        likedGameIds: ["game1"],
+        dislikedGameIds: [],
+        platforms: [],
+      },
       gameStates: {},
       profile: { nintendo: 0.8 },
     },
@@ -97,16 +105,10 @@ function TestConsumer() {
     <div>
       <div data-testid="completed-at">{state.user.onboardingCompletedAt}</div>
       <div data-testid="game1-pick">
-        {state.user.gameStates["game1"]?.inPlayfitPicks ? "picked" : "not-picked"}
+        {state.user.gameStates.game1?.inPlayfitPicks ? "picked" : "not-picked"}
       </div>
-      <div data-testid="game2-status">
-        {state.user.gameStates["game2"]?.status || "none"}
-      </div>
-      <button
-        type="button"
-        onClick={() => setPlayfitPick("game1", true)}
-        data-testid="pick-btn"
-      >
+      <div data-testid="game2-status">{state.user.gameStates.game2?.status || "none"}</div>
+      <button type="button" onClick={() => setPlayfitPick("game1", true)} data-testid="pick-btn">
         Pick Game 1
       </button>
       <button
@@ -134,7 +136,7 @@ describe("PlayfitProvider and usePlayfit Context", () => {
     render(
       <PlayfitProvider platforms={[]} localFirst={true}>
         <TestConsumer />
-      </PlayfitProvider>
+      </PlayfitProvider>,
     );
 
     expect(screen.getByLabelText("Loading")).toBeDefined();
@@ -151,7 +153,7 @@ describe("PlayfitProvider and usePlayfit Context", () => {
     render(
       <PlayfitProvider platforms={[]} localFirst={true}>
         <TestConsumer />
-      </PlayfitProvider>
+      </PlayfitProvider>,
     );
 
     await act(async () => {
@@ -171,7 +173,7 @@ describe("PlayfitProvider and usePlayfit Context", () => {
     render(
       <PlayfitProvider platforms={[]} localFirst={true}>
         <TestConsumer />
-      </PlayfitProvider>
+      </PlayfitProvider>,
     );
 
     await act(async () => {

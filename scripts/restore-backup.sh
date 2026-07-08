@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# DEPRECATED (2026-07-07): only covers 9 of the 67 tables across
+# games_library/games_library_private/igdb_raw, and those 9 use the old
+# pre-surrogate-key column shape (primary_genre text, no genre_id/series_id
+# FKs) - it does not match the current schema. Do not use.
+#
+# Replaced by scripts/backup-all.sh / scripts/restore-all.sh, a real
+# pg_dump/pg_restore of all 3 schemas, validated against a disposable
+# Supabase project on 2026-07-07 (row counts + data checksums identical
+# across all 67 tables). See docs/MIGRATIONS_SQUASH_GUIDE.md.
 set -euo pipefail
 
 BACKUP_FILE="${1:-$HOME/db-backups/playfit_20260610_125041.dump}"

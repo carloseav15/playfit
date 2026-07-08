@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { ChevronRight, Heart, MoreVertical, Pencil, ThumbsDown, ThumbsUp, Trash2, Waves, XCircle } from "lucide-react";
 import type { ProductDecisionFeedback, ProductTasteDecision } from "@playfit/core/types";
+import {
+  ChevronRight,
+  Heart,
+  Pencil,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  Waves,
+  XCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Stack } from "@/components/ui/stack";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import { CoverArt } from "../cover-art";
-import { StarRating } from "../star-rating";
 import { usePlayfit } from "../playfit-context";
+import { StarRating } from "../star-rating";
 import type { HistoryOrActivityEntry } from "../taste-model";
 
 const decisionLabels: Record<ProductTasteDecision | "picks", string> = {
@@ -120,10 +128,13 @@ export function TasteHistory({
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer",
               activeTab === "all"
                 ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]",
             )}
           >
-            All <Badge className="rounded-lg ml-0.5" variant="secondary">{allCount}</Badge>
+            All{" "}
+            <Badge className="rounded-lg ml-0.5" variant="secondary">
+              {allCount}
+            </Badge>
           </button>
           <button
             type="button"
@@ -135,10 +146,13 @@ export function TasteHistory({
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer",
               activeTab === "active"
                 ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]",
             )}
           >
-            Saved Picks <Badge className="rounded-lg ml-0.5" variant="secondary">{activeCount}</Badge>
+            Saved Picks{" "}
+            <Badge className="rounded-lg ml-0.5" variant="secondary">
+              {activeCount}
+            </Badge>
           </button>
           <button
             type="button"
@@ -150,10 +164,13 @@ export function TasteHistory({
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer",
               activeTab === "taste"
                 ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]",
             )}
           >
-            Calibration <Badge className="rounded-lg ml-0.5" variant="secondary">{tasteCount}</Badge>
+            Calibration{" "}
+            <Badge className="rounded-lg ml-0.5" variant="secondary">
+              {tasteCount}
+            </Badge>
           </button>
         </div>
       </CardHeader>
@@ -167,7 +184,8 @@ export function TasteHistory({
             paginatedEntries.map((entry) => {
               const game = getSeedGame(entry.gameId);
               if (!game) return null;
-              const label = decisionLabels[entry.decision as keyof typeof decisionLabels] ?? entry.decision;
+              const label =
+                decisionLabels[entry.decision as keyof typeof decisionLabels] ?? entry.decision;
               const dateLabel = formatDate(entry.updatedAt);
               const variant = toneVariant(entry);
               const changing = changingId === entry.gameId;
@@ -189,10 +207,15 @@ export function TasteHistory({
                         <h4 className="text-sm font-extrabold text-foreground truncate max-w-[200px] sm:max-w-xs leading-none">
                           {entry.title}
                         </h4>
-                        <span className="text-[10px] font-mono text-muted-foreground/50">{dateLabel}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground/50">
+                          {dateLabel}
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={variant} className="rounded-lg text-[9px] px-1.5 py-0.5 font-bold uppercase tracking-wider">
+                        <Badge
+                          variant={variant}
+                          className="rounded-lg text-[9px] px-1.5 py-0.5 font-bold uppercase tracking-wider"
+                        >
                           {label}
                         </Badge>
                         {entry.rating !== undefined && (
@@ -204,7 +227,9 @@ export function TasteHistory({
                     </div>
                   </Link>
                   <div className="relative shrink-0 flex items-center gap-1.5">
-                    {entry.decision !== "picks" && entry.decision !== "setup_favorite" && entry.decision !== "setup_miss" ? (
+                    {entry.decision !== "picks" &&
+                    entry.decision !== "setup_favorite" &&
+                    entry.decision !== "setup_miss" ? (
                       <Button
                         type="button"
                         variant="ghost"
@@ -212,7 +237,7 @@ export function TasteHistory({
                         onClick={() => onToggleChange(entry.gameId)}
                         className={cn(
                           "size-8 rounded-xl border border-white/5 bg-secondary/15 hover:bg-secondary/40 text-muted-foreground hover:text-foreground",
-                          changing && "bg-secondary/40 border-accent/25 text-accent"
+                          changing && "bg-secondary/40 border-accent/25 text-accent",
                         )}
                         aria-label="Change decision"
                       >
