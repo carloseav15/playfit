@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  applyProductDecisionFeedback,
-  buildAdaptiveProfile,
-  productDecisionFeedbackMessages,
-} from "@playfit/core/domain";
+import { buildAdaptiveProfile } from "@playfit/core/domain";
 import {
   createInitialState,
   loadProductState,
@@ -24,33 +20,21 @@ import type {
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import type React from "react";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { getErrorMessage } from "@/lib/api-errors";
-import {
-  addGamesToCache,
-  clearGameCache,
-  ensureGamesCached,
-  getCachedGame,
-} from "@/lib/game-cache";
+import { clearGameCache, ensureGamesCached, getCachedGame } from "@/lib/game-cache";
 import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
 import type { AuthUser } from "./use-playfit-auth";
 import { usePlayfitAuth } from "./use-playfit-auth";
+import { usePlayfitGameActions } from "./use-playfit-game-actions";
+import { usePlayfitSearch } from "./use-playfit-search";
 import { useQueuedProfileSave } from "./use-queued-profile-save";
 
 export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
-const PLAYFIT_PICKS_LIMIT = 100;
 
 export interface ProductUiState {
   activeTab: ProductTab;
@@ -66,19 +50,16 @@ export interface ProductUiState {
   startBannerDismissed: boolean;
 }
 
-interface PlayfitContextValue {
+export interface PlayfitStateContextValue {
   seedData: ProductSeedData;
   state: ProductState;
-  ui: ProductUiState;
   isPending: boolean;
   isSaving: boolean;
   authUser: AuthUser | null;
   useLocalProfile: boolean;
   setUseLocalProfile: (val: boolean) => void;
-  setUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
   updateState: (updater: (draft: ProductState) => void) => void;
   getSeedGame: (gameId: string) => SeedGame | null;
-  searchGames: (query: string) => SeedGame[];
   buildProfileFromCurrentData: () => ProductProfile;
   refreshAdaptiveProfile: () => void;
   getOrCreateGameState: (
@@ -93,12 +74,6 @@ interface PlayfitContextValue {
   startPlayfitPick: (gameId: string) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
   excludeGame: (gameId: string) => void;
-  setStatusMessage: (message: string | null) => void;
-  finderSearchError: string | null;
-  onboardingSearchError: string | null;
-  onboardingSearchPending: boolean;
-  flushSave: () => void;
-  retrySave: () => Promise<void>;
   resetLocalState: () => void;
   resetTasteProfile: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -106,7 +81,20 @@ interface PlayfitContextValue {
   linkGoogleAccount: () => Promise<void>;
 }
 
-const PlayfitContext = createContext<PlayfitContextValue | null>(null);
+export interface PlayfitUiContextValue {
+  ui: ProductUiState;
+  setUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
+  setStatusMessage: (message: string | null) => void;
+  finderSearchError: string | null;
+  onboardingSearchError: string | null;
+  onboardingSearchPending: boolean;
+  searchGames: (query: string) => SeedGame[];
+  flushSave: () => void;
+  retrySave: () => Promise<void>;
+}
+
+export const PlayfitStateContext = createContext<PlayfitStateContextValue | null>(null);
+export const PlayfitUiContext = createContext<PlayfitUiContextValue | null>(null);
 
 function cloneState(state: ProductState): ProductState {
   return structuredClone(state);
@@ -145,6 +133,7 @@ function initialUi(state: ProductState): ProductUiState {
   };
 }
 
+// Keep the same signature helper function from the old provider to avoid breaking any references if imported directly
 function buildGameState(game: SeedGame, source: ProductGameState["source"]): ProductGameState {
   const timestamp = nowIso();
   return {
@@ -158,48 +147,6 @@ function buildGameState(game: SeedGame, source: ProductGameState["source"]): Pro
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-}
-
-function isTerminalGameState(record: ProductGameState | undefined) {
-  return (
-    record?.status === "completed" ||
-    record?.status === "beaten" ||
-    record?.status === "abandoned" ||
-    record?.excluded === true
-  );
-}
-
-function activePlayfitPickCount(gameStates: Record<string, ProductGameState>) {
-  return Object.values(gameStates).filter(
-    (record) => record.inPlayfitPicks && !isTerminalGameState(record),
-  ).length;
-}
-
-function shouldDeleteManualState(record: ProductGameState) {
-  return (
-    record.source === "manual" &&
-    !record.status &&
-    record.rating == null &&
-    !record.inBacklog &&
-    !record.inWishlist &&
-    !record.inPlayfitPicks &&
-    !record.excluded
-  );
-}
-
-function rebuildAdaptiveProfileFromCache(draft: ProductState) {
-  if (!draft.user.profile && !draft.user.onboardingCompletedAt) return;
-  const ids = new Set([
-    ...draft.user.onboarding.likedGameIds,
-    ...(draft.user.onboarding.dislikedGameIds ?? []),
-    ...Object.keys(draft.user.gameStates),
-  ]);
-  const map = new Map<string, SeedGame>();
-  for (const id of ids) {
-    const game = getCachedGame(id);
-    if (game) map.set(id, game);
-  }
-  draft.user.profile = buildAdaptiveProfile(draft.user.onboarding, map, draft.user.gameStates);
 }
 
 export function PlayfitProvider({
@@ -224,15 +171,7 @@ export function PlayfitProvider({
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [searchResults, setSearchResults] = useState<SeedGame[]>([]);
-  const [onboardingSearchResults, setOnboardingSearchResults] = useState<SeedGame[]>([]);
-  const [finderSearchError, setFinderSearchError] = useState<string | null>(null);
-  const [onboardingSearchError, setOnboardingSearchError] = useState<string | null>(null);
-  const [onboardingSearchPending, setOnboardingSearchPending] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const onboardingSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const searchRequestCounterRef = useRef(0);
-  const onboardingSearchRequestCounterRef = useRef(0);
+
   const { enqueueSave, flushSave } = useQueuedProfileSave({
     setAuthUser,
     setUseLocalProfile,
@@ -240,7 +179,18 @@ export function PlayfitProvider({
     setIsSaving,
   });
 
-  // Replace the old boot sequence: load state, prefetch game IDs, build profile
+  const {
+    searchResults,
+    onboardingSearchResults,
+    finderSearchError,
+    onboardingSearchError,
+    onboardingSearchPending,
+  } = usePlayfitSearch({
+    finderQuery: ui?.finderQuery,
+    onboardingQuery: ui?.onboardingQuery,
+  });
+
+  // Boot sequence
   useEffect(() => {
     if (!authUser && !useLocalProfile) return;
     let cancelled = false;
@@ -250,7 +200,6 @@ export function PlayfitProvider({
         const loadedState = await loadProductState();
         if (cancelled) return;
 
-        // Detect data loss: user previously had data but it's gone from the DB
         const hadDataFlag = localStorage.getItem("playfit_had_data");
         const hasDataNow =
           !!loadedState.user.onboardingCompletedAt ||
@@ -269,19 +218,16 @@ export function PlayfitProvider({
           return;
         }
 
-        // Collect all game IDs referenced by this user
         const gameIds = new Set([
           ...loadedState.user.onboarding.likedGameIds,
           ...(loadedState.user.onboarding.dislikedGameIds ?? []),
           ...Object.keys(loadedState.user.gameStates),
         ]);
 
-        // Prefetch these games into the cache
         if (gameIds.size > 0) {
           await ensureGamesCached([...gameIds]);
         }
 
-        // Build profile if onboarding is complete but profile is missing
         if (loadedState.user.onboardingCompletedAt && !loadedState.user.profile) {
           try {
             const profileRes = await fetch("/api/recommendations/profile", {
@@ -309,7 +255,6 @@ export function PlayfitProvider({
             // Fall through to local build
           }
 
-          // Fallback: build profile from cached games
           const gamesById = new Map<string, SeedGame>();
           for (const id of gameIds) {
             const game = getCachedGame(id);
@@ -390,79 +335,6 @@ export function PlayfitProvider({
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, [ui, state]);
 
-  // Debounced search for FinderSection
-  useEffect(() => {
-    if (!ui?.finderQuery?.trim()) {
-      setSearchResults([]);
-      setFinderSearchError(null);
-      return;
-    }
-    const requestId = ++searchRequestCounterRef.current;
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/games?q=${encodeURIComponent(ui.finderQuery.trim())}`);
-        if (!res.ok) {
-          if (requestId !== searchRequestCounterRef.current) return;
-          setFinderSearchError("Search could not load. Try again.");
-          setSearchResults([]);
-          return;
-        }
-        const data = (await res.json()) as { games: SeedGame[] };
-        if (requestId !== searchRequestCounterRef.current) return;
-        setFinderSearchError(null);
-        addGamesToCache(data.games);
-        setSearchResults(data.games);
-      } catch {
-        if (requestId !== searchRequestCounterRef.current) return;
-        setFinderSearchError("Search could not load. Try again.");
-        setSearchResults([]);
-      }
-    }, 250);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, [ui?.finderQuery]);
-
-  // Debounced search for OnboardingSection
-  useEffect(() => {
-    if (!ui?.onboardingQuery?.trim()) {
-      setOnboardingSearchResults([]);
-      setOnboardingSearchError(null);
-      setOnboardingSearchPending(false);
-      return;
-    }
-    const requestId = ++onboardingSearchRequestCounterRef.current;
-    if (onboardingSearchTimerRef.current) clearTimeout(onboardingSearchTimerRef.current);
-    setOnboardingSearchPending(true);
-    onboardingSearchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/games?q=${encodeURIComponent(ui.onboardingQuery.trim())}`);
-        if (!res.ok) {
-          if (requestId !== onboardingSearchRequestCounterRef.current) return;
-          setOnboardingSearchError("Search could not load. Try again.");
-          setOnboardingSearchResults([]);
-          setOnboardingSearchPending(false);
-          return;
-        }
-        const data = (await res.json()) as { games: SeedGame[] };
-        if (requestId !== onboardingSearchRequestCounterRef.current) return;
-        setOnboardingSearchError(null);
-        addGamesToCache(data.games);
-        setOnboardingSearchResults(data.games);
-        setOnboardingSearchPending(false);
-      } catch {
-        if (requestId !== onboardingSearchRequestCounterRef.current) return;
-        setOnboardingSearchError("Search could not load. Try again.");
-        setOnboardingSearchResults([]);
-        setOnboardingSearchPending(false);
-      }
-    }, 250);
-    return () => {
-      if (onboardingSearchTimerRef.current) clearTimeout(onboardingSearchTimerRef.current);
-    };
-  }, [ui?.onboardingQuery]);
-
   const updateState = useCallback(
     (updater: (draft: ProductState) => void) => {
       setState((current) => {
@@ -504,8 +376,14 @@ export function PlayfitProvider({
     state,
   ]);
 
-  const value = useMemo(() => {
-    if (!state || !ui) return null;
+  const gameActions = usePlayfitGameActions({
+    state,
+    updateState,
+    updateUi,
+  });
+
+  const stateValue = useMemo(() => {
+    if (!state) return null;
 
     return {
       seedData: {
@@ -515,31 +393,14 @@ export function PlayfitProvider({
         platforms,
       } satisfies ProductSeedData,
       state,
-      ui,
       isPending: false,
       isSaving,
       authUser,
       useLocalProfile,
       setUseLocalProfile,
-      finderSearchError,
-      onboardingSearchError,
-      onboardingSearchPending,
-      setUi: updateUi,
       updateState,
       getSeedGame(gameId: string) {
         return getCachedGame(gameId) ?? null;
-      },
-      searchGames(query: string) {
-        const trimmed = query.trim();
-        if (!trimmed) return [];
-        const fq = ui?.finderQuery?.trim();
-        const oq = ui?.onboardingQuery?.trim();
-        if (trimmed === fq) return searchResults;
-        if (trimmed === oq) return onboardingSearchResults;
-        // Handle deferred queries (stale but valid prefix)
-        if (fq?.startsWith(trimmed)) return searchResults;
-        if (oq?.startsWith(trimmed)) return onboardingSearchResults;
-        return [];
       },
       buildProfileFromCurrentData() {
         return buildAdaptiveProfile(
@@ -585,280 +446,6 @@ export function PlayfitProvider({
         if (!game) return null;
         return state.user.gameStates[gameId] ?? buildGameState(game, source);
       },
-      toggleFlag(gameId: string, flag: "inBacklog" | "inWishlist") {
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          draft.user.gameStates[gameId] = {
-            ...existing,
-            inBacklog: flag === "inBacklog" ? !existing.inBacklog : existing.inBacklog,
-            inWishlist: flag === "inWishlist" ? !existing.inWishlist : existing.inWishlist,
-            updatedAt: nowIso(),
-          };
-          if (draft.user.profile) {
-            const ids = new Set([
-              ...draft.user.onboarding.likedGameIds,
-              ...(draft.user.onboarding.dislikedGameIds ?? []),
-              ...Object.keys(draft.user.gameStates),
-            ]);
-            const map = new Map<string, SeedGame>();
-            for (const id of ids) {
-              const game = getCachedGame(id);
-              if (game) map.set(id, game);
-            }
-            draft.user.profile = buildAdaptiveProfile(
-              draft.user.onboarding,
-              map,
-              draft.user.gameStates,
-            );
-          }
-        });
-      },
-      setPlayStatus(gameId: string, status: ProductGameState["status"] | undefined) {
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          const next = { ...existing, updatedAt: nowIso() };
-          if (status) {
-            next.status = status;
-          } else {
-            delete next.status;
-          }
-          draft.user.gameStates[gameId] = next;
-        });
-      },
-      setRating(gameId: string, rating: ProductRating | undefined) {
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          const next = { ...existing, updatedAt: nowIso() };
-          if (rating != null && rating > 0) {
-            next.rating = rating;
-          } else {
-            delete next.rating;
-          }
-          draft.user.gameStates[gameId] = next;
-          if (draft.user.profile) {
-            const ids = new Set([
-              ...draft.user.onboarding.likedGameIds,
-              ...(draft.user.onboarding.dislikedGameIds ?? []),
-              ...Object.keys(draft.user.gameStates),
-            ]);
-            const map = new Map<string, SeedGame>();
-            for (const id of ids) {
-              const game = getCachedGame(id);
-              if (game) map.set(id, game);
-            }
-            draft.user.profile = buildAdaptiveProfile(
-              draft.user.onboarding,
-              map,
-              draft.user.gameStates,
-            );
-          }
-        });
-      },
-      applyDecisionFeedback(gameId: string, feedback: ProductDecisionFeedback) {
-        const game = getCachedGame(gameId);
-        if (!game) return;
-        updateState((draft) => {
-          const g = getCachedGame(gameId);
-          if (!g) return;
-          const ids = new Set([
-            ...draft.user.onboarding.likedGameIds,
-            ...(draft.user.onboarding.dislikedGameIds ?? []),
-            ...Object.keys(draft.user.gameStates),
-            gameId,
-          ]);
-          const map = new Map<string, SeedGame>([[g.gameId, g]]);
-          for (const id of ids) {
-            const cachedGame = getCachedGame(id);
-            if (cachedGame) map.set(id, cachedGame);
-          }
-          applyProductDecisionFeedback({
-            state: draft,
-            game: g,
-            gamesById: map,
-            feedback,
-          });
-        });
-        setTimeout(() => {
-          updateUi((current) =>
-            current
-              ? { ...current, statusMessage: productDecisionFeedbackMessages[feedback] }
-              : current,
-          );
-        }, 0);
-      },
-      setPlayfitPick(gameId: string, picked: boolean) {
-        const existing = state.user.gameStates[gameId];
-        if (picked && isTerminalGameState(existing)) {
-          updateUi((current) =>
-            current
-              ? {
-                  ...current,
-                  statusMessage: "That game is already resolved in your taste history.",
-                }
-              : current,
-          );
-          return;
-        }
-        if (
-          picked &&
-          !existing?.inPlayfitPicks &&
-          activePlayfitPickCount(state.user.gameStates) >= PLAYFIT_PICKS_LIMIT
-        ) {
-          updateUi((current) =>
-            current
-              ? {
-                  ...current,
-                  statusMessage: "Playfit Picks is full. Remove one before adding more.",
-                }
-              : current,
-          );
-          return;
-        }
-
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const current = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          const next = {
-            ...current,
-            inPlayfitPicks: picked,
-            updatedAt: nowIso(),
-          };
-          if (shouldDeleteManualState(next)) {
-            delete draft.user.gameStates[gameId];
-          } else {
-            draft.user.gameStates[gameId] = next;
-          }
-        });
-
-        setTimeout(() => {
-          updateUi((current) =>
-            current
-              ? {
-                  ...current,
-                  statusMessage: picked ? "Added to Playfit Picks." : "Removed from Playfit Picks.",
-                }
-              : current,
-          );
-        }, 0);
-      },
-      startPlayfitPick(gameId: string) {
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          draft.user.gameStates[gameId] = {
-            ...existing,
-            status: "playing",
-            inBacklog: false,
-            inPlayfitPicks: false,
-            excluded: false,
-            updatedAt: nowIso(),
-          };
-        });
-        setTimeout(() => {
-          updateUi((current) =>
-            current
-              ? { ...current, statusMessage: "Started. Playfit Picks will move on." }
-              : current,
-          );
-        }, 0);
-      },
-      removeTasteSignal(gameId: string, source: ProductTasteSignalSource) {
-        updateState((draft) => {
-          if (source === "onboarding_liked") {
-            draft.user.onboarding.likedGameIds = draft.user.onboarding.likedGameIds.filter(
-              (id) => id !== gameId,
-            );
-          }
-
-          if (source === "onboarding_disliked") {
-            draft.user.onboarding.dislikedGameIds = (
-              draft.user.onboarding.dislikedGameIds ?? []
-            ).filter((id) => id !== gameId);
-          }
-
-          const existing = draft.user.gameStates[gameId];
-          if (source === "rating" && existing) {
-            const next = { ...existing, updatedAt: nowIso() };
-            delete next.rating;
-            if (
-              next.status === "completed" ||
-              next.status === "beaten" ||
-              next.status === "abandoned"
-            ) {
-              delete next.status;
-            }
-            next.excluded = false;
-            if (shouldDeleteManualState(next)) {
-              delete draft.user.gameStates[gameId];
-            } else {
-              draft.user.gameStates[gameId] = next;
-            }
-          }
-
-          if (source !== "rating") {
-            const next = draft.user.gameStates[gameId];
-            if (
-              next &&
-              next.source === "onboarding" &&
-              next.rating == null &&
-              !next.status &&
-              !next.inBacklog &&
-              !next.inWishlist &&
-              !next.inPlayfitPicks &&
-              !next.excluded
-            ) {
-              delete draft.user.gameStates[gameId];
-            }
-          }
-
-          rebuildAdaptiveProfileFromCache(draft);
-        });
-        setTimeout(() => {
-          updateUi((current) =>
-            current
-              ? {
-                  ...current,
-                  statusMessage: "Taste signal removed. Playfit recalculated your profile.",
-                }
-              : current,
-          );
-        }, 0);
-      },
-      excludeGame(gameId: string) {
-        updateState((draft) => {
-          const game = getCachedGame(gameId);
-          if (!game) return;
-          const existing = draft.user.gameStates[gameId] ?? buildGameState(game, "manual");
-          draft.user.gameStates[gameId] = {
-            ...existing,
-            excluded: true,
-            inPlayfitPicks: false,
-            updatedAt: nowIso(),
-          };
-        });
-        setTimeout(() => {
-          updateUi((current) =>
-            current
-              ? { ...current, statusMessage: "Noted. We'll find you something better." }
-              : current,
-          );
-        }, 0);
-      },
-      setStatusMessage(message: string | null) {
-        updateUi((current) => (current ? { ...current, statusMessage: message } : current));
-      },
-      flushSave,
-      async retrySave() {
-        await enqueueSave(state, { successMessage: "Saved." });
-      },
       resetLocalState() {
         const clean = createInitialState();
         void enqueueSave(clean);
@@ -901,7 +488,7 @@ export function PlayfitProvider({
         try {
           await supabase.auth.signOut();
         } catch {
-          // Network or session error — still clear local state
+          // ignore
         }
         setCachedAuth(null, null);
         setAuthUser(null);
@@ -930,17 +517,23 @@ export function PlayfitProvider({
           );
         }
       },
-    } satisfies PlayfitContextValue;
+      ...gameActions,
+    } satisfies Omit<
+      PlayfitStateContextValue,
+      | "ui"
+      | "setUi"
+      | "setStatusMessage"
+      | "finderSearchError"
+      | "onboardingSearchError"
+      | "onboardingSearchPending"
+      | "searchGames"
+      | "flushSave"
+      | "retrySave"
+    >;
   }, [
     state,
-    ui,
     isSaving,
     platforms,
-    searchResults,
-    onboardingSearchResults,
-    finderSearchError,
-    onboardingSearchError,
-    onboardingSearchPending,
     gamesByIdForProfile,
     updateState,
     updateUi,
@@ -950,6 +543,50 @@ export function PlayfitProvider({
     setUseLocalProfile,
     authUser,
     useLocalProfile,
+    gameActions,
+  ]);
+
+  const uiValue = useMemo(() => {
+    if (!ui) return null;
+
+    return {
+      ui,
+      setUi: updateUi,
+      setStatusMessage(message: string | null) {
+        updateUi((current) => (current ? { ...current, statusMessage: message } : current));
+      },
+      finderSearchError,
+      onboardingSearchError,
+      onboardingSearchPending,
+      searchGames(query: string) {
+        const trimmed = query.trim();
+        if (!trimmed) return [];
+        const fq = ui?.finderQuery?.trim();
+        const oq = ui?.onboardingQuery?.trim();
+        if (trimmed === fq) return searchResults;
+        if (trimmed === oq) return onboardingSearchResults;
+        if (fq?.startsWith(trimmed)) return searchResults;
+        if (oq?.startsWith(trimmed)) return onboardingSearchResults;
+        return [];
+      },
+      flushSave,
+      async retrySave() {
+        if (state) {
+          await enqueueSave(state, { successMessage: "Saved." });
+        }
+      },
+    } satisfies PlayfitUiContextValue;
+  }, [
+    ui,
+    updateUi,
+    finderSearchError,
+    onboardingSearchError,
+    onboardingSearchPending,
+    searchResults,
+    onboardingSearchResults,
+    flushSave,
+    enqueueSave,
+    state,
   ]);
 
   if (authBusy) {
@@ -983,7 +620,7 @@ export function PlayfitProvider({
     );
   }
 
-  if (!value) {
+  if (!stateValue || !uiValue) {
     return (
       <main className="grid min-h-screen place-items-center p-6 text-center">
         <div className="grid gap-3">
@@ -998,13 +635,40 @@ export function PlayfitProvider({
     );
   }
 
-  return <PlayfitContext.Provider value={value}>{children}</PlayfitContext.Provider>;
+  return (
+    <PlayfitStateContext.Provider value={stateValue}>
+      <PlayfitUiContext.Provider value={uiValue}>{children}</PlayfitUiContext.Provider>
+    </PlayfitStateContext.Provider>
+  );
+}
+
+export function usePlayfitState() {
+  const context = useContext(PlayfitStateContext);
+  if (!context) {
+    throw new Error("usePlayfitState must be used inside PlayfitProvider.");
+  }
+  return context;
+}
+
+export function usePlayfitUi() {
+  const context = useContext(PlayfitUiContext);
+  if (!context) {
+    throw new Error("usePlayfitUi must be used inside PlayfitProvider.");
+  }
+  return context;
 }
 
 export function usePlayfit() {
-  const context = useContext(PlayfitContext);
-  if (!context) {
+  const stateContext = useContext(PlayfitStateContext);
+  const uiContext = useContext(PlayfitUiContext);
+  if (!stateContext || !uiContext) {
     throw new Error("usePlayfit must be used inside PlayfitProvider.");
   }
-  return context;
+  return useMemo(
+    () => ({
+      ...stateContext,
+      ...uiContext,
+    }),
+    [stateContext, uiContext],
+  );
 }

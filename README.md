@@ -95,10 +95,15 @@ migrations and removes existing local data.
   - `@playfit/core/domain` for recommendations and onboarding logic
   - `@playfit/core/types` for shared types
   - `@playfit/core/store` for browser profile persistence
+  - `@playfit/core/data` for catalog/tag seed helpers used inside this monorepo
   - `@playfit/core/supabase` for the browser Supabase client
 
 The root `@playfit/core` entrypoint remains for compatibility, but new imports should use the
 focused entrypoints to avoid pulling browser/database infrastructure into pure domain code.
+`@playfit/core` is a private workspace package, so focused subpath exports are treated as
+intentional internal API for Playfit apps and scripts, not as a stable third-party public package.
+Do not remove exported helpers such as tag normalization, seed loading, or default state constants
+unless the corresponding subpath contract is retired or replaced in the monorepo.
 
 ## Supabase
 

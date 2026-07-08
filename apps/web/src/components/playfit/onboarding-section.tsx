@@ -1,141 +1,24 @@
 "use client";
 
 import { buildAdaptiveProfile, canAdvanceOnboarding } from "@playfit/core/domain";
-import type { ProductPlatformOption, SeedGame } from "@playfit/core/types";
+import type { SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
-import { Check, ChevronRight, Gamepad2, Laptop, Tv, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog } from "@/components/ui/dialog";
-import { FormLabel } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
-import { Stack } from "@/components/ui/stack";
-import { cn } from "@/lib/utils";
-import { CoverArt } from "./cover-art";
+import { LovedGamesStep, MissedGameStep } from "./onboarding/game-selection-step";
+import {
+  formatPlatformFamily,
+  type PlatformPreset,
+  preferredPlatformFamilies,
+  type SearchSlot,
+  selectedPlatformIdSet,
+} from "./onboarding/onboarding-helpers";
+import { OnboardingProgress } from "./onboarding/onboarding-progress";
+import { OnboardingSearchDialog } from "./onboarding/onboarding-search-dialog";
+import { PlatformsStep } from "./onboarding/platforms-step";
 import { usePlayfit } from "./playfit-context";
-import { formatDisplayGenre, isValidReleaseYear } from "./product-utils";
 import { SectionHead } from "./section-head";
-
-const preferredPlatformFamilies = ["nintendo", "playstation", "xbox", "sega", "pc", "other"];
-const platformFamilyLabels: Record<string, string> = {
-  nintendo: "Nintendo",
-  playstation: "PlayStation",
-  xbox: "Xbox",
-  sega: "SEGA",
-  pc: "PC",
-  other: "Other",
-};
-
-const currentPlatformIds = new Set([
-  "switch_1",
-  "switch_2",
-  "ps5",
-  "xbox_series_xs",
-  "pc",
-  "macos",
-  "linux",
-  "cups",
-]);
-
-const retroPlatformIds = new Set([
-  "atari_2600",
-  "dreamcast",
-  "ds",
-  "game_gear",
-  "gamecube",
-  "gb",
-  "gba",
-  "gbc",
-  "genesis",
-  "n64",
-  "neo_geo",
-  "nes",
-  "ps1",
-  "ps2",
-  "ps3",
-  "psp",
-  "saturn",
-  "sega_master_system",
-  "snes",
-  "wii",
-  "wii_u",
-  "xbox_360",
-  "xbox_original",
-]);
-
-const platformPresets: Array<{
-  id: string;
-  label: string;
-  description: string;
-  matches: (platform: ProductPlatformOption) => boolean;
-  Icon: typeof Gamepad2;
-}> = [
-  {
-    id: "current",
-    label: "Current systems",
-    description: "Modern consoles and computers.",
-    matches: (platform) => currentPlatformIds.has(platform.platformId),
-    Icon: Gamepad2,
-  },
-  {
-    id: "nintendo",
-    label: "Nintendo",
-    description: "Switch, handhelds, and classic Nintendo.",
-    matches: (platform) => platform.family === "nintendo",
-    Icon: Gamepad2,
-  },
-  {
-    id: "playstation",
-    label: "PlayStation",
-    description: "Sony home and handheld systems.",
-    matches: (platform) => platform.family === "playstation",
-    Icon: Gamepad2,
-  },
-  {
-    id: "xbox",
-    label: "Xbox",
-    description: "Xbox generations and current consoles.",
-    matches: (platform) => platform.family === "xbox",
-    Icon: Gamepad2,
-  },
-  {
-    id: "pc",
-    label: "PC",
-    description: "Desktop and computer platforms.",
-    matches: (platform) => platform.family === "pc" || platform.kind === "computer",
-    Icon: Laptop,
-  },
-  {
-    id: "retro",
-    label: "Retro",
-    description: "Older consoles and handhelds.",
-    matches: (platform) =>
-      retroPlatformIds.has(platform.platformId) ||
-      ["sega", "atari", "snk"].includes(platform.family),
-    Icon: Tv,
-  },
-];
-
-const quickSuggestions = ["Elden Ring", "Hades", "Hollow Knight", "Portal 2", "The Witcher 3"];
-
-function formatPlatformFamily(family: string) {
-  return (
-    platformFamilyLabels[family] ??
-    family
-      .split("_")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ")
-  );
-}
-
-function selectedPlatformIdSet(platforms: Array<{ platformId: string }>) {
-  return new Set(platforms.map((entry) => entry.platformId));
-}
 
 export function OnboardingSection() {
   const {
@@ -153,7 +36,7 @@ export function OnboardingSection() {
   const draft = state.user.onboarding;
   const [platformError, setPlatformError] = useState<string | null>(null);
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
-  const [searchSlot, setSearchSlot] = useState<"anchor" | "dislike" | null>(null);
+  const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);
   const [replaceGameId, setReplaceGameId] = useState<string | null>(null);
   const platformFamilies = useMemo(() => {
     const availableFamilies = [
@@ -211,7 +94,7 @@ export function OnboardingSection() {
     setPlatformError(null);
   }
 
-  function togglePlatformPreset(preset: (typeof platformPresets)[number]) {
+  function togglePlatformPreset(preset: PlatformPreset) {
     const presetIds = seedData.platforms
       .filter(preset.matches)
       .map((platform) => platform.platformId);
@@ -236,6 +119,19 @@ export function OnboardingSection() {
     setPlatformError(null);
   }
 
+  function ensureOnboardingGameState(game: SeedGame) {
+    return {
+      gameId: game.gameId,
+      title: game.title,
+      inBacklog: false,
+      inWishlist: false,
+      inPlayfitPicks: false,
+      source: "onboarding" as const,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+  }
+
   function addAnchor(game: SeedGame) {
     updateState((next) => {
       if (
@@ -250,16 +146,7 @@ export function OnboardingSection() {
       next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
         (id) => id !== game.gameId,
       );
-      next.user.gameStates[game.gameId] ??= {
-        gameId: game.gameId,
-        title: game.title,
-        inBacklog: false,
-        inWishlist: false,
-        inPlayfitPicks: false,
-        source: "onboarding",
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
+      next.user.gameStates[game.gameId] ??= ensureOnboardingGameState(game);
     });
   }
 
@@ -271,16 +158,7 @@ export function OnboardingSection() {
       next.user.onboarding.dislikedGameIds = next.user.onboarding.dislikedGameIds.filter(
         (id) => id !== newGame.gameId,
       );
-      next.user.gameStates[newGame.gameId] ??= {
-        gameId: newGame.gameId,
-        title: newGame.title,
-        inBacklog: false,
-        inWishlist: false,
-        inPlayfitPicks: false,
-        source: "onboarding",
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
+      next.user.gameStates[newGame.gameId] ??= ensureOnboardingGameState(newGame);
     });
   }
 
@@ -290,16 +168,7 @@ export function OnboardingSection() {
       next.user.onboarding.likedGameIds = next.user.onboarding.likedGameIds.filter(
         (id) => id !== game.gameId,
       );
-      next.user.gameStates[game.gameId] ??= {
-        gameId: game.gameId,
-        title: game.title,
-        inBacklog: false,
-        inWishlist: false,
-        inPlayfitPicks: false,
-        source: "onboarding",
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
+      next.user.gameStates[game.gameId] ??= ensureOnboardingGameState(game);
     });
   }
 
@@ -317,6 +186,29 @@ export function OnboardingSection() {
         (id) => id !== gameId,
       );
     });
+  }
+
+  function openSearch(slot: SearchSlot, nextReplaceGameId: string | null) {
+    setSearchSlot(slot);
+    setReplaceGameId(nextReplaceGameId);
+  }
+
+  function closeSearch() {
+    setSearchSlot(null);
+    setReplaceGameId(null);
+    setUi((current) => ({ ...current, onboardingQuery: "" }));
+  }
+
+  function continueFromPlatforms() {
+    if (draft.platforms.length === 0) {
+      setPlatformError("Select at least one platform to start.");
+      return false;
+    }
+    setPlatformError(null);
+    updateState((next) => {
+      next.user.onboarding.step = "anchors";
+    });
+    return true;
   }
 
   function finalize() {
@@ -343,7 +235,6 @@ export function OnboardingSection() {
   }
 
   const step = draft.step === "platforms" ? 1 : draft.step === "anchors" ? 2 : 3;
-  const _progressValue = step === 1 ? 33 : step === 2 ? 67 : 100;
   const stepTitle =
     draft.step === "platforms"
       ? "Where do you play?"
@@ -356,12 +247,6 @@ export function OnboardingSection() {
       : draft.step === "anchors"
         ? "Start with games that clicked. We will look for similar games."
         : "Tell us a popular game you didn't enjoy so we know what to avoid.";
-  const _stepCountCopy =
-    draft.step === "platforms"
-      ? `${draft.platforms.length} platforms`
-      : draft.step === "anchors"
-        ? `${Math.min(draft.likedGameIds.length, 3)} / 3 loved`
-        : `${Math.min(draft.dislikedGameIds.length, 1)} / 1 not for me`;
 
   return (
     <section className="relative overflow-hidden flex flex-col h-full w-full border-0 rounded-none bg-transparent shadow-none md:border md:rounded-3xl md:border-white/10 md:bg-gradient-to-br md:from-card/70 md:to-background/50 md:p-1 md:backdrop-blur-md md:shadow-2xl">
@@ -370,690 +255,80 @@ export function OnboardingSection() {
       </div>
       <Card className="border-0 bg-transparent shadow-none flex flex-col flex-1 min-h-0">
         <CardHeader className="pt-0 px-4 md:px-6 shrink-0">
-          <div className="grid gap-4">
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { id: 1, label: "Platforms", count: `${draft.platforms.length} selected` },
-                {
-                  id: 2,
-                  label: "Loved Games",
-                  count: `${Math.min(draft.likedGameIds.length, 3)}/3`,
-                },
-                {
-                  id: 3,
-                  label: "Missed Game",
-                  count: `${Math.min(draft.dislikedGameIds.length, 1)}/1`,
-                },
-              ].map((s) => {
-                const isCompleted = step > s.id;
-                const isActive = step === s.id;
-                return (
-                  <div key={s.id} className="grid gap-1.5">
-                    <div className="h-1 rounded-full overflow-hidden bg-white/5 relative">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-500",
-                          isCompleted
-                            ? "bg-positive"
-                            : isActive
-                              ? "bg-gradient-to-r from-accent to-pink-500 animate-pulse"
-                              : "bg-transparent",
-                        )}
-                        style={{ width: isCompleted || isActive ? "100%" : "0%" }}
-                      />
-                    </div>
-                    <div className="flex flex-col text-center sm:text-left sm:flex-row sm:justify-between gap-0.5 px-0.5">
-                      <span
-                        className={cn(
-                          "text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors",
-                          isActive
-                            ? "text-accent"
-                            : isCompleted
-                              ? "text-positive"
-                              : "text-muted-foreground/40",
-                        )}
-                      >
-                        {s.label}
-                      </span>
-                      <span className="text-[10px] sm:text-xs font-mono text-muted-foreground/60">
-                        {s.count}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <OnboardingProgress draft={draft} step={step} />
         </CardHeader>
         <CardContent className="px-4 pb-4 md:px-6 md:pb-6 pt-0 flex-1 flex flex-col min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait">
             {draft.step === "platforms" ? (
-              <motion.form
-                key="platforms"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="flex flex-col gap-6 flex-1 min-h-0"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (draft.platforms.length === 0) {
-                    setPlatformError("Select at least one platform to start.");
-                    return;
-                  }
-                  setPlatformError(null);
+              <PlatformsStep
+                allSelected={allSelected}
+                draft={draft}
+                platformError={platformError}
+                platformFamilies={platformFamilies}
+                platformsUnavailable={platformsUnavailable}
+                seedData={seedData}
+                selectedIds={selectedIds}
+                showPlatformDetails={showPlatformDetails}
+                onContinue={continueFromPlatforms}
+                onShowPlatformDetailsChange={setShowPlatformDetails}
+                onToggleAllPlatforms={toggleAllPlatforms}
+                onTogglePlatform={togglePlatform}
+                onTogglePlatformPreset={togglePlatformPreset}
+              />
+            ) : draft.step === "anchors" ? (
+              <LovedGamesStep
+                draft={draft}
+                getSeedGame={getSeedGame}
+                onBack={() =>
+                  updateState((next) => {
+                    next.user.onboarding.step = "platforms";
+                  })
+                }
+                onContinue={() => {
+                  updateState((next) => {
+                    next.user.onboarding.step = "dislikes";
+                  });
+                  setUi((current) => ({ ...current, onboardingQuery: "" }));
+                }}
+                onOpenSearch={openSearch}
+                onRemoveAnchor={removeAnchor}
+              />
+            ) : (
+              <MissedGameStep
+                canAdvance={canAdvance}
+                draft={draft}
+                getSeedGame={getSeedGame}
+                onBack={() => {
                   updateState((next) => {
                     next.user.onboarding.step = "anchors";
                   });
+                  setUi((current) => ({ ...current, onboardingQuery: "" }));
                 }}
-              >
-                <p className="text-sm text-muted-foreground/80">
-                  Start broad by selecting quick groups. You can customize individual systems in the
-                  panel below if needed.
-                </p>
-                {platformsUnavailable ? (
-                  <Alert variant="error">
-                    Platforms could not be loaded. Check the catalog connection and try again.
-                  </Alert>
-                ) : null}
-                <div className="grid gap-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    Quick Groups
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {platformPresets.map((preset) => {
-                      const presetPlatforms = seedData.platforms.filter(preset.matches);
-                      const presetIds = presetPlatforms.map((platform) => platform.platformId);
-                      const selectedCount = presetIds.filter((id) => selectedIds.has(id)).length;
-                      const selected = presetIds.length > 0 && selectedCount === presetIds.length;
-                      const partiallySelected = selectedCount > 0 && !selected;
-
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          aria-pressed={selected}
-                          disabled={platformsUnavailable || presetIds.length === 0}
-                          className={cn(
-                            "group grid min-h-28 content-between gap-3 rounded-2xl border border-white/5 bg-secondary/25 p-4 text-left transition-all duration-300 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-                            selected &&
-                              "border-accent/40 bg-accent/10 shadow-[0_0_20px_rgba(255,106,61,0.1)]",
-                          )}
-                          onClick={() => togglePlatformPreset(preset)}
-                        >
-                          <div className="flex items-start justify-between gap-2.5 w-full">
-                            <span className="min-w-0">
-                              <strong className="block text-sm font-extrabold text-foreground group-hover:text-accent transition-colors">
-                                {preset.label}
-                              </strong>
-                              <span className="mt-1.5 block text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                                {preset.description}
-                              </span>
-                            </span>
-                            {preset.Icon && (
-                              <div
-                                className={cn(
-                                  "size-8 shrink-0 rounded-xl grid place-items-center border border-white/5 bg-white/[0.02] text-muted-foreground group-hover:text-foreground transition-all duration-300",
-                                  selected &&
-                                    "border-accent/30 bg-accent/10 text-accent group-hover:text-accent",
-                                )}
-                              >
-                                <preset.Icon className="size-4" />
-                              </div>
-                            )}
-                          </div>
-                          <span
-                            className={cn(
-                              "text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/60 transition-colors",
-                              selected && "text-accent",
-                              partiallySelected && "text-foreground",
-                            )}
-                          >
-                            {selected
-                              ? "Selected"
-                              : partiallySelected
-                                ? `${selectedCount} of ${presetIds.length}`
-                                : `${presetIds.length} systems`}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:rounded-2xl md:border md:border-white/5 md:bg-secondary/20 flex flex-wrap items-center justify-between gap-4">
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">{draft.platforms.length}</strong> systems
-                    selected for Play Next.
-                  </p>
-                  <Stack direction="row" wrap gap={2} className="w-full sm:w-auto justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setShowPlatformDetails(true)}
-                      className="text-xs hover:text-foreground"
-                    >
-                      Customize Platforms
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={draft.platforms.length === 0}
-                      className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-                    >
-                      Continue <ChevronRight className="size-4" />
-                    </Button>
-                  </Stack>
-                </div>
-
-                <Dialog
-                  open={showPlatformDetails}
-                  onClose={() => setShowPlatformDetails(false)}
-                  title="Customize Platforms"
-                  eyebrow="Platforms"
-                  className="max-w-md overflow-hidden"
-                >
-                  <div className="max-h-[50vh] overflow-y-auto pr-1 grid gap-4">
-                    <Checkbox
-                      id="select-all-platforms"
-                      checked={allSelected}
-                      onChange={toggleAllPlatforms}
-                      label={allSelected ? "Deselect all platforms" : "Select all platforms"}
-                      disabled={platformsUnavailable}
-                      className="font-bold sticky top-0 bg-background py-2 z-10"
-                    />
-                    <div className="grid gap-4 divide-y divide-white/5 pt-2">
-                      {platformFamilies.map((family) => {
-                        const group = seedData.platforms
-                          .filter((p) => p.family === family)
-                          .sort((a, b) => a.sortOrder - b.sortOrder);
-                        if (group.length === 0) return null;
-                        const label = formatPlatformFamily(family);
-                        const consoles = group.filter((p) => p.kind !== "handheld");
-                        const handhelds = group.filter((p) => p.kind === "handheld");
-                        return (
-                          <div key={family} className="grid gap-3 pt-3 first:pt-0 first:divide-y-0">
-                            {label && (
-                              <p className="text-xs font-bold uppercase tracking-wide text-accent">
-                                {label}
-                              </p>
-                            )}
-                            {consoles.length > 0 && (
-                              <div>
-                                {handhelds.length > 0 && (
-                                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                    Console / Hybrid
-                                  </p>
-                                )}
-                                <div className="grid gap-3 md:grid-cols-2">
-                                  {consoles.map((platform) => {
-                                    const checked = draft.platforms.some(
-                                      (entry) => entry.platformId === platform.platformId,
-                                    );
-                                    return (
-                                      <Checkbox
-                                        key={platform.platformId}
-                                        id={`platform-${platform.platformId}`}
-                                        checked={checked}
-                                        onChange={(event) =>
-                                          togglePlatform(
-                                            platform.platformId,
-                                            event.currentTarget.checked,
-                                          )
-                                        }
-                                        label={platform.displayName}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                            {handhelds.length > 0 && (
-                              <div className="pt-2">
-                                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  Handheld
-                                </p>
-                                <div className="grid gap-3 md:grid-cols-2">
-                                  {handhelds.map((platform) => {
-                                    const checked = draft.platforms.some(
-                                      (entry) => entry.platformId === platform.platformId,
-                                    );
-                                    return (
-                                      <Checkbox
-                                        key={platform.platformId}
-                                        id={`platform-${platform.platformId}`}
-                                        checked={checked}
-                                        onChange={(event) =>
-                                          togglePlatform(
-                                            platform.platformId,
-                                            event.currentTarget.checked,
-                                          )
-                                        }
-                                        label={platform.displayName}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="mt-6 flex justify-end border-t border-white/5 pt-4">
-                    <Button
-                      type="button"
-                      onClick={() => setShowPlatformDetails(false)}
-                      className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-                    >
-                      Apply Customization
-                    </Button>
-                  </div>
-                </Dialog>
-                {platformError ? <Alert variant="error">{platformError}</Alert> : null}
-              </motion.form>
-            ) : draft.step === "anchors" ? (
-              <motion.div
-                key="anchors"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="flex flex-col gap-6 flex-1 min-h-0"
-              >
-                <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                  Select 3 games you loved. This establishes your taste baseline and platforms
-                  preferences.
-                </p>
-                <div className="grid grid-cols-3 gap-4 py-2">
-                  {[0, 1, 2].map((index) => {
-                    const gameId = draft.likedGameIds[index];
-                    const game = gameId ? getSeedGame(gameId) : null;
-
-                    if (game) {
-                      return (
-                        <div
-                          key={game.gameId}
-                          className="group relative aspect-[2/3] w-full rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300 hover:border-accent/40"
-                        >
-                          <CoverArt
-                            game={game}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSearchSlot("anchor");
-                              setReplaceGameId(game.gameId);
-                            }}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-3 text-center cursor-pointer animate-fade-in border-0"
-                          >
-                            <span className="text-[11px] font-black uppercase tracking-wider text-accent">
-                              Change Game
-                            </span>
-                            <span className="text-[9px] text-white/70 line-clamp-2 mt-1 leading-snug">
-                              {game.title}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeAnchor(game.gameId);
-                            }}
-                            className="absolute top-2 right-2 size-7 rounded-full bg-black/75 text-white/80 hover:text-white hover:bg-destructive shadow-md grid place-items-center transition-all duration-200 z-10"
-                            aria-label={`Remove ${game.title}`}
-                          >
-                            <X className="size-4" />
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => {
-                          setSearchSlot("anchor");
-                          setReplaceGameId(null);
-                        }}
-                        className="group flex flex-col items-center justify-center aspect-[2/3] w-full rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:border-accent/30 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer"
-                      >
-                        <div className="size-10 rounded-full border border-white/10 bg-white/[0.02] group-hover:bg-accent/15 group-hover:border-accent/30 group-hover:text-accent transition-all duration-300 grid place-items-center mb-2">
-                          <span className="text-xl font-bold leading-none">+</span>
-                        </div>
-                        <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
-                          Select {index + 1}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      updateState((next) => {
-                        next.user.onboarding.step = "platforms";
-                      })
-                    }
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={draft.likedGameIds.length < 3}
-                    onClick={() => {
-                      updateState((next) => {
-                        next.user.onboarding.step = "dislikes";
-                      });
-                      setUi((current) => ({ ...current, onboardingQuery: "" }));
-                    }}
-                    className="ml-auto bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-                  >
-                    Continue <ChevronRight className="size-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="dislikes"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="flex flex-col gap-6 flex-1 min-h-0"
-              >
-                <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                  Select 1 game that was not for you so the recommender knows what to avoid.
-                </p>
-                <div className="flex justify-center py-4">
-                  {(() => {
-                    const gameId = draft.dislikedGameIds[0];
-                    const game = gameId ? getSeedGame(gameId) : null;
-
-                    if (game) {
-                      return (
-                        <div className="group relative aspect-[2/3] w-40 rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300 hover:border-negative/40">
-                          <CoverArt
-                            game={game}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSearchSlot("dislike");
-                              setReplaceGameId(game.gameId);
-                            }}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-3 text-center cursor-pointer animate-fade-in border-0"
-                          >
-                            <span className="text-[11px] font-black uppercase tracking-wider text-negative">
-                              Change Game
-                            </span>
-                            <span className="text-[9px] text-white/70 line-clamp-2 mt-1 leading-snug">
-                              {game.title}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeDislikedAnchor(game.gameId);
-                            }}
-                            className="absolute top-2 right-2 size-7 rounded-full bg-black/75 text-white/80 hover:text-white hover:bg-destructive shadow-md grid place-items-center transition-all duration-200 z-10"
-                            aria-label={`Remove ${game.title}`}
-                          >
-                            <X className="size-4" />
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchSlot("dislike");
-                          setReplaceGameId(null);
-                        }}
-                        className="group flex flex-col items-center justify-center aspect-[2/3] w-40 rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:border-negative/30 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer"
-                      >
-                        <div className="size-10 rounded-full border border-white/10 bg-white/[0.02] group-hover:bg-negative/15 group-hover:border-negative/30 group-hover:text-negative transition-all duration-300 grid place-items-center mb-2">
-                          <span className="text-xl font-bold leading-none">+</span>
-                        </div>
-                        <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors">
-                          Select Game
-                        </span>
-                      </button>
-                    );
-                  })()}
-                </div>
-                <div className="mt-auto sticky bottom-0 z-20 -mx-4 -mb-4 border-t border-white/5 bg-card/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md md:relative md:m-0 md:border-t-0 md:bg-transparent md:p-0 md:pt-2 flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      updateState((next) => {
-                        next.user.onboarding.step = "anchors";
-                      });
-                      setUi((current) => ({ ...current, onboardingQuery: "" }));
-                    }}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={!canAdvance}
-                    onClick={finalize}
-                    className="ml-auto bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_15px_rgba(255,106,61,0.25)] hover:shadow-[0_0_20px_rgba(255,106,61,0.35)]"
-                  >
-                    Find Play Next
-                  </Button>
-                </div>
-              </motion.div>
+                onFinalize={finalize}
+                onOpenSearch={openSearch}
+                onRemoveDislikedAnchor={removeDislikedAnchor}
+              />
             )}
           </AnimatePresence>
         </CardContent>
       </Card>
 
-      <Dialog
-        open={searchSlot !== null}
-        onClose={() => {
-          setSearchSlot(null);
-          setReplaceGameId(null);
-          setUi((current) => ({ ...current, onboardingQuery: "" }));
-        }}
-        title={
-          searchSlot === "anchor"
-            ? replaceGameId
-              ? "Change loved game"
-              : "Search loved game"
-            : "Search missed game"
-        }
-        eyebrow={searchSlot === "anchor" ? "Loved Games" : "Missed Game"}
-        className="max-w-xl overflow-hidden"
-      >
-        <div className="grid gap-5">
-          <div className="grid gap-2">
-            <FormLabel htmlFor="onboarding-search-input">Search by title</FormLabel>
-            <Input
-              id="onboarding-search-input"
-              value={ui.onboardingQuery}
-              onChange={(e) => setUi((curr) => ({ ...curr, onboardingQuery: e.target.value }))}
-              placeholder="Type game title..."
-              autoFocus
-              className="w-full text-base"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Quick Suggestions
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {quickSuggestions.map((suggestion) => (
-                <Button
-                  key={suggestion}
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setUi((curr) => ({ ...curr, onboardingQuery: suggestion }))}
-                  className="text-xs"
-                >
-                  {suggestion}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 max-h-[40vh] overflow-y-auto pr-1">
-            {anchorResults.map((game) => {
-              const loved = draft.likedGameIds.includes(game.gameId);
-              const disliked = draft.dislikedGameIds.includes(game.gameId);
-
-              let isDisabled = false;
-              let isCurrentSelection = false;
-              let statusLabel = "";
-
-              if (searchSlot === "anchor") {
-                isCurrentSelection = game.gameId === replaceGameId;
-                isDisabled = loved && !isCurrentSelection;
-                if (isDisabled) {
-                  statusLabel = "Already selected as loved";
-                } else if (isCurrentSelection) {
-                  statusLabel = "Current selection";
-                } else if (disliked) {
-                  statusLabel = "Selected as disliked (will swap)";
-                }
-              } else if (searchSlot === "dislike") {
-                isCurrentSelection = disliked;
-                isDisabled = loved;
-                if (isDisabled) {
-                  statusLabel = "Selected as loved";
-                } else if (isCurrentSelection) {
-                  statusLabel = "Current selection";
-                }
-              }
-
-              return (
-                <button
-                  key={game.gameId}
-                  type="button"
-                  aria-pressed={isCurrentSelection}
-                  disabled={isDisabled}
-                  onClick={() => {
-                    if (searchSlot === "anchor") {
-                      if (replaceGameId) {
-                        replaceAnchor(replaceGameId, game);
-                      } else {
-                        addAnchor(game);
-                      }
-                    } else if (searchSlot === "dislike") {
-                      addDislikedAnchor(game);
-                    }
-                    setUi((current) => ({ ...current, onboardingQuery: "" }));
-                    setSearchSlot(null);
-                    setReplaceGameId(null);
-                  }}
-                  className={cn(
-                    "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted/10",
-                    isCurrentSelection &&
-                      (searchSlot === "anchor"
-                        ? "border-accent/40 bg-accent/10"
-                        : "border-negative/40 bg-negative/10"),
-                  )}
-                >
-                  <CoverArt
-                    game={game}
-                    className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <strong
-                      className={cn(
-                        "block text-base font-black truncate text-foreground transition-colors",
-                        isCurrentSelection &&
-                          (searchSlot === "anchor"
-                            ? "group-hover:text-accent"
-                            : "group-hover:text-negative"),
-                      )}
-                    >
-                      {game.title}
-                    </strong>
-                    {statusLabel ? (
-                      <span
-                        className={cn(
-                          "block text-xs font-bold uppercase tracking-wider mt-0.5",
-                          isDisabled
-                            ? "text-muted-foreground/60"
-                            : searchSlot === "anchor"
-                              ? "text-accent"
-                              : "text-negative",
-                        )}
-                      >
-                        {statusLabel}
-                      </span>
-                    ) : (
-                      <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                        {[
-                          formatDisplayGenre(game.primaryGenre),
-                          isValidReleaseYear(game.releaseYear) ? game.releaseYear : "",
-                          game.availablePlatformNames && game.availablePlatformNames.length > 0
-                            ? game.availablePlatformNames.slice(0, 3).join(", ") +
-                              (game.availablePlatformNames.length > 3 ? "..." : "")
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </span>
-                    )}
-                  </div>
-                  {isCurrentSelection ? (
-                    <div
-                      className={cn(
-                        "size-6 shrink-0 grid place-items-center rounded-full border",
-                        searchSlot === "anchor"
-                          ? "bg-accent/10 text-accent border-accent/30"
-                          : "bg-negative/10 text-negative border-negative/30",
-                      )}
-                    >
-                      <Check className="size-3.5 stroke-[3]" />
-                    </div>
-                  ) : (
-                    !isDisabled && (
-                      <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
-                    )
-                  )}
-                </button>
-              );
-            })}
-
-            {anchorResults.length === 0 && hasOnboardingSearch ? (
-              onboardingSearchPending ? (
-                <div className="flex flex-col items-center justify-center py-8 gap-3">
-                  <Spinner className="text-accent" />
-                  <p className="text-sm text-muted-foreground">Searching catalog...</p>
-                </div>
-              ) : onboardingSearchError ? (
-                <Alert variant="error">{onboardingSearchError}</Alert>
-              ) : seedData.allGames.length === 0 ? (
-                <Alert variant="warning">
-                  The game catalog is currently empty. Make sure you run the seeding script (
-                  <code>bash scripts/seed-catalog.sh</code>) to import games.
-                </Alert>
-              ) : (
-                <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/10">
-                  No games found matching your search.
-                </p>
-              )
-            ) : !hasOnboardingSearch ? (
-              <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/5">
-                Type a game title above to search.
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </Dialog>
+      <OnboardingSearchDialog
+        anchorResults={anchorResults}
+        draft={draft}
+        hasOnboardingSearch={hasOnboardingSearch}
+        onboardingQuery={ui.onboardingQuery}
+        onboardingSearchError={onboardingSearchError}
+        onboardingSearchPending={onboardingSearchPending}
+        replaceGameId={replaceGameId}
+        searchSlot={searchSlot}
+        seedData={seedData}
+        onAddAnchor={addAnchor}
+        onAddDislikedAnchor={addDislikedAnchor}
+        onClose={closeSearch}
+        onQueryChange={(query) => setUi((current) => ({ ...current, onboardingQuery: query }))}
+        onReplaceAnchor={replaceAnchor}
+      />
     </section>
   );
 }

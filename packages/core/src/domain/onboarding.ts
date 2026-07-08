@@ -318,33 +318,31 @@ export function buildFallbackProfile(
   };
 }
 
-export function buildAdaptiveProfile(
-  draft: ProductOnboardingDraft,
-  gamesById: Map<string, SeedGame>,
+interface RatingEvidence {
+  ratedGameIds: Set<string>;
+  ratedCount: number;
+  positiveOutcomeCount: number;
+  negativeOutcomeCount: number;
+}
+
+function collectRatingEvidence(
   gameStates: Record<string, ProductGameState>,
-): ProductProfile {
-  const dislikedGameIds = new Set(draft.dislikedGameIds ?? []);
-  const positiveAnchorIds = draft.likedGameIds.filter((gameId) => !dislikedGameIds.has(gameId));
-  const likedGenres = countGenres(positiveAnchorIds, gamesById).slice(0, 3);
-  const positiveTags: Record<string, number> = {};
-  const negativeTags: Record<string, number> = {};
-  const avoidedGenres = new Map<string, number>();
-  const signalDrafts: ProductProfileSignal[] = [];
+  gamesById: Map<string, SeedGame>,
+  likedGenres: string[],
+  positiveTags: Record<string, number>,
+  negativeTags: Record<string, number>,
+  avoidedGenres: Map<string, number>,
+): RatingEvidence {
+  const ratedGameIds = new Set<string>();
   let ratedCount = 0;
   let positiveOutcomeCount = 0;
   let negativeOutcomeCount = 0;
-  const anchorTags = countTags(positiveAnchorIds, gamesById);
-  const ratedGameIds = new Set<string>();
 
   Object.values(gameStates).forEach((record) => {
     const game = gamesById.get(record.gameId);
     if (!game) return;
     if (record.rating == null || record.rating <= 0) return;
 
-    // Evidence magnitude = distance from neutral (3): a 5 pushes twice as hard
-    // as a 4, a 1 twice as hard as a 2. A 3 ("mixed") has magnitude 0 -- it
-    // doesn't move tag/genre evidence, and (unlike before) doesn't count
-    // toward ratedCount/confidence either, since it hasn't told us anything.
     const magnitude = record.rating - 3;
     if (magnitude === 0) return;
 
@@ -373,27 +371,24 @@ export function buildAdaptiveProfile(
     }
   });
 
-  for (const gameId of dislikedGameIds) {
-    if (ratedGameIds.has(gameId)) continue;
-    const game = gamesById.get(gameId);
-    if (!game) continue;
+  return {
+    ratedGameIds,
+    ratedCount,
+    positiveOutcomeCount,
+    negativeOutcomeCount,
+  };
+}
 
-    ratedCount++;
-    negativeOutcomeCount++;
-    addTagEvidence(negativeTags, game.tags, 1);
-    const genreKey = game.genreId ?? game.primaryGenre;
-    if (genreKey) {
-      avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
-    }
-  }
-
-  const { likedTags, dislikedTags } = buildNetTagProfiles(positiveTags, negativeTags, anchorTags);
-  const topLikedTags = Object.entries(likedTags)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3);
-  const topDislikedTags = Object.entries(dislikedTags)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3);
+function buildProfileSignals(
+  topLikedTags: [string, number][],
+  topDislikedTags: [string, number][],
+  likedTags: Record<string, number>,
+  dislikedTags: Record<string, number>,
+  ratedCount: number,
+  positiveOutcomeCount: number,
+  negativeOutcomeCount: number,
+): ProductProfileSignal[] {
+  const signalDrafts: ProductProfileSignal[] = [];
 
   for (const [tag] of topLikedTags) {
     const copy = positiveSignalCopy(tag, likedTags[tag], ratedCount);
@@ -424,18 +419,89 @@ export function buildAdaptiveProfile(
     });
   }
 
+  return uniqueSignals(signalDrafts).slice(0, 8);
+}
+
+function buildProfileSummary(ratedCount: number, onboardingLikedCount: number): string {
+  if (ratedCount >= 6) {
+    return `Strong pattern from ${ratedCount} ratings and ${onboardingLikedCount} setup favorites.`;
+  }
+  if (ratedCount >= 3) {
+    return `Emerging pattern from ${ratedCount} ratings and ${onboardingLikedCount} setup favorites.`;
+  }
+  if (ratedCount > 0) {
+    return `Early read from ${ratedCount} rating(s) and ${onboardingLikedCount} setup favorites.`;
+  }
+  return "Early profile built from your favorites. Rate a few games to make it sharper.";
+}
+
+export function buildAdaptiveProfile(
+  draft: ProductOnboardingDraft,
+  gamesById: Map<string, SeedGame>,
+  gameStates: Record<string, ProductGameState>,
+): ProductProfile {
+  const dislikedGameIds = new Set(draft.dislikedGameIds ?? []);
+  const positiveAnchorIds = draft.likedGameIds.filter((gameId) => !dislikedGameIds.has(gameId));
+  const likedGenres = countGenres(positiveAnchorIds, gamesById).slice(0, 3);
+  const positiveTags: Record<string, number> = {};
+  const negativeTags: Record<string, number> = {};
+  const avoidedGenres = new Map<string, number>();
+  const anchorTags = countTags(positiveAnchorIds, gamesById);
+
+  const {
+    ratedGameIds,
+    ratedCount: initialRatedCount,
+    positiveOutcomeCount,
+    negativeOutcomeCount: initialNegativeOutcomeCount,
+  } = collectRatingEvidence(
+    gameStates,
+    gamesById,
+    likedGenres,
+    positiveTags,
+    negativeTags,
+    avoidedGenres,
+  );
+
+  let ratedCount = initialRatedCount;
+  let negativeOutcomeCount = initialNegativeOutcomeCount;
+
+  for (const gameId of dislikedGameIds) {
+    if (ratedGameIds.has(gameId)) continue;
+    const game = gamesById.get(gameId);
+    if (!game) continue;
+
+    ratedCount++;
+    negativeOutcomeCount++;
+    addTagEvidence(negativeTags, game.tags, 1);
+    const genreKey = game.genreId ?? game.primaryGenre;
+    if (genreKey) {
+      avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
+    }
+  }
+
+  const { likedTags, dislikedTags } = buildNetTagProfiles(positiveTags, negativeTags, anchorTags);
+  const topLikedTags = Object.entries(likedTags)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3);
+  const topDislikedTags = Object.entries(dislikedTags)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3);
+
+  const signals = buildProfileSignals(
+    topLikedTags,
+    topDislikedTags,
+    likedTags,
+    dislikedTags,
+    ratedCount,
+    positiveOutcomeCount,
+    negativeOutcomeCount,
+  );
+
   const mergedLikedGenres = [
     ...new Set([...countGenres(positiveAnchorIds, gamesById), ...likedGenres]),
   ].slice(0, 5);
 
-  const summary =
-    ratedCount >= 6
-      ? `Strong pattern from ${ratedCount} ratings and ${draft.likedGameIds.length} setup favorites.`
-      : ratedCount >= 3
-        ? `Emerging pattern from ${ratedCount} ratings and ${draft.likedGameIds.length} setup favorites.`
-        : ratedCount > 0
-          ? `Early read from ${ratedCount} rating(s) and ${draft.likedGameIds.length} setup favorites.`
-          : "Early profile built from your favorites. Rate a few games to make it sharper.";
+  const summary = buildProfileSummary(ratedCount, draft.likedGameIds.length);
 
   return {
     summary,
@@ -444,6 +510,6 @@ export function buildAdaptiveProfile(
     likedTags,
     dislikedTags,
     ratedCount,
-    signals: uniqueSignals(signalDrafts).slice(0, 8),
+    signals,
   };
 }

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# DEPRECATED (2026-07-07): only backs up games_library, missing
+# games_library_private and igdb_raw entirely. Replaced by
+# scripts/backup-all.sh, which covers all 3 schemas. See
+# docs/MIGRATIONS_SQUASH_GUIDE.md.
 set -euo pipefail
 
 BACKUP_DIR="${HOME}/db-backups"

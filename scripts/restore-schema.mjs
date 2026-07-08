@@ -82,7 +82,44 @@ async function main() {
     });
   });
 
+  if (args.schema === "games_library") {
+    await refreshSearchDocument(container);
+  }
+
   console.log("Restore complete.");
+}
+
+// games.search_document is `generated always as (...) stored`, computed from
+// get_series_name()/get_genre_name() - functions marked immutable but which
+// actually look up other tables. pg_restore doesn't guarantee genres/series
+// are loaded before games (FK constraints are added after all data, so table
+// load order isn't dependency-ordered), so the generated value can come out
+// stale/incomplete right after restore. Force a full recompute now that
+// every table in the schema is loaded.
+async function refreshSearchDocument(container) {
+  console.log("Refreshing games.search_document (depends on genres/series, restore order isn't guaranteed)...");
+  await new Promise((resolve, reject) => {
+    const child = spawn(
+      "docker",
+      [
+        "exec",
+        container,
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-c",
+        "UPDATE games_library.games SET game_id = game_id;",
+      ],
+      { stdio: "inherit" },
+    );
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`search_document refresh exited with code ${code}`));
+    });
+  });
 }
 
 main().catch((error) => {
