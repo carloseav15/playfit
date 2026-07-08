@@ -2,7 +2,17 @@
 
 import { buildTasteModel } from "@playfit/core/domain";
 import type { ProductPlatformOption } from "@playfit/core/types";
-import { ArrowLeft, Gamepad2, Laptop, Layers, ShieldCheck, Tv } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Gamepad2,
+  Laptop,
+  Layers,
+  LayoutGrid,
+  Search,
+  ShieldCheck,
+  Tv,
+} from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -140,11 +150,81 @@ function formatTastePlatformFamily(family: string) {
   );
 }
 
+const desktopFamilyIcons: Record<string, typeof Gamepad2> = {
+  nintendo: Gamepad2,
+  playstation: Gamepad2,
+  xbox: Gamepad2,
+  sega: Tv,
+  pc: Laptop,
+  other: Tv,
+};
+
+const platformKindLabels: Record<ProductPlatformOption["kind"], string> = {
+  console: "Console",
+  handheld: "Handheld",
+  hybrid: "Hybrid",
+  computer: "Computer",
+  other: "Other",
+};
+
 export function PlatformsTabContent() {
   const { state, seedData, updateState } = usePlayfit();
   const selectedIds = new Set(state.user.onboarding.platforms.map((p) => p.platformId));
   const viewPagerRef = useRef<HTMLDivElement>(null);
   const [activeFamily, setActiveFamily] = useState("nintendo");
+  const [desktopFamily, setDesktopFamily] = useState("all");
+  const [desktopSearch, setDesktopSearch] = useState("");
+
+  function selectDesktopFamily(family: string) {
+    setDesktopFamily(family);
+    setDesktopSearch("");
+  }
+
+  function togglePlatform(platformId: string) {
+    updateState((next) => {
+      const isSelected = next.user.onboarding.platforms.some((p) => p.platformId === platformId);
+      next.user.onboarding.platforms = next.user.onboarding.platforms.filter(
+        (p) => p.platformId !== platformId,
+      );
+      if (!isSelected) {
+        next.user.onboarding.platforms.push({ platformId, status: "available" });
+      }
+    });
+  }
+
+  const desktopFamilyGroups = tastePlatformFamilies
+    .map((family) => ({
+      id: family,
+      label: formatTastePlatformFamily(family),
+      Icon: desktopFamilyIcons[family] ?? Gamepad2,
+      platforms: seedData.platforms
+        .filter((p) => p.family === family)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    }))
+    .filter((group) => group.platforms.length > 0);
+  const desktopAllPlatforms = desktopFamilyGroups.flatMap((group) => group.platforms);
+  const activeDesktopGroup = desktopFamilyGroups.find((group) => group.id === desktopFamily);
+  const desktopBasePlatforms =
+    desktopFamily === "all" ? desktopAllPlatforms : (activeDesktopGroup?.platforms ?? []);
+  const desktopQuery = desktopSearch.trim().toLowerCase();
+  const desktopVisiblePlatforms = desktopQuery
+    ? desktopBasePlatforms.filter((p) => p.displayName.toLowerCase().includes(desktopQuery))
+    : desktopBasePlatforms;
+
+  function selectAllInActiveFamily() {
+    if (!activeDesktopGroup) return;
+    updateState((next) => {
+      const existingIds = new Set(next.user.onboarding.platforms.map((p) => p.platformId));
+      for (const platform of activeDesktopGroup.platforms) {
+        if (!existingIds.has(platform.platformId)) {
+          next.user.onboarding.platforms.push({
+            platformId: platform.platformId,
+            status: "available",
+          });
+        }
+      }
+    });
+  }
 
   // TabLayout -> ViewPager synchronization
   const handleTabClick = (family: string, index: number) => {
@@ -168,27 +248,16 @@ export function PlatformsTabContent() {
     }
   };
 
-  const renderPlatformFamilyPane = (family: string, layout: "mobile" | "desktop") => {
+  const renderPlatformFamilyPane = (family: string) => {
     const group = seedData.platforms
       .filter((p) => p.family === family)
       .sort((a, b) => a.sortOrder - b.sortOrder);
     if (group.length === 0) return null;
-    const label = formatTastePlatformFamily(family);
     const consoles = group.filter((p) => p.kind !== "handheld");
     const handhelds = group.filter((p) => p.kind === "handheld");
 
     return (
-      <div
-        key={family}
-        className={cn(
-          "grid gap-3",
-          layout === "mobile" ? "w-full shrink-0 snap-center pb-2 px-1" : "pt-3 first:pt-0",
-        )}
-      >
-        {layout === "desktop" && label && (
-          <p className="text-xs font-bold uppercase tracking-wide text-accent">{label}</p>
-        )}
-
+      <div key={family} className="grid gap-3 w-full shrink-0 snap-center pb-2 px-1">
         {consoles.length > 0 && (
           <div>
             {handhelds.length > 0 && (
@@ -202,7 +271,7 @@ export function PlatformsTabContent() {
                 return (
                   <Checkbox
                     key={platform.platformId}
-                    id={`${layout}-taste-plat-${platform.platformId}`}
+                    id={`mobile-taste-plat-${platform.platformId}`}
                     checked={checked}
                     onChange={(e) => {
                       const isChecked = e.target.checked;
@@ -237,7 +306,7 @@ export function PlatformsTabContent() {
                 return (
                   <Checkbox
                     key={platform.platformId}
-                    id={`${layout}-taste-plat-hh-${platform.platformId}`}
+                    id={`mobile-taste-plat-hh-${platform.platformId}`}
                     checked={checked}
                     onChange={(e) => {
                       const isChecked = e.target.checked;
@@ -396,13 +465,142 @@ export function PlatformsTabContent() {
             onScroll={handleViewPagerScroll}
             className="flex w-full overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth"
           >
-            {tastePlatformFamilies.map((family) => renderPlatformFamilyPane(family, "mobile"))}
+            {tastePlatformFamilies.map((family) => renderPlatformFamilyPane(family))}
           </div>
         </div>
 
-        {/* Desktop Vertical Accordion/Grid Layout */}
-        <div className="hidden md:grid gap-4 divide-y divide-border">
-          {tastePlatformFamilies.map((family) => renderPlatformFamilyPane(family, "desktop"))}
+        {/* Desktop Sidebar + Canvas Layout */}
+        <div className="hidden md:grid md:grid-cols-[200px_minmax(0,1fr)] gap-6 min-w-0">
+          <nav className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => selectDesktopFamily("all")}
+              className={cn(
+                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-all",
+                desktopFamily === "all"
+                  ? "bg-secondary text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+              )}
+            >
+              <LayoutGrid className="size-4 shrink-0" />
+              <span className="flex-1">All Platforms</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {state.user.onboarding.platforms.length}/{desktopAllPlatforms.length}
+              </span>
+            </button>
+            {desktopFamilyGroups.map((group) => {
+              const selectedCount = group.platforms.filter((p) =>
+                selectedIds.has(p.platformId),
+              ).length;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => selectDesktopFamily(group.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-all",
+                    desktopFamily === group.id
+                      ? "bg-secondary text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                  )}
+                >
+                  <group.Icon className="size-4 shrink-0" />
+                  <span className="flex-1">{group.label}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {selectedCount}/{group.platforms.length}
+                  </span>
+                </button>
+              );
+            })}
+            <div className="mt-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+              <strong className="font-mono text-foreground">
+                {state.user.onboarding.platforms.length}
+              </strong>{" "}
+              systems selected.
+            </div>
+          </nav>
+
+          <div className="grid gap-4 min-w-0 content-start">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-black text-foreground">
+                  {desktopFamily === "all" ? "All Platforms" : activeDesktopGroup?.label}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {desktopFamily === "all"
+                    ? `${desktopAllPlatforms.length} systems across ${desktopFamilyGroups.length} families.`
+                    : `${activeDesktopGroup?.platforms.length ?? 0} systems.`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={desktopSearch}
+                    onChange={(e) => setDesktopSearch(e.target.value)}
+                    placeholder={
+                      desktopFamily === "all"
+                        ? "Filter all platforms…"
+                        : `Filter ${activeDesktopGroup?.label ?? ""}…`
+                    }
+                    className="h-9 w-48 rounded-xl border border-border/60 bg-secondary/40 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                {desktopFamily !== "all" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl text-xs font-bold"
+                    onClick={selectAllInActiveFamily}
+                  >
+                    Select all
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1 content-start">
+              {desktopVisiblePlatforms.map((platform) => {
+                const checked = selectedIds.has(platform.platformId);
+                return (
+                  <button
+                    key={platform.platformId}
+                    type="button"
+                    aria-pressed={checked}
+                    onClick={() => togglePlatform(platform.platformId)}
+                    className={cn(
+                      "grid gap-2 rounded-2xl border border-border/60 bg-secondary/30 p-3.5 text-left transition-all hover:border-border",
+                      checked && "border-accent/40 bg-accent/10",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {platformKindLabels[platform.kind]}
+                      </span>
+                      <span
+                        className={cn(
+                          "grid size-4 place-items-center rounded-full border border-border/60 text-transparent transition-all",
+                          checked && "border-accent bg-accent text-accent-foreground",
+                        )}
+                      >
+                        <Check className="size-2.5 stroke-[3]" />
+                      </span>
+                    </div>
+                    <span className="text-sm font-extrabold text-foreground">
+                      {platform.displayName}
+                    </span>
+                  </button>
+                );
+              })}
+              {desktopVisiblePlatforms.length === 0 && (
+                <p className="col-span-3 py-8 text-center text-xs text-muted-foreground">
+                  No platforms match “{desktopSearch}”.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
