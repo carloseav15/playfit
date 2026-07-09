@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               Playfit
             </p>
             <h1 className="font-display text-3xl font-extrabold">Something went wrong</h1>
-            <p className="text-sm text-muted-foreground">
+            <p role="alert" className="text-sm text-muted-foreground">
               {this.state.error?.message ?? "An unexpected error occurred."}
             </p>
             <div className="flex justify-center gap-2">

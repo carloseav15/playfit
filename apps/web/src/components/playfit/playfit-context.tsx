@@ -48,6 +48,8 @@ export interface ProductUiState {
   saveStatus: SaveStatus;
   upcomingPlatformFilters: Set<string>;
   startBannerDismissed: boolean;
+  /** When set, the status toast shows an "Undo" action that runs this and clears itself. */
+  undoAction: (() => void) | null;
 }
 
 export interface PlayfitStateContextValue {
@@ -69,7 +71,11 @@ export interface PlayfitStateContextValue {
   toggleFlag: (gameId: string, flag: "inBacklog" | "inWishlist") => void;
   setPlayStatus: (gameId: string, status: ProductGameState["status"] | undefined) => void;
   setRating: (gameId: string, rating: ProductRating | undefined) => void;
-  applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
+  applyDecisionFeedback: (
+    gameId: string,
+    feedback: ProductDecisionFeedback,
+    onUndo?: () => void,
+  ) => void;
   setPlayfitPick: (gameId: string, picked: boolean) => void;
   startPlayfitPick: (gameId: string) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
@@ -130,6 +136,7 @@ function initialUi(state: ProductState): ProductUiState {
         .map((entry) => entry.platformId),
     ),
     startBannerDismissed: false,
+    undoAction: null,
   };
 }
 
@@ -553,7 +560,9 @@ export function PlayfitProvider({
       ui,
       setUi: updateUi,
       setStatusMessage(message: string | null) {
-        updateUi((current) => (current ? { ...current, statusMessage: message } : current));
+        updateUi((current) =>
+          current ? { ...current, statusMessage: message, undoAction: null } : current,
+        );
       },
       finderSearchError,
       onboardingSearchError,

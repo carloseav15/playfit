@@ -56,7 +56,6 @@ export function Avatar({
         <img
           src={src}
           alt=""
-          role="presentation"
           loading={loading}
           onError={() => setImgError(true)}
           className="aspect-square size-full object-cover"

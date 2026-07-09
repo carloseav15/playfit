@@ -174,9 +174,10 @@ export function usePlayfitGameActions({
   );
 
   const applyDecisionFeedback = useCallback(
-    (gameId: string, feedback: ProductDecisionFeedback) => {
+    (gameId: string, feedback: ProductDecisionFeedback, onUndo?: () => void) => {
       const game = getCachedGame(gameId);
       if (!game) return;
+      const previousGameState = state?.user.gameStates[gameId];
       updateState((draft) => {
         const g = getCachedGame(gameId);
         if (!g) return;
@@ -201,12 +202,26 @@ export function usePlayfitGameActions({
       setTimeout(() => {
         updateUi((current) =>
           current
-            ? { ...current, statusMessage: productDecisionFeedbackMessages[feedback] }
+            ? {
+                ...current,
+                statusMessage: productDecisionFeedbackMessages[feedback],
+                undoAction: () => {
+                  updateState((draft) => {
+                    if (previousGameState) {
+                      draft.user.gameStates[gameId] = previousGameState;
+                    } else {
+                      delete draft.user.gameStates[gameId];
+                    }
+                  });
+                  updateUi((c) => (c ? { ...c, statusMessage: "Undone.", undoAction: null } : c));
+                  onUndo?.();
+                },
+              }
             : current,
         );
       }, 0);
     },
-    [updateState, updateUi],
+    [state, updateState, updateUi],
   );
 
   const setPlayfitPick = useCallback(

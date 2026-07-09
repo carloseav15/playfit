@@ -212,8 +212,8 @@ export function TasteShell() {
               {belowCalibration && missingIds.length > 0
                 ? "Add at least 3 liked games and 1 missed game to refine your recommendations. (Also, some older signals could not be loaded.)"
                 : belowCalibration
-                ? "Add at least 3 liked games and 1 missed game to refine your recommendations."
-                : "Some older signals could not be loaded."}
+                  ? "Add at least 3 liked games and 1 missed game to refine your recommendations."
+                  : "Some older signals could not be loaded."}
             </Alert>
           ) : null}
 

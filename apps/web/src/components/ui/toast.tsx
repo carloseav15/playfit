@@ -11,6 +11,8 @@ export interface ToastProps {
   message: string;
   onDismiss: () => void;
   onRetry?: () => void;
+  onAction?: () => void;
+  actionLabel?: string;
   variant?: "default" | "error";
   duration?: number;
 }
@@ -20,6 +22,8 @@ export function Toast({
   message,
   onDismiss,
   onRetry,
+  onAction,
+  actionLabel = "Undo",
   variant = "default",
   duration = 3000,
 }: ToastProps) {
@@ -31,7 +35,7 @@ export function Toast({
     if (!pausedRef.current) {
       timerRef.current = setTimeout(onDismiss, duration);
     }
-  }, [onDismiss, duration, variant]);
+  }, [onDismiss, duration]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +77,19 @@ export function Toast({
             {onRetry && variant === "error" && (
               <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
                 Retry
+              </Button>
+            )}
+            {onAction && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  onAction();
+                  onDismiss();
+                }}
+              >
+                {actionLabel}
               </Button>
             )}
             <button
