@@ -53,7 +53,19 @@ export function DecisionShell() {
   const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } =
     usePlayfit();
   const [slowLoading, setSlowLoading] = useState(false);
-  const [calibrationOpen, setCalibrationOpen] = useState(false);
+  // Resume the onboarding wizard directly (instead of the generic welcome
+  // screen) when the account already has in-progress onboarding data saved
+  // server-side — otherwise a returning user with saved platform/game
+  // picks sees the same intro as a brand-new signup.
+  const [calibrationOpen, setCalibrationOpen] = useState(() => {
+    const onboarding = state.user.onboarding;
+    return (
+      !state.user.onboardingCompletedAt &&
+      (onboarding.platforms.length > 0 ||
+        onboarding.likedGameIds.length > 0 ||
+        onboarding.dislikedGameIds.length > 0)
+    );
+  });
   const [showSignIn, setShowSignIn] = useState(false);
   const [recommendationRefreshPending, setRecommendationRefreshPending] = useState(false);
   const recommendationRefreshPendingRef = useRef(false);
