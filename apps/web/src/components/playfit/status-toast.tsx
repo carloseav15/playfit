@@ -12,6 +12,7 @@ export function StatusToast() {
       open={!!ui.statusMessage}
       message={ui.statusMessage ?? ""}
       variant={isSaveError ? "error" : "default"}
+      duration={isSaveError ? 6000 : 3000}
       onRetry={isSaveError ? retrySave : undefined}
       onDismiss={() => setUi((current) => ({ ...current, statusMessage: null }))}
     />
