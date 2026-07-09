@@ -22,5 +22,11 @@ export interface AlertProps
     VariantProps<typeof alertVariants> {}
 
 export function Alert({ className, variant, ...props }: AlertProps) {
-  return <p className={cn(alertVariants({ variant, className }))} {...props} />;
+  return (
+    <p
+      role={variant === "error" ? "alert" : undefined}
+      className={cn(alertVariants({ variant, className }))}
+      {...props}
+    />
+  );
 }

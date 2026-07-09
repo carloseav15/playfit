@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
 import type { ProductOnboardingDraft, ProductSeedData, SeedGame } from "@playfit/core/types";
 import { Check, ChevronRight } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";

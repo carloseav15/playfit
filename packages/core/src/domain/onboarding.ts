@@ -268,10 +268,7 @@ export function buildTagPreferenceAnalysis(
 }
 
 export function canAdvanceOnboarding(draft: ProductOnboardingDraft) {
-  return (
-    draft.platforms.length > 0 &&
-    draft.likedGameIds.length >= 3
-  );
+  return draft.platforms.length > 0 && draft.likedGameIds.length >= 3;
 }
 
 export function buildFallbackProfile(

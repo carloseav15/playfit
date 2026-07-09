@@ -196,7 +196,10 @@ export function DecisionIntro({
               className="aspect-[2/3] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30"
             />
             {hasError && (
-              <span className="absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm" title="Cover artwork fallback active">
+              <span
+                className="absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm"
+                title="Cover artwork fallback active"
+              >
                 !
               </span>
             )}

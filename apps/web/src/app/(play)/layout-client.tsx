@@ -184,7 +184,13 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                     variant="ghost"
                     size="icon"
                     className="h-10 w-10 rounded-full mr-2 -ml-2 text-foreground hover:bg-secondary relative z-50"
-                    onClick={() => router.back()}
+                    onClick={() => {
+                      if (window.history.length > 1) {
+                        router.back();
+                      } else {
+                        router.push("/");
+                      }
+                    }}
                   >
                     <ArrowLeft className="size-5" />
                     <span className="sr-only">Back</span>

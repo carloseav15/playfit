@@ -153,7 +153,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
             <button
               type="button"
               onClick={() => handleSwitchView("options")}
-              className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
+              className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Back"
             >
               <ArrowLeft className="size-4" />
@@ -165,7 +165,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
           <button
             type="button"
             onClick={onContinueLocal}
-            className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
+            className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Close"
           >
             <X className="size-4" />

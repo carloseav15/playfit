@@ -185,7 +185,8 @@ export function DecisionShell() {
   // Scroll to top whenever the primary recommendation changes
   useEffect(() => {
     if (primary?.game.gameId) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
     }
   }, [primary?.game.gameId]);
 
@@ -196,11 +197,21 @@ export function DecisionShell() {
   }
 
   function handleFeedback(entry: RankedSeedGame, feedback: ProductDecisionFeedback) {
-    setExcludedIds((prev) => new Set([...prev, entry.game.gameId]));
-    advancePrimaryPast(entry.game.gameId);
+    const gameId = entry.game.gameId;
+    setExcludedIds((prev) => new Set([...prev, gameId]));
+    advancePrimaryPast(gameId);
     recommendationRefreshPendingRef.current = true;
     setRecommendationRefreshPending(true);
-    applyDecisionFeedback(entry.game.gameId, feedback);
+    applyDecisionFeedback(gameId, feedback, () => {
+      setExcludedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(gameId);
+        return next;
+      });
+      setStablePrimaryId(gameId);
+      recommendationRefreshPendingRef.current = false;
+      setRecommendationRefreshPending(false);
+    });
   }
 
   function handleAddPick(entry: RankedSeedGame) {

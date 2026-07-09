@@ -309,7 +309,13 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
               type="button"
               variant="ghost"
               className="w-fit text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/");
+                }
+              }}
             >
               <ArrowLeft className="size-4 mr-1.5" />
               Back
