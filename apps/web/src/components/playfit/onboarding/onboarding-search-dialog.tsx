@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ProductOnboardingDraft, ProductSeedData, SeedGame } from "@playfit/core/types";
 import { Check, ChevronRight } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
@@ -43,6 +44,17 @@ export function OnboardingSearchDialog({
   onReplaceAnchor: (oldGameId: string, newGame: SeedGame) => void;
   onQueryChange: (query: string) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchSlot !== null) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [searchSlot]);
+
   return (
     <Dialog
       open={searchSlot !== null}
@@ -61,11 +73,11 @@ export function OnboardingSearchDialog({
         <div className="grid gap-2">
           <FormLabel htmlFor="onboarding-search-input">Search by title</FormLabel>
           <Input
+            ref={inputRef}
             id="onboarding-search-input"
             value={onboardingQuery}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Type game title..."
-            autoFocus
             className="w-full text-base"
           />
         </div>

@@ -59,12 +59,16 @@ export function DecisionIntro({
   onSignIn?: () => void;
 }) {
   const [realGame, setRealGame] = useState<SeedGame | null>(null);
+  const [hasError, setHasError] = useState(false);
   const mock = MOCK_GAMES[1]; // Use Hades deterministically to prevent hydration mismatch and visual flicker
 
   useEffect(() => {
     // Fetch from backend search API to get the real cover path!
     fetch(`/api/games?q=${encodeURIComponent(mock.title)}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("API failed");
+        return res.json();
+      })
       .then((data) => {
         if (data && Array.isArray(data.games) && data.games.length > 0) {
           const found =
@@ -73,7 +77,10 @@ export function DecisionIntro({
           setRealGame(found);
         }
       })
-      .catch((err) => console.error("Mock fetch failed", err));
+      .catch((err) => {
+        console.error("Mock fetch failed", err);
+        setHasError(true);
+      });
   }, []);
 
   const mockGame = {
@@ -139,7 +146,7 @@ export function DecisionIntro({
         <div className="flex flex-wrap items-center gap-3 w-full">
           <Button
             type="button"
-            className="w-full sm:w-fit bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-indigo-600 font-extrabold shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-fit bg-accent text-white dark:bg-gradient-to-r dark:from-accent dark:to-accent/75 font-extrabold shadow-[0_4px_14px_rgba(15,118,110,0.2)] dark:shadow-[0_0_20px_rgba(255,106,61,0.25)] hover:shadow-[0_6px_20px_rgba(15,118,110,0.3)] dark:hover:shadow-[0_0_25px_rgba(255,106,61,0.4)] transition-all duration-300 scale-100 hover:scale-[1.02] active:scale-[0.98]"
             onClick={onStart}
           >
             <Compass className="size-4 mr-2" />
@@ -172,7 +179,7 @@ export function DecisionIntro({
             className="text-[10px] font-black uppercase tracking-[0.15em] text-accent flex items-center gap-1.5"
           >
             <Sparkles className="size-3.5 animate-pulse" />
-            Playfit Curation
+            Playfit Curation Preview
           </span>
           <Badge
             variant="outline"
@@ -183,10 +190,17 @@ export function DecisionIntro({
         </div>
 
         <div className="grid grid-cols-[72px_1fr] gap-4 py-5">
-          <CoverArt
-            game={realGame || mockGame}
-            className="aspect-[2/3] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30 shrink-0"
-          />
+          <div className="relative shrink-0">
+            <CoverArt
+              game={realGame || mockGame}
+              className="aspect-[2/3] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30"
+            />
+            {hasError && (
+              <span className="absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm" title="Cover artwork fallback active">
+                !
+              </span>
+            )}
+          </div>
           <div className="flex flex-col justify-center min-w-0">
             <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {mock.primaryGenre}

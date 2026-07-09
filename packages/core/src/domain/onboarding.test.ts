@@ -53,7 +53,7 @@ function createGameState(gameId: string, rating: ProductRating): ProductGameStat
 }
 
 describe("onboarding domain", () => {
-  it("requires platforms, at least 3 liked games, and a disliked game to advance", () => {
+  it("requires platforms, and at least 3 liked games to advance (disliked game is optional)", () => {
     const draft = createDraft();
     expect(canAdvanceOnboarding(draft)).toBe(false);
 
@@ -61,9 +61,6 @@ describe("onboarding domain", () => {
     expect(canAdvanceOnboarding(draft)).toBe(false);
 
     draft.likedGameIds = ["a", "b", "c"];
-    expect(canAdvanceOnboarding(draft)).toBe(false);
-
-    draft.dislikedGameIds = ["d"];
     expect(canAdvanceOnboarding(draft)).toBe(true);
   });
 

@@ -207,15 +207,13 @@ export function TasteShell() {
             </div>
           </section>
 
-          {belowCalibration ? (
+          {belowCalibration || missingIds.length > 0 ? (
             <Alert variant="warning" className="shrink-0">
-              Add at least 3 liked games and 1 missed game to refine your recommendations.
-            </Alert>
-          ) : null}
-
-          {missingIds.length > 0 ? (
-            <Alert variant="warning" className="shrink-0">
-              Some older signals could not be loaded.
+              {belowCalibration && missingIds.length > 0
+                ? "Add at least 3 liked games and 1 missed game to refine your recommendations. (Also, some older signals could not be loaded.)"
+                : belowCalibration
+                ? "Add at least 3 liked games and 1 missed game to refine your recommendations."
+                : "Some older signals could not be loaded."}
             </Alert>
           ) : null}
 

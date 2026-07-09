@@ -301,7 +301,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
                     <Icon className="size-4" />
                     {label}
                     {href === "/picks" && picksCount > 0 && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-accent text-[9px] font-black text-white">
+                      <span className="flex size-4 items-center justify-center rounded-full bg-accent text-[9px] font-black text-slate-950">
                         {picksCount}
                       </span>
                     )}
@@ -341,7 +341,7 @@ function PlayLayoutContent({ children }: { children: React.ReactNode }) {
               <div className="relative">
                 <ListChecks className="size-5" />
                 {picksCount > 0 && (
-                  <span className="absolute -top-1 -right-2 flex size-3.5 items-center justify-center rounded-full bg-accent text-[8px] font-black text-white">
+                  <span className="absolute -top-1 -right-2 flex size-3.5 items-center justify-center rounded-full bg-accent text-[8px] font-black text-slate-950">
                     {picksCount}
                   </span>
                 )}

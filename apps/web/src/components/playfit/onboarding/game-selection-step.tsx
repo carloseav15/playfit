@@ -134,7 +134,7 @@ export function MissedGameStep({
           onClick={onFinalize}
           className="ml-auto bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_15px_rgba(255,106,61,0.25)] hover:shadow-[0_0_20px_rgba(255,106,61,0.35)]"
         >
-          Find Play Next
+          {game ? "Find Play Next" : "Skip & Find Play Next"}
         </Button>
       </div>
     </motion.div>

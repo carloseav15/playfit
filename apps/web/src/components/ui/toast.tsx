@@ -28,7 +28,7 @@ export function Toast({
 
   const startTimer = useCallback(() => {
     clearTimeout(timerRef.current);
-    if (!pausedRef.current && variant !== "error") {
+    if (!pausedRef.current) {
       timerRef.current = setTimeout(onDismiss, duration);
     }
   }, [onDismiss, duration, variant]);
