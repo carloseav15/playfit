@@ -4,7 +4,6 @@ import {
   buildAdaptiveProfile,
   buildFallbackProfile,
   buildTagPreferenceAnalysis,
-  canAdvanceOnboarding,
 } from "./onboarding";
 
 function createDraft(): ProductOnboardingDraft {
@@ -53,15 +52,14 @@ function createGameState(gameId: string, rating: ProductRating): ProductGameStat
 }
 
 describe("onboarding domain", () => {
-  it("requires platforms, and at least 3 liked games to advance (disliked game is optional)", () => {
+  it("builds a safe empty profile when onboarding is fully skipped", () => {
     const draft = createDraft();
-    expect(canAdvanceOnboarding(draft)).toBe(false);
+    const gamesById = new Map<string, SeedGame>();
 
-    draft.platforms.push({ platformId: "ps5", status: "available" });
-    expect(canAdvanceOnboarding(draft)).toBe(false);
-
-    draft.likedGameIds = ["a", "b", "c"];
-    expect(canAdvanceOnboarding(draft)).toBe(true);
+    expect(() => buildFallbackProfile(draft, gamesById)).not.toThrow();
+    const profile = buildFallbackProfile(draft, gamesById);
+    expect(profile.likedGenres).toEqual([]);
+    expect(profile.ratedCount).toBe(0);
   });
 
   it("builds a fallback profile from liked game genres and tags", () => {

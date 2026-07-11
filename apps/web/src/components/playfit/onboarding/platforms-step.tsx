@@ -21,7 +21,6 @@ export function PlatformsStep({
   platformFamilies,
   platformsUnavailable,
   allSelected,
-  platformError,
   showPlatformDetails,
   onShowPlatformDetailsChange,
   onTogglePlatform,
@@ -35,13 +34,12 @@ export function PlatformsStep({
   platformFamilies: string[];
   platformsUnavailable: boolean;
   allSelected: boolean;
-  platformError: string | null;
   showPlatformDetails: boolean;
   onShowPlatformDetailsChange: (open: boolean) => void;
   onTogglePlatform: (platformId: string, checked: boolean) => void;
   onToggleAllPlatforms: () => void;
   onTogglePlatformPreset: (preset: PlatformPreset) => void;
-  onContinue: () => boolean;
+  onContinue: () => void;
 }) {
   return (
     <motion.form
@@ -145,10 +143,10 @@ export function PlatformsStep({
           </Button>
           <Button
             type="submit"
-            disabled={draft.platforms.length === 0}
             className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
           >
-            Continue <ChevronRight className="size-4" />
+            {draft.platforms.length === 0 ? "Skip & Continue" : "Continue"}{" "}
+            <ChevronRight className="size-4" />
           </Button>
         </Stack>
       </div>
@@ -164,8 +162,6 @@ export function PlatformsStep({
         onToggleAllPlatforms={onToggleAllPlatforms}
         onTogglePlatform={onTogglePlatform}
       />
-
-      {platformError ? <Alert variant="error">{platformError}</Alert> : null}
     </motion.form>
   );
 }

@@ -62,11 +62,11 @@ export function LovedGamesStep({
         </Button>
         <Button
           type="button"
-          disabled={draft.likedGameIds.length < 3}
           onClick={onContinue}
           className="ml-auto bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
         >
-          Continue <ChevronRight className="size-4" />
+          {draft.likedGameIds.length === 0 ? "Skip & Continue" : "Continue"}{" "}
+          <ChevronRight className="size-4" />
         </Button>
       </div>
     </motion.div>
@@ -74,7 +74,6 @@ export function LovedGamesStep({
 }
 
 export function MissedGameStep({
-  canAdvance,
   draft,
   getSeedGame,
   onBack,
@@ -82,7 +81,6 @@ export function MissedGameStep({
   onRemoveDislikedAnchor,
   onOpenSearch,
 }: {
-  canAdvance: boolean;
   draft: ProductOnboardingDraft;
   getSeedGame: (gameId: string) => SeedGame | null;
   onBack: () => void;
@@ -130,7 +128,6 @@ export function MissedGameStep({
         </Button>
         <Button
           type="button"
-          disabled={!canAdvance}
           onClick={onFinalize}
           className="ml-auto bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_15px_rgba(255,106,61,0.25)] hover:shadow-[0_0_20px_rgba(255,106,61,0.35)]"
         >
