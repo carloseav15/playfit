@@ -15,8 +15,9 @@ export function OverlaySections() {
     <>
       <SectionHeader title="Sheet" id="sheet" />
       <p className="mb-5 text-sm text-muted-foreground">
-        Slide-in panel powered by the native <code className="font-mono text-xs">{"<dialog>"}</code>{" "}
-        element. Use for filters, mobile nav, or side content.
+        Slide-in panel powered by{" "}
+        <code className="font-mono text-xs">{"@radix-ui/react-dialog"}</code>. Use for filters,
+        mobile nav, or side content.
       </p>
       <div className="flex flex-wrap items-center gap-4">
         <Button
