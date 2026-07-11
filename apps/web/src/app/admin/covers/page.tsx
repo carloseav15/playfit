@@ -214,7 +214,7 @@ export default function AdminCoversPage() {
       </p>
 
       <div className="flex max-h-64 items-center justify-center overflow-hidden rounded-sm border border-border bg-black/40 shadow-md">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* biome-ignore lint/performance/noImgElement: admin-only tool, arbitrary cover URLs, no LCP/bandwidth concern */}
         <img
           src={
             current.cover_url.startsWith("http")

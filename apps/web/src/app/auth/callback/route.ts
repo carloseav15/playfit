@@ -25,7 +25,16 @@ function sanitizeNextPath(rawNext: string | null) {
 }
 
 export async function GET(request: Request) {
+  console.log("Supabase Auth Callback URL:", request.url);
   const { searchParams, origin } = new URL(request.url);
+
+  if (searchParams.get("error") || searchParams.get("error_description")) {
+    console.error("Auth Callback error from provider:", {
+      error: searchParams.get("error"),
+      description: searchParams.get("error_description"),
+    });
+  }
+
   const code = searchParams.get("code");
   const next = sanitizeNextPath(searchParams.get("next"));
   const redirectOrigin = getRedirectOrigin(request, origin);
@@ -35,7 +44,11 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       return NextResponse.redirect(`${redirectOrigin}${next}`);
+    } else {
+      console.error("Supabase Auth Code Exchange Error:", error.message, error);
     }
+  } else {
+    console.error("Supabase Auth Callback: No code provided in query params");
   }
 
   return NextResponse.redirect(`${redirectOrigin}/?error=auth_failed`);

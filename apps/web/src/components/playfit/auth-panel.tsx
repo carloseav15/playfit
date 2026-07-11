@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight, Lock, Mail, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import type React from "react";
 import { useCallback, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -412,6 +413,20 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
                   >
                     Forgot password?
                   </button>
+                )}
+
+                {view === "signup" && (
+                  <p className="text-[10px] leading-relaxed text-muted-foreground/80 text-center mt-1">
+                    By creating an account you agree to our{" "}
+                    <Link href="/legal/terms" className="underline hover:text-foreground">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/legal/privacy" className="underline hover:text-foreground">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </p>
                 )}
               </form>
 

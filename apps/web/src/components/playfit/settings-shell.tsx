@@ -309,6 +309,21 @@ export function SettingsShell() {
               </div>
             </div>
           )}
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 pt-1">
+            <Link
+              href="/legal/privacy"
+              className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/legal/terms"
+              className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </CardContent>
     </Card>
