@@ -1,6 +1,6 @@
 import type { ProductOnboardingDraft, ProductSeedData, SeedGame } from "@playfit/core/types";
 import { Check, ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -46,19 +46,14 @@ export function OnboardingSearchDialog({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (searchSlot !== null) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [searchSlot]);
-
   return (
     <Dialog
       open={searchSlot !== null}
       onClose={onClose}
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }}
       title={
         searchSlot === "anchor"
           ? replaceGameId

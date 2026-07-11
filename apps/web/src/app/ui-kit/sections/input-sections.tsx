@@ -10,7 +10,7 @@ import { FormField, FormLabel, FormMessage } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
 import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
-import { Tab, TabGroup } from "@/components/ui/tabs";
+import { Tab, Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { Tag } from "@/components/ui/tag";
 import { ToggleButton, ToggleGroup } from "@/components/ui/toggle-group";
 import { Chip, ControlGroup, SectionHeader } from "./helpers";
@@ -377,7 +377,12 @@ export function FormFieldsSection() {
         Accessible radio group with icon, label, description, and checkmark indicator.
       </p>
       <div className="max-w-sm">
-        <RadioGroup name="demo-status">
+        <RadioGroup
+          name="demo-status"
+          aria-label="Status"
+          value={radioValue}
+          onValueChange={setRadioValue}
+        >
           {[
             {
               value: "option-a",
@@ -401,10 +406,7 @@ export function FormFieldsSection() {
             <RadioItem
               key={opt.value}
               id={`demo-radio-${opt.value}`}
-              name="demo-status"
               value={opt.value}
-              checked={radioValue === opt.value}
-              onChange={() => setRadioValue(opt.value)}
               label={opt.label}
               description={opt.description}
               icon={opt.icon}
@@ -417,7 +419,7 @@ export function FormFieldsSection() {
 }
 
 export function SelectionControlsSection() {
-  const [activeTab, setActiveTab] = useState("tab1");
+  const [activeTab, setActiveTab] = useState("All");
   const [activeToggles, setActiveToggles] = useState<string[]>([]);
   const [tags, setTags] = useState(["Action", "RPG", "Strategy"]);
 
@@ -427,19 +429,20 @@ export function SelectionControlsSection() {
       <p className="mb-5 text-sm text-muted-foreground">
         Segmented tab control with optional count badges.
       </p>
-      <TabGroup>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          {["All", "Backlog", "Wishlist"].map((tab) => (
+            <Tab key={tab} value={tab} count={tab === "All" ? 42 : tab === "Backlog" ? 12 : 8}>
+              {tab}
+            </Tab>
+          ))}
+        </TabsList>
         {["All", "Backlog", "Wishlist"].map((tab) => (
-          <Tab
-            key={tab}
-            variant={activeTab === tab ? "default" : "secondary"}
-            aria-pressed={activeTab === tab}
-            onClick={() => setActiveTab(tab)}
-            count={tab === "All" ? 42 : tab === "Backlog" ? 12 : 8}
-          >
-            {tab}
-          </Tab>
+          <TabsContent key={tab} value={tab} className="text-sm text-muted-foreground">
+            Showing the "{tab}" list.
+          </TabsContent>
         ))}
-      </TabGroup>
+      </Tabs>
 
       <SectionHeader title="ToggleGroup" id="toggle-group" />
       <p className="mb-5 text-sm text-muted-foreground">
