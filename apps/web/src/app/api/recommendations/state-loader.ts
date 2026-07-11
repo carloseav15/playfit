@@ -1,5 +1,6 @@
 import { productStateSchema } from "@playfit/core/schemas";
 import type { ProductProfile, ProductState } from "@playfit/core/types";
+import { captureApiError } from "@/lib/monitoring";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
 
 export const PRODUCT_STATE_VERSION = 2;
@@ -99,6 +100,12 @@ export async function loadRecommendationState(
     p_user_id: context.userId,
   });
   if (error) {
+    captureApiError(error, {
+      route: "/api/recommendations",
+      request,
+      operation: "get_profile",
+      statusCode: 500,
+    });
     return { ok: false, status: 500, error: "Failed to load recommendation state" };
   }
 
@@ -115,7 +122,13 @@ export async function loadRecommendationState(
       state,
       stateVersion: computeStateVersion(payload, state),
     };
-  } catch {
+  } catch (error) {
+    captureApiError(error, {
+      route: "/api/recommendations",
+      request,
+      operation: "map_persisted_state",
+      statusCode: 500,
+    });
     return { ok: false, status: 500, error: "Invalid recommendation state" };
   }
 }

@@ -1,4 +1,5 @@
 import { jsonError } from "@/lib/api-errors";
+import { captureApiError } from "@/lib/monitoring";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const RATE_LIMIT_MAX = 60;
@@ -25,7 +26,12 @@ async function checkRateLimit(
   });
 
   if (error) {
-    console.error("checkRateLimit error:", error);
+    captureApiError(error, {
+      route: "/api/profile/games/[gameId]",
+      request,
+      operation: "check_rate_limit",
+      statusCode: 503,
+    });
     return "error";
   }
 
@@ -78,12 +84,23 @@ export async function PATCH(request: Request, props: { params: Promise<{ gameId:
     });
 
     if (error) {
+      captureApiError(error, {
+        route: "/api/profile/games/[gameId]",
+        request,
+        operation: "upsert_game_state",
+        statusCode: 500,
+      });
       return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error("PATCH /api/profile/games error:", e);
+    captureApiError(e, {
+      route: "/api/profile/games/[gameId]",
+      request,
+      operation: "PATCH",
+      statusCode: 500,
+    });
     return jsonError("Failed to update game state", 500);
   }
 }
@@ -106,12 +123,23 @@ export async function DELETE(request: Request, props: { params: Promise<{ gameId
     });
 
     if (error) {
+      captureApiError(error, {
+        route: "/api/profile/games/[gameId]",
+        request,
+        operation: "delete_game_state",
+        statusCode: 500,
+      });
       return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error("DELETE /api/profile/games error:", e);
+    captureApiError(e, {
+      route: "/api/profile/games/[gameId]",
+      request,
+      operation: "DELETE",
+      statusCode: 500,
+    });
     return jsonError("Failed to delete game state", 500);
   }
 }
