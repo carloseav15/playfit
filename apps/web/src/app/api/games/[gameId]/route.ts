@@ -8,15 +8,22 @@ import {
   mapGameRowToSeedGame,
 } from "@/lib/game-mapper";
 import { resolveGameRedirect } from "@/lib/game-redirects";
+import { captureApiError } from "@/lib/monitoring";
 import { createAnonClient } from "@/lib/supabase/server";
 
-export async function GET(_request: Request, props: { params: Promise<{ gameId: string }> }) {
+export async function GET(request: Request, props: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await props.params;
 
   const supabase = createAnonClient();
   const redirect = await resolveGameRedirect(supabase, gameId);
 
   if (redirect.error) {
+    captureApiError(new Error(redirect.error), {
+      route: "/api/games/[gameId]",
+      request,
+      operation: "resolve_game_redirect",
+      statusCode: 500,
+    });
     return jsonError(redirect.error, 500);
   }
 
@@ -31,6 +38,12 @@ export async function GET(_request: Request, props: { params: Promise<{ gameId: 
     if (error.code === "PGRST116") {
       return jsonError("Game not found", 404);
     }
+    captureApiError(error, {
+      route: "/api/games/[gameId]",
+      request,
+      operation: "fetch_game",
+      statusCode: 500,
+    });
     return jsonError(error.message, 500);
   }
 
