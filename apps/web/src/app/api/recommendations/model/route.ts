@@ -1,4 +1,5 @@
 import { jsonError } from "@/lib/api-errors";
+import { captureApiError } from "@/lib/monitoring";
 import { loadRecommendationState, scoreTodayModel } from "../shared";
 
 export const maxDuration = 30;
@@ -17,7 +18,13 @@ export async function POST(request: Request) {
       cacheScope: "model",
     });
     return Response.json(model);
-  } catch {
+  } catch (error) {
+    captureApiError(error, {
+      route: "/api/recommendations/model",
+      request,
+      operation: "score_today_model",
+      statusCode: 500,
+    });
     return jsonError("Failed to score recommendations", 500);
   }
 }

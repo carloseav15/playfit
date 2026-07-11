@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 
 import { jsonError } from "@/lib/api-errors";
+import { captureApiError } from "@/lib/monitoring";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
@@ -45,7 +46,12 @@ async function checkRateLimit(
   });
 
   if (error) {
-    console.error("checkRateLimit error:", error);
+    captureApiError(error, {
+      route: "/api/profile",
+      request,
+      operation: "check_rate_limit",
+      statusCode: 503,
+    });
     return "error";
   }
 
@@ -79,7 +85,12 @@ export async function GET(request: Request) {
     });
 
     if (error) {
-      console.error("get_profile error:", error);
+      captureApiError(error, {
+        route: "/api/profile",
+        request,
+        operation: "get_profile",
+        statusCode: 500,
+      });
       return jsonError("Failed to load profile", 500);
     }
 
@@ -89,7 +100,12 @@ export async function GET(request: Request) {
 
     return Response.json({ state: data }, { status: 200 });
   } catch (e) {
-    console.error("GET /api/profile error:", e);
+    captureApiError(e, {
+      route: "/api/profile",
+      request,
+      operation: "GET",
+      statusCode: 500,
+    });
     return jsonError("Failed to load profile", 500);
   }
 }
@@ -149,6 +165,12 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      captureApiError(error, {
+        route: "/api/profile",
+        request,
+        operation: "upsert_profile",
+        statusCode: 500,
+      });
       return jsonError(error.message, 500);
     }
 
@@ -164,7 +186,12 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error("POST /api/profile error:", e);
+    captureApiError(e, {
+      route: "/api/profile",
+      request,
+      operation: "POST",
+      statusCode: 500,
+    });
     return jsonError("Failed to save profile", 500);
   }
 }
@@ -194,12 +221,23 @@ export async function DELETE(request: Request) {
     });
 
     if (error) {
+      captureApiError(error, {
+        route: "/api/profile",
+        request,
+        operation: "delete_profile",
+        statusCode: 500,
+      });
       return jsonError(error.message, 500);
     }
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error("DELETE /api/profile error:", e);
+    captureApiError(e, {
+      route: "/api/profile",
+      request,
+      operation: "DELETE",
+      statusCode: 500,
+    });
     return jsonError("Failed to reset profile", 500);
   }
 }
