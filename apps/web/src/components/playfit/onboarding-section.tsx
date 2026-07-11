@@ -1,6 +1,6 @@
 "use client";
 
-import { buildAdaptiveProfile, canAdvanceOnboarding } from "@playfit/core/domain";
+import { buildAdaptiveProfile } from "@playfit/core/domain";
 import type { SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import { AnimatePresence } from "motion/react";
@@ -34,7 +34,6 @@ export function OnboardingSection() {
     onboardingSearchPending,
   } = usePlayfit();
   const draft = state.user.onboarding;
-  const [platformError, setPlatformError] = useState<string | null>(null);
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
   const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);
   const [replaceGameId, setReplaceGameId] = useState<string | null>(null);
@@ -62,7 +61,6 @@ export function OnboardingSection() {
       })
       .slice(0, 8);
   }, [deferredQuery, searchGames]);
-  const canAdvance = canAdvanceOnboarding(draft);
   const platformsUnavailable = seedData.platforms.length === 0;
   const allSelected =
     seedData.platforms.length > 0 && draft.platforms.length === seedData.platforms.length;
@@ -91,7 +89,6 @@ export function OnboardingSection() {
         }));
       }
     });
-    setPlatformError(null);
   }
 
   function togglePlatformPreset(preset: PlatformPreset) {
@@ -116,7 +113,6 @@ export function OnboardingSection() {
         ...presetIds.map((platformId) => ({ platformId, status: "available" as const })),
       ];
     });
-    setPlatformError(null);
   }
 
   function ensureOnboardingGameState(game: SeedGame) {
@@ -200,15 +196,9 @@ export function OnboardingSection() {
   }
 
   function continueFromPlatforms() {
-    if (draft.platforms.length === 0) {
-      setPlatformError("Select at least one platform to start.");
-      return false;
-    }
-    setPlatformError(null);
     updateState((next) => {
       next.user.onboarding.step = "anchors";
     });
-    return true;
   }
 
   function finalize() {
@@ -263,7 +253,6 @@ export function OnboardingSection() {
               <PlatformsStep
                 allSelected={allSelected}
                 draft={draft}
-                platformError={platformError}
                 platformFamilies={platformFamilies}
                 platformsUnavailable={platformsUnavailable}
                 seedData={seedData}
@@ -295,7 +284,6 @@ export function OnboardingSection() {
               />
             ) : (
               <MissedGameStep
-                canAdvance={canAdvance}
                 draft={draft}
                 getSeedGame={getSeedGame}
                 onBack={() => {

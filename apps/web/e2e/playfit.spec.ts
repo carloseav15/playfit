@@ -544,6 +544,46 @@ test("anonymous local profile can complete setup and save by device id", async (
   });
 });
 
+test("onboarding can be fully skipped and still reaches a recommendation", async ({ page }) => {
+  const savedProfiles = await mockSupabase(page);
+
+  await gotoApp(page, "/");
+  await openCalibration(page);
+
+  await expect(page.getByRole("heading", { name: "Where do you play?" })).toBeVisible({
+    timeout: 15_000,
+  });
+  const platformsContinue = page.getByRole("button", { name: /Continue/ });
+  await expect(platformsContinue).toHaveText(/Skip & Continue/);
+  await platformsContinue.click();
+
+  await expect(page.getByRole("heading", { name: "Pick three games you loved" })).toBeVisible();
+  const lovedContinue = page.getByRole("button", { name: /Continue/ });
+  await expect(lovedContinue).toHaveText(/Skip & Continue/);
+  await lovedContinue.click();
+
+  await expect(
+    page.getByRole("heading", { name: "Pick one game that wasn't for you" }),
+  ).toBeVisible();
+  const finalizeButton = page.getByRole("button", { name: "Skip & Find Play Next" });
+  await expect(finalizeButton).toBeEnabled();
+  await finalizeButton.click();
+
+  await expect(page.getByText("Play this next")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No games to recommend yet" })).toHaveCount(0);
+
+  await expect
+    .poll(() =>
+      Boolean(
+        [...savedProfiles].reverse().find((profile) => {
+          return (profile as { onboarding?: { onboardingCompletedAt?: string } }).onboarding
+            ?.onboardingCompletedAt;
+        }),
+      ),
+    )
+    .toBe(true);
+});
+
 test("play route loads locally without mandatory sign in", async ({ page }) => {
   await mockSupabase(page);
 
