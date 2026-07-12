@@ -16,11 +16,12 @@ import { supabase } from "@/lib/supabase/client";
 interface AuthPanelProps {
   onAuth: (userId: string, email: string) => void;
   onContinueLocal: () => void;
+  onClose?: () => void;
 }
 
 type AuthView = "options" | "signin" | "signup";
 
-export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
+export function AuthPanel({ onAuth, onContinueLocal, onClose }: AuthPanelProps) {
   const [view, setView] = useState<AuthView>("options");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -165,7 +166,7 @@ export function AuthPanel({ onAuth, onContinueLocal }: AuthPanelProps) {
 
           <button
             type="button"
-            onClick={onContinueLocal}
+            onClick={onClose ?? onContinueLocal}
             className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Close"
           >

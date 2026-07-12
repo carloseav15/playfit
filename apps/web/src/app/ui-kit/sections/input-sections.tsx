@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FormField, FormLabel, FormMessage } from "@/components/ui/form-field";
+import { FormControl, FormField, FormLabel, FormMessage } from "@/components/ui/form-field";
 import { Input, Textarea } from "@/components/ui/input";
 import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
@@ -336,12 +336,16 @@ export function FormFieldsSection() {
         </FormField>
         <FormField>
           <FormLabel htmlFor="demo-password">Password</FormLabel>
-          <Input id="demo-password" type="password" placeholder="••••••••" />
+          <FormControl>
+            <Input id="demo-password" type="password" placeholder="••••••••" />
+          </FormControl>
           <FormMessage variant="error">Password must be at least 6 characters.</FormMessage>
         </FormField>
         <FormField>
           <FormLabel htmlFor="demo-success">Success field</FormLabel>
-          <Input id="demo-success" placeholder="Saved!" />
+          <FormControl>
+            <Input id="demo-success" placeholder="Saved!" />
+          </FormControl>
           <FormMessage variant="success">Changes saved successfully.</FormMessage>
         </FormField>
       </div>

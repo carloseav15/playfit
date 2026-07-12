@@ -25,6 +25,23 @@ const gapStyles: Record<number, string> = {
   12: "gap-12",
 };
 
+const alignStyles: Record<NonNullable<StackProps["align"]>, string> = {
+  start: "items-start",
+  center: "items-center",
+  end: "items-end",
+  stretch: "items-stretch",
+  baseline: "items-baseline",
+};
+
+const justifyStyles: Record<NonNullable<StackProps["justify"]>, string> = {
+  start: "justify-start",
+  center: "justify-center",
+  end: "justify-end",
+  between: "justify-between",
+  around: "justify-around",
+  evenly: "justify-evenly",
+};
+
 export function Stack({
   className,
   as: Comp = "div",
@@ -44,8 +61,8 @@ export function Stack({
         direction === "row-reverse" && "flex-row-reverse",
         direction === "column-reverse" && "flex-col-reverse",
         gapStyles[gap] ?? "gap-4",
-        align && `items-${align}`,
-        justify && `justify-${justify}`,
+        align && alignStyles[align],
+        justify && justifyStyles[justify],
         wrap && "flex-wrap",
         className,
       )}

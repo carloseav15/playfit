@@ -1,11 +1,11 @@
 "use client";
 
-import { Compass } from "lucide-react";
+import { Compass, LogIn } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
-export function LandingHero({ onStart }: { onStart: () => void }) {
+export function LandingHero({ onStart, onSignIn }: { onStart: () => void; onSignIn: () => void }) {
   return (
     <section className="relative overflow-hidden px-4 pb-16 pt-10 sm:pt-16 md:pb-20 md:pt-20">
       <div
@@ -16,6 +16,16 @@ export function LandingHero({ onStart }: { onStart: () => void }) {
         aria-hidden
         className="pointer-events-none absolute -left-24 top-1/2 size-96 rounded-full bg-positive/10 blur-[100px] animate-pulse-slower"
       />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="absolute right-3 top-3 z-20 min-h-11 px-3 font-bold text-foreground sm:right-6 sm:top-6"
+        onClick={onSignIn}
+      >
+        <LogIn className="size-4" />
+        Sign in
+      </Button>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}

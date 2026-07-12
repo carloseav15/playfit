@@ -29,7 +29,13 @@ export interface ToggleButtonProps
   active?: boolean;
 }
 
-export function ToggleButton({ className, variant, size, active, ...props }: ToggleButtonProps) {
+export function ToggleButton({
+  className,
+  variant,
+  size,
+  active = false,
+  ...props
+}: ToggleButtonProps) {
   return (
     <button
       type="button"

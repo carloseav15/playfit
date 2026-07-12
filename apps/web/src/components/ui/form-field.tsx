@@ -1,5 +1,13 @@
-import type * as React from "react";
+"use client";
+
+import * as React from "react";
 import { cn } from "@/lib/utils";
+
+interface FormFieldContextValue {
+  descriptionId: string;
+}
+
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(null);
 
 interface FormFieldProps {
   children: React.ReactNode;
@@ -7,7 +15,13 @@ interface FormFieldProps {
 }
 
 export function FormField({ children, className }: FormFieldProps) {
-  return <div className={cn("grid gap-1", className)}>{children}</div>;
+  const descriptionId = React.useId();
+
+  return (
+    <FormFieldContext.Provider value={{ descriptionId }}>
+      <div className={cn("grid gap-1", className)}>{children}</div>
+    </FormFieldContext.Provider>
+  );
 }
 
 interface FormLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
@@ -26,13 +40,29 @@ export function FormLabel({ className, children, ...props }: FormLabelProps) {
   );
 }
 
+interface FormControlProps {
+  children: React.ReactElement<{ "aria-describedby"?: string }>;
+}
+
+export function FormControl({ children }: FormControlProps) {
+  const context = React.useContext(FormFieldContext);
+  const describedBy = [children.props["aria-describedby"], context?.descriptionId]
+    .filter(Boolean)
+    .join(" ");
+
+  return React.cloneElement(children, { "aria-describedby": describedBy || undefined });
+}
+
 interface FormMessageProps extends React.HTMLAttributes<HTMLParagraphElement> {
   variant?: "error" | "success" | "info";
 }
 
-export function FormMessage({ className, variant = "error", ...props }: FormMessageProps) {
+export function FormMessage({ className, id, variant = "error", ...props }: FormMessageProps) {
+  const context = React.useContext(FormFieldContext);
+
   return (
     <p
+      id={id ?? context?.descriptionId}
       className={cn(
         "text-xs",
         variant === "error" && "text-destructive",

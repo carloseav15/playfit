@@ -5,7 +5,6 @@ import { Heart, ThumbsDown, ThumbsUp, Waves } from "lucide-react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Stack } from "@/components/ui/stack";
 
 export type AlreadyPlayedFeedback = Extract<
   ProductDecisionFeedback,
@@ -40,13 +39,13 @@ export function AlreadyPlayedPanel({
       onClose={onClose}
       title="How did it land?"
       eyebrow="Already Played"
-      className="max-w-md"
+      mobileSheet
     >
-      <div id={id} className="grid gap-4">
+      <div id={id} className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Let us know how your experience was. This helps refine your future recommendations.
+          Your answer improves future picks.
         </p>
-        <Stack direction="row" wrap gap={3} className="justify-between pt-2">
+        <div className="grid grid-cols-2 gap-3 pt-1">
           {options.map(({ feedback, label, Icon }) => (
             <Button
               key={feedback}
@@ -56,13 +55,13 @@ export function AlreadyPlayedPanel({
                 onSelect(feedback);
                 onClose();
               }}
-              className="flex-1 flex flex-col items-center justify-center gap-2.5 p-5 h-24 rounded-2xl border border-border/50 bg-secondary/30 hover:bg-accent/10 hover:border-accent/20 text-foreground transition-all duration-300 active:scale-[0.97]"
+              className="min-h-24 flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/50 bg-secondary/30 p-4 text-foreground transition-all duration-300 hover:border-accent/20 hover:bg-accent/10 active:scale-[0.97]"
             >
               <Icon className="size-6 text-accent" />
               <span className="text-[11px] font-black uppercase tracking-wider">{label}</span>
             </Button>
           ))}
-        </Stack>
+        </div>
       </div>
     </Dialog>
   );

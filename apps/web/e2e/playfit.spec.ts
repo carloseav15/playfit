@@ -736,6 +736,7 @@ test("play next feedback excludes a bad fit", async ({ page }) => {
   await expect(page.getByText("Play this next")).toBeVisible();
   await page.getByRole("button", { name: "No, skip this" }).first().click();
 
+  await expect(page.getByText("What got in the way?")).toHaveCount(0);
   await expect
     .poll(() =>
       savedProfiles.some((profile) =>

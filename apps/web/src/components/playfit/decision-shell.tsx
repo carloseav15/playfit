@@ -59,8 +59,7 @@ export function DecisionShell({
    * older-looking landing screen right after the one the visitor already saw. */
   onExitToLanding?: () => void;
 }) {
-  const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } =
-    usePlayfit();
+  const { state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfit();
   const [slowLoading, setSlowLoading] = useState(false);
   // Resume the onboarding wizard directly (instead of the generic welcome
   // screen) when the account already has in-progress onboarding data saved
@@ -250,10 +249,6 @@ export function DecisionShell({
   function handleShowAnother(entry: RankedSeedGame) {
     setExcludedIds((prev) => new Set([...prev, entry.game.gameId]));
     advancePrimaryPast(entry.game.gameId);
-  }
-
-  function handleReason(reason: string) {
-    setStatusMessage(`Noted: ${reason.toLowerCase()}.`);
   }
 
   const positiveSignalCount = state.user.onboarding.likedGameIds.length;
@@ -508,7 +503,6 @@ export function DecisionShell({
                 onNotForMe={() => handleFeedback(primary, "not_for_me")}
                 onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
                 onShowAnother={() => handleShowAnother(primary)}
-                onReason={handleReason}
               />
             </motion.div>
           </div>
