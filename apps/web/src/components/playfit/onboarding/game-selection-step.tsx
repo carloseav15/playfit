@@ -156,7 +156,7 @@ function SelectedGameCard({
   return (
     <div
       className={cn(
-        "group relative aspect-[2/3] rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300",
+        "group relative aspect-[3/4] rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all duration-300",
         narrow ? "w-40" : "w-full",
         accent === "accent" ? "hover:border-accent/40" : "hover:border-negative/40",
       )}
@@ -213,7 +213,7 @@ function EmptyGameSlot({
       type="button"
       onClick={onClick}
       className={cn(
-        "group flex flex-col items-center justify-center aspect-[2/3] rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer",
+        "group flex flex-col items-center justify-center aspect-[3/4] rounded-2xl border-2 border-dashed border-white/10 bg-secondary/15 hover:bg-secondary/25 transition-all duration-300 active:scale-[0.98] cursor-pointer",
         narrow ? "w-40" : "w-full",
         accent === "accent" ? "hover:border-accent/30" : "hover:border-negative/30",
       )}

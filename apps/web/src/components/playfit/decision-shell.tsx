@@ -49,15 +49,28 @@ export function shouldShowNoRecommendations({
   return !primary && !loading && !refreshing && !refreshPending;
 }
 
-export function DecisionShell() {
+export function DecisionShell({
+  startInCalibration = false,
+  onExitToLanding,
+}: {
+  startInCalibration?: boolean;
+  /** When set (only by the marketing landing page), exiting the wizard returns there
+   * instead of falling back to DecisionIntro — which would otherwise read as a second,
+   * older-looking landing screen right after the one the visitor already saw. */
+  onExitToLanding?: () => void;
+}) {
   const { setStatusMessage, state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } =
     usePlayfit();
   const [slowLoading, setSlowLoading] = useState(false);
   // Resume the onboarding wizard directly (instead of the generic welcome
   // screen) when the account already has in-progress onboarding data saved
   // server-side — otherwise a returning user with saved platform/game
-  // picks sees the same intro as a brand-new signup.
+  // picks sees the same intro as a brand-new signup. `startInCalibration` covers the
+  // other case: arriving via the marketing landing page's own CTA, which already made
+  // the "let's start" pitch once — showing DecisionIntro's near-identical intro again
+  // right after would read as a second, redundant landing screen.
   const [calibrationOpen, setCalibrationOpen] = useState(() => {
+    if (startInCalibration) return true;
     const onboarding = state.user.onboarding;
     return (
       !state.user.onboardingCompletedAt &&
@@ -275,7 +288,7 @@ export function DecisionShell() {
             />
           ) : (
             <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
-              <OnboardingSection />
+              <OnboardingSection onExit={onExitToLanding ?? (() => setCalibrationOpen(false))} />
             </div>
           )}
         </Container>
@@ -311,7 +324,7 @@ export function DecisionShell() {
               </div>
 
               <div className="grid gap-5 md:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]">
-                <Skeleton className="aspect-[2/3] w-full rounded-sm shadow-xl" />
+                <Skeleton className="aspect-[3/4] w-full rounded-sm shadow-xl" />
 
                 <div className="grid content-start gap-4">
                   <div>
@@ -380,14 +393,14 @@ export function DecisionShell() {
               </div>
               <div className="rounded-3xl border border-border bg-card p-5 shadow-md grid gap-3">
                 <div className="flex gap-3 items-center">
-                  <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
+                  <Skeleton className="aspect-[3/4] w-12 rounded-sm" />
                   <div className="grid gap-2 flex-1">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-16" />
                   </div>
                 </div>
                 <div className="flex gap-3 items-center">
-                  <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
+                  <Skeleton className="aspect-[3/4] w-12 rounded-sm" />
                   <div className="grid gap-2 flex-1">
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-3 w-16" />
@@ -560,7 +573,7 @@ export function DecisionShell() {
                         <div className="flex items-center gap-3.5 min-w-0">
                           <CoverArt
                             game={entry.game}
-                            className="aspect-[2/3] w-11 shrink-0 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+                            className="aspect-[3/4] w-11 shrink-0 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
                           />
                           <div className="min-w-0">
                             <h3 className="font-display text-base font-black leading-snug text-foreground truncate">

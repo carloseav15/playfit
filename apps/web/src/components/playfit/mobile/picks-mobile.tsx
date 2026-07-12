@@ -104,7 +104,7 @@ export function PicksMobile({
       <Link href={`/game/${gameId}`} className="flex items-center gap-3 min-w-0 flex-1">
         <CoverArt
           game={entry.game}
-          className="aspect-[2/3] w-12 rounded-lg shadow-sm border border-border/40 shrink-0"
+          className="aspect-[3/4] w-12 rounded-lg shadow-sm border border-border/40 shrink-0"
         />
         <div className="min-w-0">
           <h3 className="font-display text-base font-black text-foreground truncate leading-tight">

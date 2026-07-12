@@ -384,7 +384,7 @@ export function TasteMapVisualizer({
                     <div className="flex gap-3 min-w-0">
                       <CoverArt
                         game={node.game}
-                        className="aspect-[2/3] w-12 rounded-lg border border-border/40 shrink-0 shadow-sm"
+                        className="aspect-[3/4] w-12 rounded-lg border border-border/40 shrink-0 shadow-sm"
                       />
                       <div className="min-w-0 flex-1 grid gap-0.5">
                         <div className="flex items-center justify-between gap-1">
