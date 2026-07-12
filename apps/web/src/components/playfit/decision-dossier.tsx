@@ -325,7 +325,7 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
           <div className="grid min-w-0 gap-6 rounded-3xl border border-border bg-card p-5 shadow-lg lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)] lg:p-7">
             <CoverArt
               game={game}
-              className="aspect-[2/3] w-full max-w-72 justify-self-center rounded-sm shadow-xl border border-border/40 shrink-0"
+              className="aspect-[3/4] w-full max-w-72 justify-self-center rounded-sm shadow-xl border border-border/40 shrink-0"
             />
             <div className="grid min-w-0 content-start gap-5">
               <div className="grid gap-3">

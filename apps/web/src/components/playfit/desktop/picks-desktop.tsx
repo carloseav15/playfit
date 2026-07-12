@@ -39,7 +39,7 @@ export function PicksDesktop({
         <div className="flex flex-col items-center gap-2">
           <CoverArt
             game={entry.game}
-            className="aspect-[2/3] w-24 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.02] border border-border/40"
+            className="aspect-[3/4] w-24 rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.02] border border-border/40"
           />
           <Button
             type="button"

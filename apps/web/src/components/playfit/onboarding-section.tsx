@@ -3,8 +3,10 @@
 import { buildAdaptiveProfile } from "@playfit/core/domain";
 import type { SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
+import { X } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { LovedGamesStep, MissedGameStep } from "./onboarding/game-selection-step";
 import {
@@ -20,7 +22,7 @@ import { PlatformsStep } from "./onboarding/platforms-step";
 import { usePlayfit } from "./playfit-context";
 import { SectionHead } from "./section-head";
 
-export function OnboardingSection() {
+export function OnboardingSection({ onExit }: { onExit?: () => void }) {
   const {
     seedData,
     state,
@@ -240,7 +242,19 @@ export function OnboardingSection() {
 
   return (
     <section className="relative overflow-hidden flex flex-col h-full w-full border-0 rounded-none bg-transparent shadow-none md:border md:rounded-3xl md:border-white/10 md:bg-gradient-to-br md:from-card/70 md:to-background/50 md:p-1 md:backdrop-blur-md md:shadow-2xl">
-      <div className="p-4 md:p-6 pb-2 shrink-0">
+      <div className="relative p-4 md:p-6 pb-2 shrink-0">
+        {onExit ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onExit}
+            aria-label="Exit setup"
+            className="absolute right-3 top-3 md:right-4 md:top-4"
+          >
+            <X className="size-5" />
+          </Button>
+        ) : null}
         <SectionHead eyebrow="Set up your taste" title={stepTitle} copy={stepCopy} />
       </div>
       <Card className="border-0 bg-transparent shadow-none flex flex-col flex-1 min-h-0">

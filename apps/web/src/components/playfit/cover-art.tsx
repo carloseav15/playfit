@@ -57,7 +57,7 @@ export function CoverArt({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-sm border border-border bg-black/40 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.5),0_4px_6px_-2px_rgba(0,0,0,0.3)] after:content-[''] after:absolute after:inset-y-0 after:left-0 after:w-[1.5px] after:bg-white/20 after:pointer-events-none",
+        "relative aspect-[3/4] overflow-hidden rounded-sm border border-border bg-black/40 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.5),0_4px_6px_-2px_rgba(0,0,0,0.3)] after:content-[''] after:absolute after:inset-y-0 after:left-0 after:w-[1.5px] after:bg-white/20 after:pointer-events-none",
         className,
       )}
     >
@@ -67,8 +67,8 @@ export function CoverArt({
             src={src}
             alt={alt}
             className="h-full w-full object-cover"
-            width={260}
-            height={390}
+            width={264}
+            height={352}
             priority={priority}
             unoptimized
           />
@@ -77,8 +77,8 @@ export function CoverArt({
             src={src}
             alt={alt}
             className="h-full w-full object-cover"
-            width={260}
-            height={390}
+            width={264}
+            height={352}
             priority={priority}
           />
         )

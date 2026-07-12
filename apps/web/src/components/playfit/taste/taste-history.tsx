@@ -199,7 +199,7 @@ export function TasteHistory({
                     href={`/game/${entry.gameId}`}
                     className="flex items-center gap-3 min-w-0 flex-1 hover:no-underline"
                   >
-                    <div className="relative aspect-[2/3] w-12 rounded-lg border border-white/5 overflow-hidden shrink-0 shadow-md">
+                    <div className="relative aspect-[3/4] w-12 rounded-lg border border-white/5 overflow-hidden shrink-0 shadow-md">
                       <CoverArt game={game} className="w-full h-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1 grid gap-1.5">

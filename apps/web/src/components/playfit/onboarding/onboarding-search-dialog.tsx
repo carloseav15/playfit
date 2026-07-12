@@ -205,7 +205,7 @@ function SearchResultButton({
     >
       <CoverArt
         game={game}
-        className="aspect-[2/3] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
+        className="aspect-[3/4] w-12 shrink-0 rounded-sm shadow-md transition-transform group-hover:scale-[1.03]"
       />
       <div className="min-w-0 flex-1">
         <strong

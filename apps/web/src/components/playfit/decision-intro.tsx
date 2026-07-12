@@ -193,7 +193,7 @@ export function DecisionIntro({
           <div className="relative shrink-0">
             <CoverArt
               game={realGame || mockGame}
-              className="aspect-[2/3] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30"
+              className="aspect-[3/4] w-18 rounded-sm shadow-md border border-border/50 bg-secondary/30"
             />
             {hasError && (
               <span

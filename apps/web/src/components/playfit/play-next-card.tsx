@@ -72,7 +72,7 @@ export function PlayNextCard({
         <CardContent className="grid gap-4 p-5 md:grid-cols-[6rem_minmax(0,1fr)_auto] md:items-center">
           <CoverArt
             game={entry.game}
-            className="aspect-[2/3] w-24 justify-self-center rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
+            className="aspect-[3/4] w-24 justify-self-center rounded-sm shadow-md transition-transform duration-300 group-hover:scale-[1.03]"
           />
           <div className="grid min-w-0 gap-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -224,7 +224,7 @@ export function PlayNextCard({
           <div className="relative group/cover justify-self-center w-full max-w-[130px] sm:max-w-[176px] md:max-w-none">
             <CoverArt
               game={entry.game}
-              className="aspect-[2/3] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-border/40"
+              className="aspect-[3/4] w-full rounded-sm shadow-xl transition-all duration-300 group-hover/cover:scale-[1.02] group-hover/cover:shadow-2xl border border-border/40"
               priority={primary}
             />
           </div>
