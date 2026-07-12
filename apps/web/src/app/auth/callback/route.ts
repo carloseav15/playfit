@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RETURNING_VISITOR_COOKIE } from "@/lib/returning-visitor";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function getRedirectOrigin(request: Request, origin: string) {
@@ -43,7 +44,15 @@ export async function GET(request: Request) {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${redirectOrigin}${next}`);
+      const response = NextResponse.redirect(`${redirectOrigin}${next}`);
+      response.cookies.set(RETURNING_VISITOR_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+      return response;
     } else {
       console.error("Supabase Auth Code Exchange Error:", error.message, error);
     }

@@ -238,19 +238,19 @@ export function IndicatorsSection() {
       </p>
       <div className="flex flex-wrap items-center gap-6">
         <span className="flex items-center gap-2 text-xs">
-          <StatusDot tone="positive" /> Positive
+          <StatusDot label="Positive status" tone="positive" /> Positive
         </span>
         <span className="flex items-center gap-2 text-xs">
-          <StatusDot tone="warning" /> Warning
+          <StatusDot label="Warning status" tone="warning" /> Warning
         </span>
         <span className="flex items-center gap-2 text-xs">
-          <StatusDot tone="negative" /> Negative
+          <StatusDot label="Negative status" tone="negative" /> Negative
         </span>
         <span className="flex items-center gap-2 text-xs">
-          <StatusDot tone="default" /> Default
+          <StatusDot label="Default status" tone="default" /> Default
         </span>
         <span className="flex items-center gap-2 text-xs">
-          <StatusDot tone="positive" animate /> Animated
+          <StatusDot label="Positive status, animated" tone="positive" animate /> Animated
         </span>
       </div>
 

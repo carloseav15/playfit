@@ -11,13 +11,16 @@ const dotStyles: Record<StatusTone, string> = {
 };
 
 interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
+  label: string;
   tone: StatusTone;
   animate?: boolean;
 }
 
-export function StatusDot({ className, tone, animate = false, ...props }: StatusDotProps) {
+export function StatusDot({ className, label, tone, animate = false, ...props }: StatusDotProps) {
   return (
     <span
+      role="status"
+      aria-label={label}
       className={cn(
         "inline-block size-1.5 rounded-full",
         dotStyles[tone],

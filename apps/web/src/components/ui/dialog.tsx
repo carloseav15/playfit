@@ -14,6 +14,8 @@ export interface DialogProps {
   eyebrow?: string;
   children: React.ReactNode;
   className?: string;
+  /** Uses a bottom sheet on small screens and a centered dialog from `md` upward. */
+  mobileSheet?: boolean;
   /** Overrides Radix's default auto-focus-to-content behavior on open. */
   onOpenAutoFocus?: (event: Event) => void;
 }
@@ -25,6 +27,7 @@ export function Dialog({
   eyebrow,
   children,
   className,
+  mobileSheet = false,
   onOpenAutoFocus,
 }: DialogProps) {
   const hasHeader = Boolean(title || eyebrow);
@@ -42,7 +45,7 @@ export function Dialog({
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-black/72" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-black/80 backdrop-blur-[2px]" />
         <DialogPrimitive.Content
           aria-modal="true"
           onOpenAutoFocus={onOpenAutoFocus}
@@ -51,14 +54,17 @@ export function Dialog({
             previousFocusRef.current?.focus();
           }}
           className={cn(
-            "fixed inset-0 z-dialog m-auto max-h-[92vh] w-[min(640px,calc(100%-2rem))] overflow-auto rounded-lg border border-border bg-background p-0 shadow-2xl outline-none",
+            mobileSheet
+              ? "fixed inset-x-0 bottom-0 z-[301] max-h-[85dvh] w-full overflow-auto rounded-t-3xl border-x-0 border-b-0 border-border bg-background p-0 shadow-2xl outline-none md:left-1/2 md:top-1/2 md:max-h-[calc(100dvh-4rem)] md:w-[440px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border"
+              : "fixed inset-0 z-dialog m-auto max-h-[92vh] w-[min(640px,calc(100%-2rem))] overflow-auto rounded-lg border border-border bg-background p-0 shadow-2xl outline-none",
             className,
           )}
         >
-          {/* Mobile Drag Handle */}
-          <div className="flex justify-center pt-3 pb-1 md:hidden shrink-0">
-            <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
-          </div>
+          {mobileSheet ? (
+            <div className="flex justify-center pb-1 pt-3 md:hidden">
+              <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
+            </div>
+          ) : null}
 
           {hasHeader ? (
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-background/94 p-4 md:pt-4 pt-1 backdrop-blur-xl">

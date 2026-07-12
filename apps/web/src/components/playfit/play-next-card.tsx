@@ -18,7 +18,6 @@ import {
   watchOutLabel,
 } from "../playfit/product-utils";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
-import { FeedbackReasonPicker } from "./feedback-reason-picker";
 import { RecommendationMetric } from "./recommendation-metric";
 import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
 
@@ -30,7 +29,6 @@ export function PlayNextCard({
   onNotForMe,
   onAlreadyPlayed,
   onShowAnother,
-  onReason,
 }: {
   entry: RankedSeedGame;
   primary?: boolean;
@@ -39,9 +37,7 @@ export function PlayNextCard({
   onNotForMe: () => void;
   onAlreadyPlayed: (feedback: AlreadyPlayedFeedback) => void;
   onShowAnother?: () => void;
-  onReason?: (reason: string) => void;
 }) {
-  const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const alreadyPlayedPanelId = `already-played-${entry.game.gameId}`;
   const tone = decisionTone(entry);
@@ -56,14 +52,12 @@ export function PlayNextCard({
 
   function markNotForMe() {
     onNotForMe();
-    setShowReasonPicker(true);
     setShowAlreadyPlayed(false);
   }
 
   function chooseAlreadyPlayed(feedback: AlreadyPlayedFeedback) {
     onAlreadyPlayed(feedback);
     setShowAlreadyPlayed(false);
-    setShowReasonPicker(false);
   }
 
   if (!primary) {
@@ -126,7 +120,6 @@ export function PlayNextCard({
                 aria-controls={alreadyPlayedPanelId}
                 onClick={() => {
                   setShowAlreadyPlayed((current) => !current);
-                  setShowReasonPicker(false);
                 }}
                 className="text-xs hover:text-foreground"
               >
@@ -172,17 +165,6 @@ export function PlayNextCard({
             onClose={() => setShowAlreadyPlayed(false)}
             onSelect={chooseAlreadyPlayed}
           />
-          {showReasonPicker ? (
-            <FeedbackReasonPicker
-              onSelect={(reason) => {
-                onReason?.(reason);
-                setShowReasonPicker(false);
-              }}
-              className="border-border/60 bg-secondary/50 md:col-span-3 mt-2"
-              labelClassName="text-[10px]"
-              buttonClassName="text-xs border-border bg-card hover:bg-secondary"
-            />
-          ) : null}
         </CardContent>
       </Card>
     );
@@ -333,7 +315,6 @@ export function PlayNextCard({
                 aria-controls={alreadyPlayedPanelId}
                 onClick={() => {
                   setShowAlreadyPlayed((current) => !current);
-                  setShowReasonPicker(false);
                 }}
                 className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-secondary h-10 sm:h-11 rounded-xl text-xs font-bold"
               >
@@ -385,17 +366,6 @@ export function PlayNextCard({
           onClose={() => setShowAlreadyPlayed(false)}
           onSelect={chooseAlreadyPlayed}
         />
-        {showReasonPicker ? (
-          <FeedbackReasonPicker
-            onSelect={(reason) => {
-              onReason?.(reason);
-              setShowReasonPicker(false);
-            }}
-            className="border-border/60 bg-secondary/50 animate-in fade-in slide-in-from-top-2 duration-300"
-            labelClassName="text-[10px]"
-            buttonClassName="text-xs border-border bg-card hover:bg-secondary"
-          />
-        ) : null}
       </CardContent>
     </Card>
   );
