@@ -1,7 +1,6 @@
 "use client";
 
 import type { RankedSeedGame } from "@playfit/core/types";
-import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -36,7 +35,7 @@ function PickCard({
 }) {
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden min-w-0 md:block">
         <PicksDesktop
           entry={entry}
           expandedId={expandedId}
@@ -47,7 +46,7 @@ function PickCard({
           onRemove={onRemove}
         />
       </div>
-      <div className="block md:hidden">
+      <div className="block min-w-0 md:hidden">
         <PicksMobile
           entry={entry}
           expandedId={expandedId}
@@ -122,25 +121,6 @@ export function PicksShell() {
 
       <div className="min-h-[calc(100vh-4rem)] text-foreground">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
-          <div className="hidden md:flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                asChild
-                className="text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
-              >
-                <Link href="/" className="flex items-center">
-                  <ArrowLeft className="size-4 mr-1.5" />
-                  Back
-                </Link>
-              </Button>
-              <h1 className="font-display text-lg sm:text-xl font-black tracking-tight text-foreground truncate">
-                Saved Picks
-              </h1>
-            </div>
-          </div>
-
           {loadError ? (
             <Alert variant="warning" className="shrink-0">
               {loadError}

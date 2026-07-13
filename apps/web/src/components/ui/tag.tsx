@@ -1,23 +1,32 @@
+import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
+const tagVariants = cva(
+  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold",
+  {
+    variants: {
+      variant: {
+        accent: "bg-accent text-accent-foreground",
+        default: "bg-secondary text-secondary-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "accent",
+    },
+  },
+);
+
+export interface TagProps
+  extends React.HTMLAttributes<HTMLSpanElement>,
+    VariantProps<typeof tagVariants> {
   onRemove?: () => void;
-  variant?: "default" | "accent";
 }
 
-export function Tag({ className, onRemove, variant = "accent", children, ...props }: TagProps) {
+export function Tag({ className, onRemove, variant, children, ...props }: TagProps) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold",
-        variant === "accent" && "bg-accent text-accent-foreground",
-        variant === "default" && "bg-secondary text-secondary-foreground",
-        className,
-      )}
-      {...props}
-    >
+    <span className={cn(tagVariants({ variant, className }))} {...props}>
       {children}
       {onRemove && (
         <button
@@ -32,3 +41,5 @@ export function Tag({ className, onRemove, variant = "accent", children, ...prop
     </span>
   );
 }
+
+export { tagVariants };

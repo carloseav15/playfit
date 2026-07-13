@@ -3,43 +3,12 @@ import {
   productProfileSchema,
   productStateSchema,
 } from "@playfit/core/schemas";
-import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { jsonError } from "@/lib/api-errors";
 import { captureApiError } from "@/lib/monitoring";
-import { RETURNING_VISITOR_COOKIE } from "@/lib/returning-visitor";
+import { clearReturningVisitor, markReturningVisitor } from "@/lib/returning-visitor";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
-
-// Best-effort: this cookie only smooths out repeat visits to the marketing landing page.
-// It must never take down the actual profile save/delete on a request context that
-// doesn't support writing cookies (or in tests, where next/headers isn't mocked).
-async function markReturningVisitor() {
-  try {
-    const cookieStore = await cookies();
-    cookieStore.set(RETURNING_VISITOR_COOKIE, "1", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
-  } catch {
-    // no-op
-  }
-}
-
-async function clearReturningVisitor() {
-  try {
-    const cookieStore = await cookies();
-    // `.delete(name)` only clears a cookie whose path matches the default ("/" here, since
-    // that's what markReturningVisitor sets) — passing the same options explicitly avoids
-    // relying on that default matching by coincidence.
-    cookieStore.delete({ name: RETURNING_VISITOR_COOKIE, path: "/" });
-  } catch {
-    // no-op
-  }
-}
 
 const persistedOnboardingSchema = productStateSchema.shape.user.shape.onboarding.extend({
   onboardingCompletedAt: z.string().nullable(),

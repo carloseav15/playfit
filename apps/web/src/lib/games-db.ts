@@ -1,6 +1,11 @@
 import { computeScore } from "@playfit/core";
 import type { SeedGame } from "@playfit/core/types";
-import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
+import {
+  GAME_PLATFORM_SELECT,
+  GAME_SELECT,
+  mapGameRowToSeedGame,
+  resolveJoinedName,
+} from "@/lib/game-mapper";
 import type { createAnonClient } from "@/lib/supabase/server";
 
 export interface GameRow {
@@ -179,6 +184,66 @@ export async function fetchAliasCandidates(
     scoresById,
     ok: ok && gamesResult.ok,
     errors: [...errors, ...gamesResult.errors],
+  };
+}
+
+export interface GenreOption {
+  genreId: string;
+  name: string;
+}
+
+// genre_id is the plain text column filterable via .eq/.in; genre:genre_ref(name)
+// is only for display (see the PGRST200 note on GAME_SELECT in game-mapper.ts).
+export async function getDistinctGenres(supabase: SupabaseClient): Promise<GenreOption[]> {
+  const { data, error } = await supabase
+    .schema("games_library")
+    .from("games")
+    .select("genre_id, genre:genre_ref(name)")
+    .not("genre_id", "is", null);
+
+  if (error || !data) return [];
+
+  const seen = new Map<string, string>();
+  for (const row of data as { genre_id: string | null; genre: unknown }[]) {
+    if (!row.genre_id || seen.has(row.genre_id)) continue;
+    seen.set(row.genre_id, resolveJoinedName(row.genre) ?? row.genre_id);
+  }
+
+  return [...seen.entries()]
+    .map(([genreId, name]) => ({ genreId, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Scoped to a bounded candidate set (the search pipeline's already-capped result
+// pool, at most a few hundred rows) -- NOT for filtering the whole catalog. A
+// platform can have thousands of games (e.g. 3DS alone is ~1,945), so building
+// an unscoped `.in("game_id", allMatchingIds)` blows past PostgREST's URL length
+// limit ("URI too long"). For catalog-wide filtering (the no-query browse case),
+// use a `game_platforms!inner(platform_id)` embedded-resource filter directly on
+// the games query instead -- verified against the live schema to produce correct
+// count: "exact" results with no duplicate-row fan-out (real FK, unlike the
+// genre_id/series_id text-column PGRST200 landmine noted on GAME_SELECT).
+export async function filterGameIdsByPlatform(
+  supabase: SupabaseClient,
+  candidateGameIds: string[],
+  platformIds: string[],
+): Promise<{ gameIds: string[]; ok: boolean; errors: string[] }> {
+  const scopedIds = unique(candidateGameIds);
+  const ids = unique(platformIds);
+  if (scopedIds.length === 0 || ids.length === 0) return { gameIds: [], ok: true, errors: [] };
+
+  const { data, error } = await supabase
+    .schema("games_library")
+    .from("game_platforms")
+    .select("game_id")
+    .in("game_id", scopedIds)
+    .in("platform_id", ids);
+
+  if (error) return { gameIds: [], ok: false, errors: [error.message] };
+  return {
+    gameIds: unique((data as { game_id: string }[]).map((row) => row.game_id)),
+    ok: true,
+    errors: [],
   };
 }
 

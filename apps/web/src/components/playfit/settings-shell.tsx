@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Laptop, Moon, Sun } from "lucide-react";
+import { Laptop, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -341,25 +341,6 @@ export function SettingsShell() {
 
       <div className="min-h-[calc(100vh-4rem)] text-foreground">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
-          <div className="hidden md:flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                asChild
-                className="text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
-              >
-                <Link href="/" className="flex items-center">
-                  <ArrowLeft className="size-4 mr-1.5" />
-                  Back
-                </Link>
-              </Button>
-              <h1 className="font-display text-lg sm:text-xl font-black tracking-tight text-foreground truncate">
-                Settings
-              </h1>
-            </div>
-          </div>
-
           {/* Mobile sub-views */}
           <SettingsMobile
             subView={subView}

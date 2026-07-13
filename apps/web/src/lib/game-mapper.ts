@@ -29,7 +29,7 @@ export interface GameAliasRow {
   alias: string;
 }
 
-function resolveJoinedName(value: unknown): string | null {
+export function resolveJoinedName(value: unknown): string | null {
   if (!value) return null;
   if (Array.isArray(value)) {
     const first = value[0];

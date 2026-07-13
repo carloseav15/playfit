@@ -74,6 +74,16 @@ export function AuthPanel({ onAuth, onContinueLocal, onClose }: AuthPanelProps) 
 
         const userId = data.user?.id;
         if (userId) {
+          if (data.session?.access_token) {
+            try {
+              await fetch("/api/auth/mark-returning", {
+                method: "POST",
+                headers: { authorization: `Bearer ${data.session.access_token}` },
+              });
+            } catch {
+              // Best-effort -- only smooths out the next visit to "/", never blocks sign-in.
+            }
+          }
           onAuth(userId, email);
         } else {
           setError("Could not authenticate. Check your credentials.");

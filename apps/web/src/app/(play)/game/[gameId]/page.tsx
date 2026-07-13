@@ -6,12 +6,16 @@ export const metadata: Metadata = {
   title: "Why this game",
 };
 
-export default async function Page(props: { params: Promise<{ gameId: string }> }) {
+export default async function Page(props: {
+  params: Promise<{ gameId: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const { gameId } = await props.params;
+  const { returnTo } = await props.searchParams;
 
   return (
     <ErrorBoundary>
-      <DecisionDossier gameId={gameId} />
+      <DecisionDossier gameId={gameId} returnTo={returnTo} />
     </ErrorBoundary>
   );
 }
