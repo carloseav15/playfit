@@ -487,9 +487,7 @@ async function gotoApp(page: Page, path: string) {
 test("public home and health endpoint load", async ({ page, request }) => {
   await gotoApp(page, "/");
 
-  await expect(
-    page.getByRole("heading", { name: "Your next game, curated." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your next game, curated." })).toBeVisible();
 
   const health = await request.get("/api/health");
   await expect(health).toBeOK();
@@ -637,29 +635,31 @@ test("taste route explains onboarding signals and lets users remove one", async 
   ]);
 
   await expect(page).toHaveURL(/\/taste$/);
-  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("Preferences").filter({ visible: true }).first()).toBeVisible();
 
   const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if (await decisionsTabBtn.count() > 0 && await decisionsTabBtn.isVisible()) {
+  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
     await decisionsTabBtn.click();
   }
 
   await Promise.all([
     page.waitForURL(/\/game\//, { timeout: 15_000, waitUntil: "domcontentloaded" }),
-    page
-      .locator('a[href^="/game/"]')
-      .filter({ visible: true })
-      .first()
-      .click(),
+    page.locator('a[href^="/game/"]').filter({ visible: true }).first().click(),
   ]);
-  await expect(page.getByRole("heading", { name: "Chrono Trigger" }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Chrono Trigger" }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   await Promise.all([
     page.waitForURL(/\/taste$/, { timeout: 15_000, waitUntil: "domcontentloaded" }),
     page.getByRole("button", { name: "Back" }).first().click(),
   ]);
-  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test("playfit picks saves a recommendation and removes it from queue", async ({ page }) => {
@@ -710,9 +710,11 @@ test("playfit picks saves a recommendation and removes it from queue", async ({ 
     page.getByRole("link", { name: /Picks/ }).click(),
   ]);
 
-  await expect(page.getByRole("heading", { name: "Final Fantasy VI" }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Final Fantasy VI" }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   const managePickBtn = page.getByRole("button", { name: "Manage pick" });
-  if (await managePickBtn.count() > 0 && await managePickBtn.isVisible()) {
+  if ((await managePickBtn.count()) > 0 && (await managePickBtn.isVisible())) {
     await managePickBtn.click();
   }
   await page.getByRole("button", { name: /Remove recommendation|Remove Pick/ }).click();
@@ -783,12 +785,16 @@ test("already played loved marks completed and rotates the recommendation", asyn
     page.waitForURL(/\/taste$/, { timeout: 15_000, waitUntil: "domcontentloaded" }),
     page.getByRole("link", { name: /Taste/ }).filter({ visible: true }).first().click(),
   ]);
-  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if (await decisionsTabBtn.count() > 0 && await decisionsTabBtn.isVisible()) {
+  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
     await decisionsTabBtn.click();
   }
-  await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test("already played dropped marks abandoned and stays out after reload", async ({ page }) => {
@@ -831,10 +837,14 @@ test("already played dropped marks abandoned and stays out after reload", async 
     page.waitForURL(/\/taste$/, { timeout: 15_000, waitUntil: "domcontentloaded" }),
     page.getByRole("link", { name: /Taste/ }).filter({ visible: true }).first().click(),
   ]);
-  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if (await decisionsTabBtn.count() > 0 && await decisionsTabBtn.isVisible()) {
+  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
     await decisionsTabBtn.click();
   }
-  await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 });

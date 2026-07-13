@@ -1,7 +1,7 @@
 "use client";
 
 import { buildTasteModel } from "@playfit/core/domain";
-import { ArrowLeft, Layers, ShieldCheck } from "lucide-react";
+import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -156,26 +156,13 @@ export function TasteShell() {
 
       <div className="w-full">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
-          <div className="hidden md:flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <Button
-              type="button"
-              variant="ghost"
-              asChild
-              className="text-xs hover:text-foreground hover:bg-secondary"
+          <div className="hidden md:flex items-center justify-end gap-2 shrink-0">
+            <Badge
+              variant="info"
+              className="bg-accent/10 text-accent border border-accent/30 text-[10px] font-bold py-1 px-3"
             >
-              <Link href="/" className="flex items-center">
-                <ArrowLeft className="size-4 mr-1.5" />
-                Back to Play Next Recommendation
-              </Link>
-            </Button>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="info"
-                className="bg-accent/10 text-accent border border-accent/30 text-[10px] font-bold py-1 px-3"
-              >
-                Based on {model.evidenceCount} preferences
-              </Badge>
-            </div>
+              Based on {model.evidenceCount} preferences
+            </Badge>
           </div>
 
           <section className="hidden md:grid relative overflow-hidden gap-4 rounded-3xl border border-border bg-card p-6 shadow-md md:grid-cols-[minmax(0,1.15fr)_minmax(250px,0.85fr)] md:items-end shrink-0">

@@ -1,19 +1,33 @@
 "use client";
 
+import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
-export interface ToastProps {
+const toastVariants = cva(
+  "flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold shadow-xl",
+  {
+    variants: {
+      variant: {
+        default: "border-border bg-card text-foreground",
+        error: "border-negative/20 bg-negative-bg text-negative",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+export interface ToastProps extends VariantProps<typeof toastVariants> {
   open: boolean;
   message: string;
   onDismiss: () => void;
   onRetry?: () => void;
   onAction?: () => void;
   actionLabel?: string;
-  variant?: "default" | "error";
   duration?: number;
 }
 
@@ -65,14 +79,7 @@ export function Toast({
             startTimer();
           }}
         >
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold shadow-xl",
-              variant === "error"
-                ? "border-negative/20 bg-negative-bg text-negative"
-                : "border-border bg-card text-foreground",
-            )}
-          >
+          <div className={toastVariants({ variant })}>
             <span>{message}</span>
             {onRetry && variant === "error" && (
               <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
@@ -106,3 +113,5 @@ export function Toast({
     </AnimatePresence>
   );
 }
+
+export { toastVariants };

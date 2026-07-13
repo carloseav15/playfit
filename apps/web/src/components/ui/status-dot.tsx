@@ -1,18 +1,25 @@
+import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-type StatusTone = "positive" | "warning" | "negative" | "default";
+const statusDotVariants = cva("inline-block size-1.5 rounded-full", {
+  variants: {
+    tone: {
+      positive: "bg-positive",
+      warning: "bg-warning",
+      negative: "bg-negative",
+      default: "bg-muted-foreground",
+    },
+  },
+  defaultVariants: {
+    tone: "default",
+  },
+});
 
-const dotStyles: Record<StatusTone, string> = {
-  positive: "bg-positive",
-  warning: "bg-warning",
-  negative: "bg-negative",
-  default: "bg-muted-foreground",
-};
-
-interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface StatusDotProps
+  extends React.HTMLAttributes<HTMLSpanElement>,
+    VariantProps<typeof statusDotVariants> {
   label: string;
-  tone: StatusTone;
   animate?: boolean;
 }
 
@@ -21,13 +28,10 @@ export function StatusDot({ className, label, tone, animate = false, ...props }:
     <span
       role="status"
       aria-label={label}
-      className={cn(
-        "inline-block size-1.5 rounded-full",
-        dotStyles[tone],
-        animate && "animate-pulse",
-        className,
-      )}
+      className={cn(statusDotVariants({ tone, className }), animate && "animate-pulse")}
       {...props}
     />
   );
 }
+
+export { statusDotVariants };

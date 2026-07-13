@@ -57,6 +57,16 @@ vi.mock("@/lib/game-mapper", () => ({
   GAME_PLATFORM_SELECT: "game_id, platform_id, platforms:platform_ref(name)",
   GAME_SELECT:
     "game_id, title, aliases, series_id, genre_id, release_year, release_state, source_type, source_ref, cover_url, tags, notes, sort_date, series:series_ref(name), genre:genre_ref(name)",
+  resolveJoinedName: vi.fn((value: unknown) => {
+    if (!value) return null;
+    if (Array.isArray(value)) {
+      const first = value[0];
+      return first && typeof first === "object" && "name" in first
+        ? (first as { name: string }).name
+        : null;
+    }
+    return typeof value === "object" && "name" in value ? (value as { name: string }).name : null;
+  }),
   mapGameRowToSeedGame: vi.fn((game: GameRow) => ({
     gameId: game.game_id,
     title: game.title,

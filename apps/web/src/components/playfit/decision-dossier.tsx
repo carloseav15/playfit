@@ -135,9 +135,28 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
   );
 }
 
-export function DecisionDossier({ gameId }: { gameId: string }) {
+function getSafeSearchReturnTo(returnTo?: string) {
+  return returnTo === "/search" || returnTo?.startsWith("/search?") ? returnTo : null;
+}
+
+export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo?: string }) {
   const { getSeedGame, state } = usePlayfit();
   const router = useRouter();
+  const searchReturnTo = getSafeSearchReturnTo(returnTo);
+  const backLabel = searchReturnTo ? "Back to Search" : "Back to Play Next";
+
+  function goBack() {
+    if (searchReturnTo) {
+      router.push(searchReturnTo);
+      return;
+    }
+
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
   const [recommendationEntry, setRecommendationEntry] = useState<RankedSeedGame | null>(() =>
     getCachedRecommendation(gameId),
   );
@@ -280,9 +299,16 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button type="button" asChild>
-              <Link href="/">Start Play Next</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" asChild>
+                <Link href="/">Start Play Next</Link>
+              </Button>
+              {searchReturnTo ? (
+                <Button type="button" variant="secondary" asChild>
+                  <Link href={searchReturnTo}>Back to Search</Link>
+                </Button>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       </Container>
@@ -309,16 +335,10 @@ export function DecisionDossier({ gameId }: { gameId: string }) {
               type="button"
               variant="ghost"
               className="w-fit text-xs hover:text-foreground hover:bg-secondary h-11 px-3.5 rounded-xl shrink-0"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.push("/");
-                }
-              }}
+              onClick={goBack}
             >
               <ArrowLeft className="size-4 mr-1.5" />
-              Back
+              {backLabel}
             </Button>
           </div>
 
