@@ -3,7 +3,7 @@ import { SettingsShell } from "@/components/playfit/settings-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
-  title: "Playfit Settings — Configure Your Preferences",
+  title: "Settings — Configure Your Preferences",
   description: "Set your platforms, system preferences, and theme choices for recommendations.",
 };
 

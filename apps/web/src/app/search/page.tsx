@@ -5,7 +5,7 @@ import { fetchPlatforms } from "@/lib/supabase/platforms";
 import { createAnonClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Search the Catalog — Playfit",
+  title: "Search the Catalog",
   description: "Browse and search the full Playfit game catalog by title, platform, or genre.",
 };
 

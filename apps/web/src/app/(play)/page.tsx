@@ -6,8 +6,9 @@ import { isReturningVisitor } from "@/lib/returning-visitor";
 import { fetchPlatforms } from "@/lib/supabase/platforms";
 
 export const metadata: Metadata = {
-  title: "Playfit — Game Recommendations",
-  description: "Discover what to play next with Playfit's custom gaming decision engine.",
+  title: "Never Waste Time on the Wrong Game Again",
+  description:
+    "Tell Playfit what you've loved and what didn't land. It finds your next best match — in your library or not — with the reasons attached, not a wall of star ratings.",
 };
 
 export default async function PlayPage() {
