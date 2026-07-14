@@ -8,7 +8,9 @@ Playfit is an open source product and portfolio project for answering one specif
 maximum precision: **what should I play next?**
 
 It combines a large game catalog, platform access, ratings, onboarding signals, saved picks, and
-taste analysis into practical recommendations for what to start, resume, save, or skip.
+taste analysis into practical recommendations for what to start, resume, save, or skip. A
+session-free `/search` page also lets anyone browse and filter the full catalog by platform or
+genre without creating an account.
 
 This started from a personal frustration: picking up popular, hyped games and having them
 mostly miss. Playfit exists to answer "what should I play next" from actual taste signals —
@@ -138,7 +140,7 @@ title groups for manual review.
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/api/health` | Health check (DB connection + game count) | None |
-| GET | `/api/games?q=&page=&pageSize=` | Search / paginate game catalog | None |
+| GET | `/api/games?q=&platform=&genre=&page=&pageSize=` | Search / browse / filter game catalog | None |
 | GET | `/api/games/:gameId` | Game detail (resolves redirects) | None |
 | POST | `/api/games/batch` | Batch lookup (max 500 game IDs) | None |
 | GET | `/api/profile?device_id=` | Read user profile | Cookie / Bearer / deviceId |
@@ -146,6 +148,7 @@ title groups for manual review.
 | DELETE | `/api/profile?device_id=` | Reset user profile | Cookie / Bearer / deviceId |
 | PATCH | `/api/profile/games/:gameId` | Update game state (status, rating, etc.) | Cookie / Bearer / deviceId |
 | DELETE | `/api/profile/games/:gameId` | Delete game state | Cookie / Bearer / deviceId |
+| POST | `/api/auth/mark-returning` | Mark an authenticated session as returning (skips the marketing landing on next visit) | Bearer |
 | POST | `/api/recommendations/today` | Today's recommendation (session-scoped, cached scoring) | Cookie / Bearer / deviceId |
 | POST | `/api/recommendations/similar` | Similar + series games for a game ID | None |
 | POST | `/api/recommendations/profile` | Build adaptive profile from onboarding + states | Cookie / Bearer |
