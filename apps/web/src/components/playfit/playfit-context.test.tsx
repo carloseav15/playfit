@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PlayfitProvider, usePlayfit } from "./playfit-context";
 
@@ -88,6 +89,7 @@ vi.mock("@/lib/supabase/client", () => ({
           data: { subscription: { unsubscribe: vi.fn() } },
         };
       }),
+      signOut: vi.fn(async () => ({ error: null })),
     },
     rpc: vi.fn(),
   },
@@ -95,7 +97,10 @@ vi.mock("@/lib/supabase/client", () => ({
 
 // Helper component to consume context and trigger mutations
 function TestConsumer() {
-  const { state, setPlayfitPick, applyDecisionFeedback } = usePlayfit();
+  const { state, setPlayfitPick, applyDecisionFeedback, resetTasteProfile, deleteAccount } =
+    usePlayfit();
+  const [resetOutcome, setResetOutcome] = useState("idle");
+  const [deleteOutcome, setDeleteOutcome] = useState("idle");
 
   if (!state) {
     return <div data-testid="loading">Loading...</div>;
@@ -108,6 +113,9 @@ function TestConsumer() {
         {state.user.gameStates.game1?.inPlayfitPicks ? "picked" : "not-picked"}
       </div>
       <div data-testid="game2-status">{state.user.gameStates.game2?.status || "none"}</div>
+      <div data-testid="platform-count">{state.user.onboarding.platforms.length}</div>
+      <div data-testid="reset-outcome">{resetOutcome}</div>
+      <div data-testid="delete-outcome">{deleteOutcome}</div>
       <button type="button" onClick={() => setPlayfitPick("game1", true)} data-testid="pick-btn">
         Pick Game 1
       </button>
@@ -117,6 +125,34 @@ function TestConsumer() {
         data-testid="love-btn"
       >
         Love Game 2
+      </button>
+      <button
+        type="button"
+        data-testid="reset-btn"
+        onClick={async () => {
+          try {
+            await resetTasteProfile();
+            setResetOutcome("succeeded");
+          } catch {
+            setResetOutcome("failed");
+          }
+        }}
+      >
+        Reset
+      </button>
+      <button
+        type="button"
+        data-testid="delete-btn"
+        onClick={async () => {
+          try {
+            await deleteAccount();
+            setDeleteOutcome("succeeded");
+          } catch {
+            setDeleteOutcome("failed");
+          }
+        }}
+      >
+        Delete
       </button>
     </div>
   );
@@ -187,5 +223,162 @@ describe("PlayfitProvider and usePlayfit Context", () => {
     });
 
     expect(screen.getByTestId("game2-status").textContent).toBe("completed");
+  });
+
+  it("keeps local state when resetTasteProfile's cloud delete fails", async () => {
+    const { resetProductState, createInitialState } = await import("@playfit/core/store");
+    vi.mocked(resetProductState).mockRejectedValueOnce(new Error("server_error"));
+
+    render(
+      <PlayfitProvider platforms={[]} localFirst={true}>
+        <TestConsumer />
+      </PlayfitProvider>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    await act(async () => {
+      screen.getByTestId("reset-btn").click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByTestId("reset-outcome").textContent).toBe("failed");
+    // Local state (onboardingCompletedAt from the mocked loadProductState) must be untouched.
+    expect(screen.getByTestId("completed-at").textContent).toBe("2026-07-06T00:00:00Z");
+    expect(createInitialState).not.toHaveBeenCalled();
+  });
+
+  it("clears local state when resetTasteProfile's cloud delete succeeds", async () => {
+    const { resetProductState, createInitialState } = await import("@playfit/core/store");
+    vi.mocked(resetProductState).mockResolvedValueOnce(undefined);
+
+    render(
+      <PlayfitProvider platforms={[]} localFirst={true}>
+        <TestConsumer />
+      </PlayfitProvider>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    await act(async () => {
+      screen.getByTestId("reset-btn").click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByTestId("reset-outcome").textContent).toBe("succeeded");
+    // createInitialState() backs the cleared local state — on failure (previous test) it's
+    // never invoked because resetProductState() throws before reaching that line.
+    expect(createInitialState).toHaveBeenCalled();
+  });
+
+  it("keeps local state and does not sign out when deleteAccount's cloud delete fails", async () => {
+    const { resetProductState } = await import("@playfit/core/store");
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(resetProductState).mockRejectedValueOnce(new Error("server_error"));
+
+    render(
+      <PlayfitProvider platforms={[]} localFirst={true}>
+        <TestConsumer />
+      </PlayfitProvider>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    await act(async () => {
+      screen.getByTestId("delete-btn").click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByTestId("delete-outcome").textContent).toBe("failed");
+    expect(screen.getByTestId("completed-at").textContent).toBe("2026-07-06T00:00:00Z");
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("defaults a fresh profile's platform selection to every known platform", async () => {
+    const { loadProductState } = await import("@playfit/core/store");
+    // mockResolvedValue (not -Once): the test mock's onAuthStateChange fires synchronously
+    // in addition to ensureSession()'s async getSession(), so the boot effect's authUser
+    // dependency can change twice and re-run boot() a second time in this test harness.
+    vi.mocked(loadProductState).mockResolvedValue({
+      user: {
+        deviceId: "test-device-id",
+        onboardingCompletedAt: null,
+        onboarding: {
+          step: "platforms",
+          likedGameIds: [],
+          dislikedGameIds: [],
+          platforms: [],
+        },
+        gameStates: {},
+        profile: null,
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: partial mock state, cast to satisfy ProductState
+    } as any);
+
+    render(
+      <PlayfitProvider
+        platforms={
+          [
+            { platformId: "ps5", displayName: "PS5" },
+            { platformId: "switch_2", displayName: "Switch 2" },
+            { platformId: "pc", displayName: "PC" },
+            // biome-ignore lint/suspicious/noExplicitAny: minimal platform fixture
+          ] as any
+        }
+        localFirst={true}
+      >
+        <TestConsumer />
+      </PlayfitProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByTestId("platform-count").textContent).toBe("3");
+  });
+
+  it("leaves an already-completed profile's platform selection untouched", async () => {
+    const { loadProductState } = await import("@playfit/core/store");
+    vi.mocked(loadProductState).mockResolvedValue({
+      user: {
+        deviceId: "test-device-id",
+        onboardingCompletedAt: "2026-07-06T00:00:00Z",
+        onboarding: {
+          step: "completed",
+          likedGameIds: ["game1"],
+          dislikedGameIds: [],
+          platforms: [{ platformId: "ps5", status: "available" }],
+        },
+        gameStates: {},
+        profile: { nintendo: 0.8 },
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: partial mock state, cast to satisfy ProductState
+    } as any);
+
+    render(
+      <PlayfitProvider
+        platforms={
+          [
+            { platformId: "ps5", displayName: "PS5" },
+            { platformId: "switch_2", displayName: "Switch 2" },
+            { platformId: "pc", displayName: "PC" },
+            // biome-ignore lint/suspicious/noExplicitAny: minimal platform fixture
+          ] as any
+        }
+        localFirst={true}
+      >
+        <TestConsumer />
+      </PlayfitProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByTestId("platform-count").textContent).toBe("1");
   });
 });

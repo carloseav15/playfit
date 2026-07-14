@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { authenticatedFetch, createInitialState, setCachedAuth } from "./indexed-db";
+import {
+  authenticatedFetch,
+  createInitialState,
+  ResetProductStateError,
+  setCachedAuth,
+} from "./indexed-db";
 
 function mockFetch(response: unknown) {
   return vi.fn().mockImplementation(() =>
@@ -236,5 +241,55 @@ describe("product indexeddb store", () => {
       .calls[0];
     const headers = init.headers as Headers;
     expect(headers.get("authorization")).toBe("Bearer explicit-token");
+  });
+
+  describe("resetProductState", () => {
+    it("resolves without throwing on a 204 No Content response", async () => {
+      const { resetProductState } = await import("./indexed-db");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
+
+      await expect(resetProductState()).resolves.toBeUndefined();
+    });
+
+    it("throws an auth_expired ResetProductStateError on 401", async () => {
+      const { resetProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+
+      const error = await resetProductState().catch((err) => err);
+      expect(error).toBeInstanceOf(ResetProductStateError);
+      expect((error as InstanceType<typeof ResetProductStateError>).reason).toBe("auth_expired");
+      expect((error as InstanceType<typeof ResetProductStateError>).status).toBe(401);
+    });
+
+    it("throws an auth_expired ResetProductStateError on 403", async () => {
+      const { resetProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 403 }));
+
+      const error = await resetProductState().catch((err) => err);
+      expect(error).toBeInstanceOf(ResetProductStateError);
+      expect((error as InstanceType<typeof ResetProductStateError>).reason).toBe("auth_expired");
+    });
+
+    it("throws a server_error ResetProductStateError on 500", async () => {
+      const { resetProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+      const error = await resetProductState().catch((err) => err);
+      expect(error).toBeInstanceOf(ResetProductStateError);
+      expect((error as InstanceType<typeof ResetProductStateError>).reason).toBe("server_error");
+      expect((error as InstanceType<typeof ResetProductStateError>).status).toBe(500);
+    });
+
+    it("throws a network_error ResetProductStateError when fetch rejects", async () => {
+      const { resetProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+      const error = await resetProductState().catch((err) => err);
+      expect(error).toBeInstanceOf(ResetProductStateError);
+      expect((error as InstanceType<typeof ResetProductStateError>).reason).toBe("network_error");
+    });
   });
 });

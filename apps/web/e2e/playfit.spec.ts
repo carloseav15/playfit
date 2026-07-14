@@ -394,7 +394,15 @@ async function mockSupabase(page: Page) {
     if (route.request().method() === "POST") {
       latestProfile = route.request().postDataJSON();
       savedProfiles.push(latestProfile);
-      await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
+      // Mirrors markReturningVisitor() from the real /api/profile route (mocked here, so
+      // that handler never runs) — without it, "/" always renders the cold-visitor
+      // marketing landing on a hard reload, even after onboarding has completed.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "set-cookie": "pf_returning=1; Path=/; SameSite=Lax" },
+        body: '{"ok":true}',
+      });
       return;
     }
 
@@ -487,7 +495,9 @@ async function gotoApp(page: Page, path: string) {
 test("public home and health endpoint load", async ({ page, request }) => {
   await gotoApp(page, "/");
 
-  await expect(page.getByRole("heading", { name: "Your next game, curated." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+  ).toBeVisible();
 
   const health = await request.get("/api/health");
   await expect(health).toBeOK();
@@ -551,8 +561,11 @@ test("onboarding can be fully skipped and still reaches a recommendation", async
   await expect(page.getByRole("heading", { name: "Where do you play?" })).toBeVisible({
     timeout: 15_000,
   });
+  // Platforms start pre-selected with every known platform (see withDefaultPlatforms in
+  // playfit-context.tsx), so this step's Continue button is no longer a "Skip" — the user
+  // still advances without touching anything, they just aren't starting from zero.
   const platformsContinue = page.getByRole("button", { name: /Continue/ });
-  await expect(platformsContinue).toHaveText(/Skip & Continue/);
+  await expect(platformsContinue).toHaveText("Continue");
   await platformsContinue.click();
 
   await expect(page.getByRole("heading", { name: "Pick three games you loved" })).toBeVisible();
@@ -681,10 +694,10 @@ test("playfit picks saves a recommendation and removes it from queue", async ({ 
   await page.getByRole("button", { name: "Find Play Next" }).click();
 
   await expect(page.getByRole("heading", { name: "Final Fantasy VI" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add to Playfit Picks" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save to Picks" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Maybe later" })).toHaveCount(0);
   const requestsBeforePick = todayRecommendationRequests;
-  await page.getByRole("button", { name: "Add to Playfit Picks" }).first().click();
+  await page.getByRole("button", { name: "Save to Picks" }).first().click();
 
   await expect(page.getByRole("heading", { name: "Hollow Knight: Silksong" })).toBeVisible();
   await expect

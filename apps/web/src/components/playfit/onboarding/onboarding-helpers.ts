@@ -122,3 +122,14 @@ export function formatPlatformFamily(family: string) {
 export function selectedPlatformIdSet(platforms: Array<{ platformId: string }>) {
   return new Set(platforms.map((entry) => entry.platformId));
 }
+
+// Safety net on top of the "new profiles default to every platform selected" behavior
+// (see withDefaultPlatforms in playfit-context.tsx): with 0 platforms selected, the
+// recommendation engine treats every known game as not_on_platforms and excludes it from
+// Play Next entirely, so a selection can shrink but must never bottom out at empty.
+export function withPlatformSelectionGuard<T extends { platformId: string }>(
+  current: T[],
+  next: T[],
+): T[] {
+  return next.length === 0 && current.length > 0 ? current : next;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { ResetProductStateError } from "@playfit/core/store";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import { Container } from "@/components/ui/container";
 import { ToggleButton, ToggleGroup } from "@/components/ui/toggle-group";
 import { useHeader } from "../playfit/header-context";
 import { usePlayfit } from "../playfit/playfit-context";
+import { StatusToast } from "../playfit/status-toast";
 import { SettingsDesktop } from "./desktop/settings-desktop";
 import { SettingsMobile } from "./mobile/settings-mobile";
 
@@ -24,6 +26,7 @@ export function SettingsShell() {
     linkGoogleAccount,
     resetTasteProfile,
     deleteAccount,
+    setStatusMessage,
   } = usePlayfit();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -192,20 +195,44 @@ export function SettingsShell() {
     </Card>
   );
 
+  const describeResetFailure = (error: unknown, action: "reset" | "delete") => {
+    if (error instanceof ResetProductStateError) {
+      if (error.reason === "auth_expired") {
+        return "Your session expired. Sign in again and retry.";
+      }
+      if (error.reason === "network_error") {
+        return "Could not reach the server. Check your connection and try again.";
+      }
+    }
+    return action === "reset"
+      ? "Could not reset your taste profile. Your data is unchanged — try again."
+      : "Could not delete your cloud profile. Your data is unchanged — try again.";
+  };
+
   const handleReset = async () => {
     setActionPending(true);
-    await resetTasteProfile();
-    setActionPending(false);
-    setConfirmReset(false);
-    router.push("/");
+    try {
+      await resetTasteProfile();
+      setConfirmReset(false);
+      router.push("/");
+    } catch (error) {
+      setStatusMessage(describeResetFailure(error, "reset"));
+    } finally {
+      setActionPending(false);
+    }
   };
 
   const handleDelete = async () => {
     setActionPending(true);
-    await deleteAccount();
-    setActionPending(false);
-    setConfirmDelete(false);
-    router.push("/");
+    try {
+      await deleteAccount();
+      setConfirmDelete(false);
+      router.push("/");
+    } catch (error) {
+      setStatusMessage(describeResetFailure(error, "delete"));
+    } finally {
+      setActionPending(false);
+    }
   };
 
   const renderPrivacyCard = () => (
@@ -361,6 +388,7 @@ export function SettingsShell() {
             renderPrivacyCard={renderPrivacyCard}
           />
         </Container>
+        <StatusToast />
       </div>
     </motion.div>
   );

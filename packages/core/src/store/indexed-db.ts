@@ -182,11 +182,37 @@ export async function saveProductState(state: ProductState): Promise<SaveStateRe
   return { ok: true };
 }
 
-export async function resetProductState() {
+export type ResetProductStateErrorReason = "auth_expired" | "server_error" | "network_error";
+
+export class ResetProductStateError extends Error {
+  readonly reason: ResetProductStateErrorReason;
+  readonly status?: number;
+
+  constructor(reason: ResetProductStateErrorReason, status?: number, message?: string) {
+    super(message ?? `Failed to reset product state (${reason})`);
+    this.name = "ResetProductStateError";
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+export async function resetProductState(): Promise<void> {
   const deviceId = getDeviceId();
   const userId = getUserId() ?? deviceId;
 
   const url = getUserId() ? "/api/profile" : `/api/profile?device_id=${encodeURIComponent(userId)}`;
 
-  await apiDelete(url);
+  let res: Response;
+  try {
+    res = await apiDelete(url);
+  } catch {
+    throw new ResetProductStateError("network_error");
+  }
+
+  if (res.ok) return;
+
+  if (res.status === 401 || res.status === 403) {
+    throw new ResetProductStateError("auth_expired", res.status);
+  }
+  throw new ResetProductStateError("server_error", res.status);
 }
