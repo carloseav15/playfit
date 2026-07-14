@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { usePlayfit } from "../playfit/playfit-context";
+import { withPlatformSelectionGuard } from "./onboarding/onboarding-helpers";
 
 const tastePlatformCurrentIds = new Set([
   "switch_1",
@@ -147,15 +148,21 @@ export function PlatformsTabContent() {
     setDesktopSearch("");
   }
 
+  // Settings platforms start pre-selected with every platform for a fresh profile (see
+  // withDefaultPlatforms in playfit-context.tsx). Deselecting down to 0 is blocked as a
+  // safety net: with no platforms selected, the recommendation engine treats every known
+  // game as not_on_platforms and excludes it from Play Next entirely.
   function togglePlatform(platformId: string) {
     updateState((next) => {
       const isSelected = next.user.onboarding.platforms.some((p) => p.platformId === platformId);
-      next.user.onboarding.platforms = next.user.onboarding.platforms.filter(
-        (p) => p.platformId !== platformId,
+      const filtered = next.user.onboarding.platforms.filter((p) => p.platformId !== platformId);
+      const nextPlatforms = isSelected
+        ? filtered
+        : [...filtered, { platformId, status: "available" as const }];
+      next.user.onboarding.platforms = withPlatformSelectionGuard(
+        next.user.onboarding.platforms,
+        nextPlatforms,
       );
-      if (!isSelected) {
-        next.user.onboarding.platforms.push({ platformId, status: "available" });
-      }
     });
   }
 
@@ -235,10 +242,14 @@ export function PlatformsTabContent() {
     const preset = tastePlatformPresets.find((p) => p.id === presetId);
     if (!preset) return;
     updateState((next) => {
-      next.user.onboarding.platforms = next.user.onboarding.platforms.filter((p) => {
+      const remaining = next.user.onboarding.platforms.filter((p) => {
         const platform = seedData.platforms.find((plat) => plat.platformId === p.platformId);
         return !platform || !preset.matches(platform);
       });
+      next.user.onboarding.platforms = withPlatformSelectionGuard(
+        next.user.onboarding.platforms,
+        remaining,
+      );
     });
   }
 

@@ -15,6 +15,7 @@ import {
   preferredPlatformFamilies,
   type SearchSlot,
   selectedPlatformIdSet,
+  withPlatformSelectionGuard,
 } from "./onboarding/onboarding-helpers";
 import { OnboardingProgress } from "./onboarding/onboarding-progress";
 import { OnboardingSearchDialog } from "./onboarding/onboarding-search-dialog";
@@ -69,27 +70,35 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
   const selectedIds = selectedPlatformIdSet(draft.platforms);
   const hasOnboardingSearch = deferredQuery.trim().length > 0;
 
+  // Onboarding platforms start pre-selected with every known platform (see
+  // withDefaultPlatforms in playfit-context.tsx), so users never need to build a selection
+  // from zero. These toggles keep a "never leave 0 platforms selected" safety net on top of
+  // that default — dropping to 0 would make the recommendation engine treat every known
+  // game as not_on_platforms and exclude it from Play Next.
   function togglePlatform(platformId: string, checked: boolean) {
     updateState((next) => {
-      next.user.onboarding.platforms = next.user.onboarding.platforms.filter(
+      const filtered = next.user.onboarding.platforms.filter(
         (entry) => entry.platformId !== platformId,
       );
-      if (checked) {
-        next.user.onboarding.platforms.push({ platformId, status: "available" });
-      }
+      const nextPlatforms = checked
+        ? [...filtered, { platformId, status: "available" as const }]
+        : filtered;
+      next.user.onboarding.platforms = withPlatformSelectionGuard(
+        next.user.onboarding.platforms,
+        nextPlatforms,
+      );
     });
   }
 
   function toggleAllPlatforms() {
+    // Deselecting all would leave 0 platforms selected — a no-op by design (see the
+    // "never leave 0 platforms selected" note above).
+    if (allSelected) return;
     updateState((next) => {
-      if (allSelected) {
-        next.user.onboarding.platforms = [];
-      } else {
-        next.user.onboarding.platforms = seedData.platforms.map((p) => ({
-          platformId: p.platformId,
-          status: "available" as const,
-        }));
-      }
+      next.user.onboarding.platforms = seedData.platforms.map((p) => ({
+        platformId: p.platformId,
+        status: "available" as const,
+      }));
     });
   }
 
@@ -104,8 +113,12 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
       const presetSelected = presetIds.every((id) => nextSelectedIds.has(id));
 
       if (presetSelected) {
-        next.user.onboarding.platforms = next.user.onboarding.platforms.filter(
+        const remaining = next.user.onboarding.platforms.filter(
           (entry) => !presetIds.includes(entry.platformId),
+        );
+        next.user.onboarding.platforms = withPlatformSelectionGuard(
+          next.user.onboarding.platforms,
+          remaining,
         );
         return;
       }

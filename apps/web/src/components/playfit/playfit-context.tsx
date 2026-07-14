@@ -140,6 +140,34 @@ function initialUi(state: ProductState): ProductUiState {
   };
 }
 
+function allPlatformsSelection(platforms: ProductPlatformOption[]) {
+  return platforms.map((p) => ({ platformId: p.platformId, status: "available" as const }));
+}
+
+// A profile that hasn't finished onboarding and has never had a platform selection of its
+// own should start from "every platform selected" rather than "none" — otherwise the
+// recommendation engine excludes every known game as not_on_platforms the moment onboarding
+// is skipped or a fresh profile boots. Profiles that already completed onboarding, or that
+// already picked at least one platform, are left untouched.
+function withDefaultPlatforms(
+  state: ProductState,
+  platforms: ProductPlatformOption[],
+): ProductState {
+  if (state.user.onboardingCompletedAt || state.user.onboarding.platforms.length > 0) {
+    return state;
+  }
+  return {
+    ...state,
+    user: {
+      ...state.user,
+      onboarding: {
+        ...state.user.onboarding,
+        platforms: allPlatformsSelection(platforms),
+      },
+    },
+  };
+}
+
 // Keep the same signature helper function from the old provider to avoid breaking any references if imported directly
 function buildGameState(game: SeedGame, source: ProductGameState["source"]): ProductGameState {
   const timestamp = nowIso();
@@ -204,7 +232,7 @@ export function PlayfitProvider({
 
     async function boot() {
       try {
-        const loadedState = await loadProductState();
+        const loadedState = withDefaultPlatforms(await loadProductState(), platforms);
         if (cancelled) return;
 
         const hadDataFlag = localStorage.getItem("playfit_had_data");
@@ -299,7 +327,7 @@ export function PlayfitProvider({
     return () => {
       cancelled = true;
     };
-  }, [authUser, useLocalProfile, enqueueSave]);
+  }, [authUser, useLocalProfile, enqueueSave, platforms]);
 
   const activeTab = ui?.activeTab;
   useEffect(() => {
@@ -454,7 +482,7 @@ export function PlayfitProvider({
         return state.user.gameStates[gameId] ?? buildGameState(game, source);
       },
       resetLocalState() {
-        const clean = createInitialState();
+        const clean = withDefaultPlatforms(createInitialState(), platforms);
         void enqueueSave(clean);
         flushSave();
         setState(clean);
@@ -462,22 +490,19 @@ export function PlayfitProvider({
         clearGameCache();
       },
       async resetTasteProfile() {
-        try {
-          await resetProductState();
-        } catch (err) {
-          console.error("Failed to reset taste profile:", err);
-        }
-        const clean = createInitialState();
+        // Propagates on failure so callers can keep local data intact and tell the user
+        // the cloud profile was NOT deleted, instead of silently clearing local state as
+        // if the reset had succeeded.
+        await resetProductState();
+        const clean = withDefaultPlatforms(createInitialState(), platforms);
         setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
       },
       async deleteAccount() {
-        try {
-          await resetProductState();
-        } catch (err) {
-          console.error("Failed to delete account:", err);
-        }
+        // Same as resetTasteProfile: a failed cloud delete must not clear local state or
+        // sign the user out, or they'd believe their cloud data is gone when it isn't.
+        await resetProductState();
         try {
           await supabase.auth.signOut();
         } catch {
@@ -486,7 +511,7 @@ export function PlayfitProvider({
         setCachedAuth(null, null);
         setAuthUser(null);
         setUseLocalProfile(false);
-        const clean = createInitialState();
+        const clean = withDefaultPlatforms(createInitialState(), platforms);
         setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
@@ -500,7 +525,7 @@ export function PlayfitProvider({
         setCachedAuth(null, null);
         setAuthUser(null);
         setUseLocalProfile(false);
-        const clean = createInitialState();
+        const clean = withDefaultPlatforms(createInitialState(), platforms);
         setState(clean);
         updateUi(initialUi(clean));
         clearGameCache();
