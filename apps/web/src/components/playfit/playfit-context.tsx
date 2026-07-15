@@ -95,14 +95,12 @@ export function PlayfitProvider({
     if (!activeTab) return;
     const redirectedFromApp = window.sessionStorage.getItem(LANDING_REDIRECT_MARKER) === "1";
     const referrer = document.referrer ? new URL(document.referrer) : null;
-    if (
-      window.location.pathname === "/" &&
-      window.location.hash === "#onboarding" &&
-      (redirectedFromApp ||
-        (referrer?.origin === window.location.origin && referrer.pathname === "/settings"))
-    ) {
+    const redirectedFromSettings =
+      redirectedFromApp ||
+      (referrer?.origin === window.location.origin && referrer.pathname === "/settings");
+    if (window.location.pathname === "/" && redirectedFromSettings) {
       window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
-      window.history.replaceState(null, "", "/");
+      if (window.location.hash) window.history.replaceState(null, "", "/");
       return;
     }
     const managesProductTabs = ["/", "/play"].includes(window.location.pathname);
