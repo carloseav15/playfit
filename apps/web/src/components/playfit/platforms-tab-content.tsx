@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState } from "../playfit/playfit-context";
 import { withPlatformSelectionGuard } from "./onboarding/onboarding-helpers";
 
 const tastePlatformCurrentIds = new Set([
@@ -136,7 +136,7 @@ const platformKindLabels: Record<ProductPlatformOption["kind"], string> = {
 };
 
 export function PlatformsTabContent() {
-  const { state, seedData, updateState } = usePlayfit();
+  const { state, seedData, updateState } = usePlayfitState();
   const selectedIds = new Set(state.user.onboarding.platforms.map((p) => p.platformId));
   const viewPagerRef = useRef<HTMLDivElement>(null);
   const [activeFamily, setActiveFamily] = useState("nintendo");

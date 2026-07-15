@@ -52,7 +52,20 @@ export async function fetchFullGamesById(gameIds: string[]): Promise<Map<string,
   return map;
 }
 
-function normalizeModel(model: ProductTodayModel): ProductTodayModel {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isProductTodayModel(value: unknown): value is ProductTodayModel {
+  if (!isRecord(value)) return false;
+  return ["currentRun", "nextUp", "resume", "picks"].every((key) => Array.isArray(value[key]));
+}
+
+function normalizeModel(model: unknown): ProductTodayModel {
+  if (!isProductTodayModel(model)) {
+    throw new Error("Recommendation RPC returned an invalid model.");
+  }
+
   return {
     currentRun: model.currentRun ?? [],
     nextUp: model.nextUp ?? [],
@@ -94,7 +107,7 @@ async function callScoringRpc(
     throw new Error(error.message);
   }
 
-  return normalizeModel(data as unknown as ProductTodayModel);
+  return normalizeModel(data);
 }
 
 export function buildStateForScoring(

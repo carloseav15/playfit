@@ -14,6 +14,8 @@ This is the current navigation inventory for the web app. The executable checks 
 | Authenticated profile | Sign out in Settings | Session and local auth state clear, then redirect to marketing landing | `settings-shell.tsx` awaits `signOut()` and navigates to `/` |
 | Authenticated profile | Sign out | `pf_returning` is cleared through `DELETE /api/auth/mark-returning` | `playfit-context.tsx` performs cookie cleanup after Supabase logout |
 | Auth panel rendered by the provider | Close | Returns to `/` | Provider passes an explicit `onClose`; guest mode remains behind “Continue as Guest” |
+| Incomplete profile | Open `/settings#onboarding`, `/picks`, or `/taste` | Hard redirect to the current marketing landing | Route shells clear `pf_returning` and call `window.location.assign("/")` |
+| Returning cookie without profile | Open `/` | Current marketing landing; no Hades legacy intro | `DecisionShell` no longer renders `DecisionIntro` |
 | Legacy `/app` route | Open `/app` | `/` | `next.config.ts` redirect |
 | Legacy `/app/settings` route | Open `/app/settings` | `/settings` | `next.config.ts` redirect |
 
@@ -22,6 +24,7 @@ This is the current navigation inventory for the web app. The executable checks 
 1. Supabase auth state, local profile state, and `pf_returning` are independent, so logout must clear all three transition markers together.
 2. There are two visually different pre-profile experiences: the marketing landing and the app's onboarding/decision shell. Their selection depends on the cookie, not only on auth state.
 3. The same “Close” control now has an explicit context: the provider-level auth panel returns to `/`, while modal auth panels can still close back to their parent app view.
+4. The legacy `DecisionIntro`/Hades card is no longer an entry experience; incomplete users go to the current marketing landing and start onboarding from its CTA.
 
 ## Verification command
 

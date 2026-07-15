@@ -11,15 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { cn } from "@/lib/utils";
-import { AuthPanel } from "../playfit/auth-panel";
 import { CoverArt } from "../playfit/cover-art";
 import { OnboardingSection } from "../playfit/onboarding-section";
 import type { SaveStatus } from "../playfit/playfit-context";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
-import { DecisionIntro } from "./decision-intro";
 import { PlayNextCard } from "./play-next-card";
 import { usePlayNextRecommendations } from "./use-play-next-recommendations";
 
@@ -54,20 +53,15 @@ export function DecisionShell({
   onExitToLanding,
 }: {
   startInCalibration?: boolean;
-  /** When set (only by the marketing landing page), exiting the wizard returns there
-   * instead of falling back to DecisionIntro — which would otherwise read as a second,
-   * older-looking landing screen right after the one the visitor already saw. */
+  /** When set by the marketing landing page, open the onboarding wizard directly. */
   onExitToLanding?: () => void;
 }) {
-  const { state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfit();
+  const { state, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfitState();
+  const { ui } = usePlayfitUi();
   const [slowLoading, setSlowLoading] = useState(false);
-  // Resume the onboarding wizard directly (instead of the generic welcome
-  // screen) when the account already has in-progress onboarding data saved
-  // server-side — otherwise a returning user with saved platform/game
-  // picks sees the same intro as a brand-new signup. `startInCalibration` covers the
-  // other case: arriving via the marketing landing page's own CTA, which already made
-  // the "let's start" pitch once — showing DecisionIntro's near-identical intro again
-  // right after would read as a second, redundant landing screen.
+  // Resume the onboarding wizard directly when the account has in-progress onboarding
+  // data saved server-side. The marketing landing also sets this flag when its CTA opens
+  // the wizard, so there is only one onboarding entry experience.
   const [calibrationOpen, setCalibrationOpen] = useState(() => {
     if (startInCalibration) return true;
     const onboarding = state.user.onboarding;
@@ -78,7 +72,6 @@ export function DecisionShell({
         onboarding.dislikedGameIds.length > 0)
     );
   });
-  const [showSignIn, setShowSignIn] = useState(false);
   const [recommendationRefreshPending, setRecommendationRefreshPending] = useState(false);
   const recommendationRefreshPendingRef = useRef(false);
   const previousSaveStatusRef = useRef<SaveStatus>(ui.saveStatus);
@@ -98,6 +91,10 @@ export function DecisionShell({
 
   const isInitialLoading = loading && !model;
   const isWaitingForCandidates = recommendationRefreshPending || refreshing;
+
+  useEffect(() => {
+    if (!profileReady && !startInCalibration) redirectToMarketingLanding();
+  }, [profileReady, startInCalibration]);
 
   useEffect(() => {
     if (
@@ -257,6 +254,8 @@ export function DecisionShell({
   const ratedCount = state.user.profile?.ratedCount ?? 0;
 
   if (!profileReady) {
+    if (!startInCalibration) return null;
+
     return (
       <div
         className={cn(
@@ -276,26 +275,11 @@ export function DecisionShell({
               : "grid gap-6 py-4 md:py-8",
           )}
         >
-          {!calibrationOpen ? (
-            <DecisionIntro
-              onStart={() => setCalibrationOpen(true)}
-              onSignIn={() => setShowSignIn(true)}
-            />
-          ) : (
-            <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
-              <OnboardingSection onExit={onExitToLanding ?? (() => setCalibrationOpen(false))} />
-            </div>
-          )}
+          <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
+            <OnboardingSection onExit={onExitToLanding ?? (() => setCalibrationOpen(false))} />
+          </div>
         </Container>
         <StatusToast />
-        {showSignIn && (
-          <div className="fixed inset-0 z-50">
-            <AuthPanel
-              onAuth={() => setShowSignIn(false)}
-              onContinueLocal={() => setShowSignIn(false)}
-            />
-          </div>
-        )}
       </div>
     );
   }

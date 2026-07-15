@@ -20,22 +20,13 @@ import {
 import { OnboardingProgress } from "./onboarding/onboarding-progress";
 import { OnboardingSearchDialog } from "./onboarding/onboarding-search-dialog";
 import { PlatformsStep } from "./onboarding/platforms-step";
-import { usePlayfit } from "./playfit-context";
+import { usePlayfitState, usePlayfitUi } from "./playfit-context";
 import { SectionHead } from "./section-head";
 
 export function OnboardingSection({ onExit }: { onExit?: () => void }) {
-  const {
-    seedData,
-    state,
-    ui,
-    setUi,
-    updateState,
-    flushSave,
-    searchGames,
-    getSeedGame,
-    onboardingSearchError,
-    onboardingSearchPending,
-  } = usePlayfit();
+  const { seedData, state, updateState, getSeedGame } = usePlayfitState();
+  const { ui, setUi, flushSave, searchGames, onboardingSearchError, onboardingSearchPending } =
+    usePlayfitUi();
   const draft = state.user.onboarding;
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
   const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
-import { usePlayfit } from "./playfit-context";
+import { usePlayfitUi } from "./playfit-context";
 
 const dotVariants = {
   idle: { opacity: 0, scale: 0.8 },
@@ -24,7 +24,7 @@ const dotLabels: Record<string, string> = {
 };
 
 export function SaveIndicator() {
-  const { ui, setUi } = usePlayfit();
+  const { ui, setUi } = usePlayfitUi();
   const status = ui.saveStatus;
   const show = status === "saving" || status === "saved" || status === "error";
 

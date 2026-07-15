@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { calculateGameCoordinates, scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState } from "../playfit/playfit-context";
 
 interface GameNode {
   game: SeedGame;
@@ -29,7 +29,7 @@ export function TasteMapVisualizer({
   gameStates: Record<string, ProductGameState>;
   recommendations?: RankedSeedGame[]; // Kept for prop compatibility in taste-shell.tsx
 }) {
-  const { state: playfitState } = usePlayfit();
+  const { state: playfitState } = usePlayfitState();
   const onboarding = playfitState.user.onboarding;
 
   const carouselRef = useRef<HTMLDivElement>(null);

@@ -3,17 +3,15 @@
 import { buildTasteModel } from "@playfit/core/domain";
 import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ensureGamesCached } from "@/lib/game-cache";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { useHeader } from "../playfit/header-context";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState } from "../playfit/playfit-context";
 import { StatusToast } from "../playfit/status-toast";
 
 import { TasteDesktop } from "./desktop/taste-desktop";
@@ -30,7 +28,7 @@ export { PlatformsTabContent } from "./platforms-tab-content";
 
 export function TasteShell() {
   const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal, setPlayfitPick } =
-    usePlayfit();
+    usePlayfitState();
   const [, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
@@ -73,6 +71,10 @@ export function TasteShell() {
   });
 
   useEffect(() => {
+    if (!profileReady) redirectToMarketingLanding();
+  }, [profileReady]);
+
+  useEffect(() => {
     if (!missingKey) {
       setHydrating(false);
       return;
@@ -108,30 +110,8 @@ export function TasteShell() {
     return recsModel.nextUp;
   }, [recsModel]);
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen text-foreground relative flex items-center justify-center">
-        <Container as="main" size="sm" className="py-8">
-          <Card className="rounded-3xl border border-border bg-card shadow-lg p-6 text-center">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-2xl font-black">Set up your taste first</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground mt-1">
-                Select your platforms and a few favorite games so we can build your recommendations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 pb-0 pt-4">
-              <Button
-                type="button"
-                asChild
-                className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-              >
-                <Link href="/">Start Play Next</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </Container>
-      </div>
-    );
+  if (!profileReady) {
+    return null;
   }
 
   if (hydrating || (missingIds.length > 0 && !hydratedOnce)) {
