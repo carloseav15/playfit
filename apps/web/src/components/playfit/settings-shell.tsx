@@ -165,7 +165,10 @@ export function SettingsShell() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={signOut}
+                onClick={async () => {
+                  await signOut();
+                  window.location.assign("/");
+                }}
                 className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shrink-0"
               >
                 Sign Out
