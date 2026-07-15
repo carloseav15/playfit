@@ -92,6 +92,16 @@ export function PlayfitProvider({
   const activeTab = ui?.activeTab;
   useEffect(() => {
     if (!activeTab) return;
+    const referrer = document.referrer ? new URL(document.referrer) : null;
+    if (
+      window.location.pathname === "/" &&
+      window.location.hash === "#onboarding" &&
+      referrer?.origin === window.location.origin &&
+      referrer.pathname === "/settings"
+    ) {
+      window.history.replaceState(null, "", "/");
+      return;
+    }
     const managesProductTabs = ["/", "/play"].includes(window.location.pathname);
     if (!managesProductTabs) return;
     const hash = activeTab === "today" ? "" : activeTab;
