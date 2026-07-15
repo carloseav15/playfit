@@ -14,6 +14,7 @@ import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { clearGameCache, getCachedGame } from "@/lib/game-cache";
+import { LANDING_REDIRECT_MARKER } from "@/lib/redirect-to-landing";
 import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
@@ -92,13 +93,15 @@ export function PlayfitProvider({
   const activeTab = ui?.activeTab;
   useEffect(() => {
     if (!activeTab) return;
+    const redirectedFromApp = window.sessionStorage.getItem(LANDING_REDIRECT_MARKER) === "1";
     const referrer = document.referrer ? new URL(document.referrer) : null;
     if (
       window.location.pathname === "/" &&
       window.location.hash === "#onboarding" &&
-      referrer?.origin === window.location.origin &&
-      referrer.pathname === "/settings"
+      (redirectedFromApp ||
+        (referrer?.origin === window.location.origin && referrer.pathname === "/settings"))
     ) {
+      window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
       window.history.replaceState(null, "", "/");
       return;
     }
