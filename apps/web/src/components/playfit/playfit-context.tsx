@@ -508,6 +508,11 @@ export function PlayfitProvider({
         } catch {
           // ignore
         }
+        try {
+          await fetch("/api/auth/mark-returning", { method: "DELETE" });
+        } catch {
+          // Cookie cleanup is best-effort; the local account state must still be cleared.
+        }
         setCachedAuth(null, null);
         setAuthUser(null);
         setUseLocalProfile(false);
@@ -521,6 +526,11 @@ export function PlayfitProvider({
           await supabase.auth.signOut();
         } catch {
           // ignore
+        }
+        try {
+          await fetch("/api/auth/mark-returning", { method: "DELETE" });
+        } catch {
+          // Cookie cleanup is best-effort; the local auth state must still be cleared.
         }
         setCachedAuth(null, null);
         setAuthUser(null);
@@ -637,7 +647,15 @@ export function PlayfitProvider({
   }
 
   if (!authUser && !useLocalProfile) {
-    return <AuthPanel onAuth={handleAuth} onContinueLocal={handleLocalProfile} />;
+    return (
+      <AuthPanel
+        onAuth={handleAuth}
+        onContinueLocal={handleLocalProfile}
+        onClose={() => {
+          window.location.href = "/";
+        }}
+      />
+    );
   }
 
   if (bootError) {

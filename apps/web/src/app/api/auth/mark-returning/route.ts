@@ -1,5 +1,5 @@
 import { jsonError } from "@/lib/api-errors";
-import { markReturningVisitor } from "@/lib/returning-visitor";
+import { clearReturningVisitor, markReturningVisitor } from "@/lib/returning-visitor";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
 
 // Email/password sign-in and sign-up happen entirely client-side (supabase-js direct
@@ -13,5 +13,10 @@ export async function POST(request: Request) {
 
   await markReturningVisitor();
 
+  return Response.json({ ok: true });
+}
+
+export async function DELETE() {
+  await clearReturningVisitor();
   return Response.json({ ok: true });
 }
