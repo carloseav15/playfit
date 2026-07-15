@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductPlatformOption } from "@playfit/core/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PlayLayoutClient } from "@/app/(play)/layout-client";
 import { AuthPanel } from "@/components/playfit/auth-panel";
 import { DecisionShell } from "@/components/playfit/decision-shell";
@@ -40,6 +40,18 @@ function forceHardNavigationForInternalLinks(event: React.MouseEvent<HTMLDivElem
 
 export function LandingPage({ platforms }: { platforms: ProductPlatformOption[] }) {
   const [view, setView] = useState<"landing" | "auth" | "calibration">("landing");
+
+  useEffect(() => {
+    const referrer = document.referrer ? new URL(document.referrer) : null;
+    if (
+      window.location.pathname === "/" &&
+      window.location.hash === "#onboarding" &&
+      referrer?.origin === window.location.origin &&
+      referrer.pathname === "/settings"
+    ) {
+      window.history.replaceState(null, "", "/");
+    }
+  }, []);
 
   // Mounting PlayLayoutClient (and the anonymous Supabase session it creates on first
   // render) is deferred until the visitor actually clicks in — a cold visitor never
