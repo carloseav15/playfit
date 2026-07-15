@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../cover-art";
-import { usePlayfit } from "../playfit-context";
+import { usePlayfitState } from "../playfit-context";
 import { StarRating } from "../star-rating";
 import type { HistoryOrActivityEntry } from "../taste-model";
 
@@ -75,7 +75,7 @@ export function TasteHistory({
   onChange: (entry: HistoryOrActivityEntry, feedback: ProductDecisionFeedback) => void;
   onRemove: (entry: HistoryOrActivityEntry) => void;
 }) {
-  const { getSeedGame } = usePlayfit();
+  const { getSeedGame } = usePlayfitState();
   const [activeTab, setActiveTab] = useState<"all" | "active" | "taste">("all");
   const [page, setPage] = useState(1);
 

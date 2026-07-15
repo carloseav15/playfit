@@ -14,9 +14,10 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Container } from "@/components/ui/container";
 import { Stack } from "@/components/ui/stack";
 import { addGamesToCache, fetchGame } from "@/lib/game-cache";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState } from "../playfit/playfit-context";
 import {
   confidenceLabel,
   decisionLabel,
@@ -64,7 +65,7 @@ function CurrentUserState({
 }
 
 function DossierActions({ entry }: { entry: RankedSeedGame }) {
-  const { applyDecisionFeedback, setPlayfitPick } = usePlayfit();
+  const { applyDecisionFeedback, setPlayfitPick } = usePlayfitState();
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const isPicked = entry.inPlayfitPicks;
   const alreadyPlayedPanelId = `dossier-already-played-${entry.game.gameId}`;
@@ -140,7 +141,7 @@ function getSafeSearchReturnTo(returnTo?: string) {
 }
 
 export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo?: string }) {
-  const { getSeedGame, state } = usePlayfit();
+  const { getSeedGame, state } = usePlayfitState();
   const router = useRouter();
   const searchReturnTo = getSafeSearchReturnTo(returnTo);
   const backLabel = searchReturnTo ? "Back to Search" : "Back to Play Next";
@@ -238,7 +239,12 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
     [game, state, recommendationEntry],
   );
   const entry = recommendationEntry ?? localEntry;
+  const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
   const gameState = game ? state.user.gameStates[game.gameId] : null;
+
+  useEffect(() => {
+    if (!profileReady) redirectToMarketingLanding();
+  }, [profileReady]);
 
   const ownedPlatformIds = useMemo(() => {
     return new Set(state.user.onboarding.platforms.map((p) => p.platformId));
@@ -252,6 +258,8 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
       name: names[index] || id,
     }));
   }, [game]);
+
+  if (!profileReady) return null;
 
   if (!game) {
     if (loadingRecommendation || loadingGame) {
@@ -287,32 +295,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   }
 
   if (!entry) {
-    return (
-      <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
-        <Card>
-          <CardHeader>
-            <h1 className="font-display text-2xl font-semibold leading-tight">
-              Set up your taste first
-            </h1>
-            <CardDescription>
-              Pick your platforms and a few games so Playfit can explain this recommendation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" asChild>
-                <Link href="/">Start Play Next</Link>
-              </Button>
-              {searchReturnTo ? (
-                <Button type="button" variant="secondary" asChild>
-                  <Link href={searchReturnTo}>Back to Search</Link>
-                </Button>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      </Container>
-    );
+    return null;
   }
 
   const validCautions = filterUsefulCautions(entry.cautionReasons);

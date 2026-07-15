@@ -14,7 +14,7 @@ import type {
 import { nowIso } from "@playfit/core/utils";
 import { useCallback } from "react";
 import { getCachedGame } from "@/lib/game-cache";
-import type { ProductUiState } from "./playfit-context";
+import type { ProductUiState } from "./playfit-context-types";
 
 const PLAYFIT_PICKS_LIMIT = 100;
 

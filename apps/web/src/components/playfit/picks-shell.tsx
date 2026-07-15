@@ -3,13 +3,14 @@
 import type { RankedSeedGame } from "@playfit/core/types";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePlayfit } from "../playfit/playfit-context";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
+import { usePlayfitState } from "../playfit/playfit-context";
 import { StatusToast } from "../playfit/status-toast";
 import type { AlreadyPlayedFeedback } from "./already-played-panel";
 import { PicksDesktop } from "./desktop/picks-desktop";
@@ -62,9 +63,13 @@ function PickCard({
 }
 
 export function PicksShell() {
-  const { applyDecisionFeedback, setPlayfitPick, state } = usePlayfit();
+  const { applyDecisionFeedback, setPlayfitPick, state } = usePlayfitState();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
+  useEffect(() => {
+    if (!profileReady) redirectToMarketingLanding();
+  }, [profileReady]);
+
   const { picks, loading, loadError } = usePicksRecommendations({
     enabled: profileReady,
     profile: state.user.profile,
@@ -73,29 +78,7 @@ export function PicksShell() {
   });
 
   if (!profileReady) {
-    return (
-      <div className="min-h-screen text-foreground relative flex items-center justify-center">
-        <Container as="main" size="sm" className="py-8">
-          <Card className="rounded-3xl border border-border bg-card shadow-lg p-6 text-center">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-2xl font-black">Set up your taste first</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground mt-1">
-                Select your platforms and a few favorite games so we can build your recommendations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 pb-0 pt-4">
-              <Button
-                type="button"
-                asChild
-                className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-              >
-                <Link href="/">Start Play Next</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </Container>
-      </div>
-    );
+    return null;
   }
 
   if (loading) {

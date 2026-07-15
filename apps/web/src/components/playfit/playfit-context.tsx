@@ -1,188 +1,50 @@
 "use client";
 
 import { buildAdaptiveProfile } from "@playfit/core/domain";
-import {
-  createInitialState,
-  loadProductState,
-  resetProductState,
-  setCachedAuth,
-} from "@playfit/core/store";
+import { createInitialState, resetProductState, setCachedAuth } from "@playfit/core/store";
 import type {
-  ProductDecisionFeedback,
   ProductGameState,
   ProductPlatformOption,
-  ProductProfile,
-  ProductRating,
   ProductSeedData,
   ProductState,
-  ProductTasteSignalSource,
   SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { getErrorMessage } from "@/lib/api-errors";
-import { clearGameCache, ensureGamesCached, getCachedGame } from "@/lib/game-cache";
+import { clearGameCache, getCachedGame } from "@/lib/game-cache";
 import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
-import type { AuthUser } from "./use-playfit-auth";
+import type {
+  PlayfitStateContextValue,
+  PlayfitUiContextValue,
+  ProductTab,
+  ProductUiState,
+} from "./playfit-context-types";
+import {
+  buildGameState,
+  cloneState,
+  initialUi,
+  withDefaultPlatforms,
+} from "./playfit-provider-helpers";
 import { usePlayfitAuth } from "./use-playfit-auth";
+import { usePlayfitBoot } from "./use-playfit-boot";
 import { usePlayfitGameActions } from "./use-playfit-game-actions";
 import { usePlayfitSearch } from "./use-playfit-search";
 import { useQueuedProfileSave } from "./use-queued-profile-save";
 
-export type ProductTab = "today" | "library" | "finder" | "upcoming" | "profile" | "onboarding";
-export type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-export interface ProductUiState {
-  activeTab: ProductTab;
-  onboardingQuery: string;
-  finderQuery: string;
-  libraryQuery: string;
-  libraryTab: "all" | "backlog" | "wishlist";
-  librarySort: "title" | "rating-desc" | "rating-asc" | "status";
-  profileMode: "overview" | "edit";
-  statusMessage: string | null;
-  saveStatus: SaveStatus;
-  upcomingPlatformFilters: Set<string>;
-  startBannerDismissed: boolean;
-  /** When set, the status toast shows an "Undo" action that runs this and clears itself. */
-  undoAction: (() => void) | null;
-}
-
-export interface PlayfitStateContextValue {
-  seedData: ProductSeedData;
-  state: ProductState;
-  isPending: boolean;
-  isSaving: boolean;
-  authUser: AuthUser | null;
-  useLocalProfile: boolean;
-  setUseLocalProfile: (val: boolean) => void;
-  updateState: (updater: (draft: ProductState) => void) => void;
-  getSeedGame: (gameId: string) => SeedGame | null;
-  buildProfileFromCurrentData: () => ProductProfile;
-  refreshAdaptiveProfile: () => void;
-  getOrCreateGameState: (
-    gameId: string,
-    source?: ProductGameState["source"],
-  ) => ProductGameState | null;
-  toggleFlag: (gameId: string, flag: "inBacklog" | "inWishlist") => void;
-  setPlayStatus: (gameId: string, status: ProductGameState["status"] | undefined) => void;
-  setRating: (gameId: string, rating: ProductRating | undefined) => void;
-  applyDecisionFeedback: (
-    gameId: string,
-    feedback: ProductDecisionFeedback,
-    onUndo?: () => void,
-  ) => void;
-  setPlayfitPick: (gameId: string, picked: boolean) => void;
-  startPlayfitPick: (gameId: string) => void;
-  removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
-  excludeGame: (gameId: string) => void;
-  resetLocalState: () => void;
-  resetTasteProfile: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
-  signOut: () => Promise<void>;
-  linkGoogleAccount: () => Promise<void>;
-}
-
-export interface PlayfitUiContextValue {
-  ui: ProductUiState;
-  setUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
-  setStatusMessage: (message: string | null) => void;
-  finderSearchError: string | null;
-  onboardingSearchError: string | null;
-  onboardingSearchPending: boolean;
-  searchGames: (query: string) => SeedGame[];
-  flushSave: () => void;
-  retrySave: () => Promise<void>;
-}
+export type {
+  PlayfitStateContextValue,
+  PlayfitUiContextValue,
+  ProductTab,
+  ProductUiState,
+  SaveStatus,
+} from "./playfit-context-types";
 
 export const PlayfitStateContext = createContext<PlayfitStateContextValue | null>(null);
 export const PlayfitUiContext = createContext<PlayfitUiContextValue | null>(null);
-
-function cloneState(state: ProductState): ProductState {
-  return structuredClone(state);
-}
-
-function initialUi(state: ProductState): ProductUiState {
-  const validTabs: ProductTab[] = [
-    "today",
-    "library",
-    "finder",
-    "upcoming",
-    "profile",
-    "onboarding",
-  ];
-  const hashTab =
-    typeof window !== "undefined" ? (window.location.hash.replace("#", "") as ProductTab) : null;
-  const defaultTab = state.user.onboardingCompletedAt ? "today" : "onboarding";
-  const safeHashTab =
-    state.user.onboardingCompletedAt || hashTab === "onboarding" ? hashTab : "onboarding";
-  return {
-    activeTab: safeHashTab && validTabs.includes(safeHashTab) ? safeHashTab : defaultTab,
-    onboardingQuery: "",
-    finderQuery: "",
-    libraryQuery: "",
-    libraryTab: "all",
-    librarySort: "title",
-    profileMode: "overview",
-    statusMessage: null,
-    saveStatus: "idle",
-    upcomingPlatformFilters: new Set(
-      state.user.onboarding.platforms
-        .filter((entry) => ["available", "limited"].includes(entry.status))
-        .map((entry) => entry.platformId),
-    ),
-    startBannerDismissed: false,
-    undoAction: null,
-  };
-}
-
-function allPlatformsSelection(platforms: ProductPlatformOption[]) {
-  return platforms.map((p) => ({ platformId: p.platformId, status: "available" as const }));
-}
-
-// A profile that hasn't finished onboarding and has never had a platform selection of its
-// own should start from "every platform selected" rather than "none" — otherwise the
-// recommendation engine excludes every known game as not_on_platforms the moment onboarding
-// is skipped or a fresh profile boots. Profiles that already completed onboarding, or that
-// already picked at least one platform, are left untouched.
-function withDefaultPlatforms(
-  state: ProductState,
-  platforms: ProductPlatformOption[],
-): ProductState {
-  if (state.user.onboardingCompletedAt || state.user.onboarding.platforms.length > 0) {
-    return state;
-  }
-  return {
-    ...state,
-    user: {
-      ...state.user,
-      onboarding: {
-        ...state.user.onboarding,
-        platforms: allPlatformsSelection(platforms),
-      },
-    },
-  };
-}
-
-// Keep the same signature helper function from the old provider to avoid breaking any references if imported directly
-function buildGameState(game: SeedGame, source: ProductGameState["source"]): ProductGameState {
-  const timestamp = nowIso();
-  return {
-    gameId: game.gameId,
-    title: game.title,
-    inBacklog: false,
-    inWishlist: false,
-    inPlayfitPicks: false,
-    excluded: false,
-    source,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-}
 
 export function PlayfitProvider({
   children,
@@ -204,7 +66,6 @@ export function PlayfitProvider({
   } = usePlayfitAuth(localFirst);
   const [state, setState] = useState<ProductState | null>(null);
   const [ui, setUi] = useState<ProductUiState | null>(null);
-  const [bootError, setBootError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const { enqueueSave, flushSave } = useQueuedProfileSave({
@@ -214,124 +75,25 @@ export function PlayfitProvider({
     setIsSaving,
   });
 
-  const {
-    searchResults,
-    onboardingSearchResults,
-    finderSearchError,
-    onboardingSearchError,
-    onboardingSearchPending,
-  } = usePlayfitSearch({
-    finderQuery: ui?.finderQuery,
-    onboardingQuery: ui?.onboardingQuery,
+  const { onboardingSearchResults, onboardingSearchError, onboardingSearchPending } =
+    usePlayfitSearch({
+      onboardingQuery: ui?.onboardingQuery,
+    });
+
+  const bootError = usePlayfitBoot({
+    authUser,
+    useLocalProfile,
+    platforms,
+    enqueueSave,
+    setState,
+    setUi,
   });
-
-  // Boot sequence
-  useEffect(() => {
-    if (!authUser && !useLocalProfile) return;
-    let cancelled = false;
-
-    async function boot() {
-      try {
-        const loadedState = withDefaultPlatforms(await loadProductState(), platforms);
-        if (cancelled) return;
-
-        const hadDataFlag = localStorage.getItem("playfit_had_data");
-        const hasDataNow =
-          !!loadedState.user.onboardingCompletedAt ||
-          Object.keys(loadedState.user.gameStates).length > 0 ||
-          loadedState.user.profile !== null;
-
-        if (hasDataNow) {
-          localStorage.setItem("playfit_had_data", "1");
-        } else if (hadDataFlag === "1") {
-          localStorage.removeItem("playfit_had_data");
-          clearGameCache();
-          if (!cancelled) {
-            setState(loadedState);
-            setUi(initialUi(loadedState));
-          }
-          return;
-        }
-
-        const gameIds = new Set([
-          ...loadedState.user.onboarding.likedGameIds,
-          ...(loadedState.user.onboarding.dislikedGameIds ?? []),
-          ...Object.keys(loadedState.user.gameStates),
-        ]);
-
-        if (gameIds.size > 0) {
-          await ensureGamesCached([...gameIds]);
-        }
-
-        if (loadedState.user.onboardingCompletedAt && !loadedState.user.profile) {
-          try {
-            const profileRes = await fetch("/api/recommendations/profile", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                onboarding: loadedState.user.onboarding,
-                gameStates: loadedState.user.gameStates,
-              }),
-            });
-            if (profileRes.ok) {
-              const { profile } = (await profileRes.json()) as { profile: ProductProfile };
-              const restored: ProductState = {
-                ...loadedState,
-                user: { ...loadedState.user, profile },
-              };
-              if (!cancelled) {
-                setState(restored);
-                setUi(initialUi(restored));
-              }
-              void enqueueSave(restored);
-              return;
-            }
-          } catch {
-            // Fall through to local build
-          }
-
-          const gamesById = new Map<string, SeedGame>();
-          for (const id of gameIds) {
-            const game = getCachedGame(id);
-            if (game) gamesById.set(id, game);
-          }
-          const profile = buildAdaptiveProfile(
-            loadedState.user.onboarding,
-            gamesById,
-            loadedState.user.gameStates,
-          );
-          const restored: ProductState = {
-            ...loadedState,
-            user: { ...loadedState.user, profile },
-          };
-          if (!cancelled) {
-            setState(restored);
-            setUi(initialUi(restored));
-          }
-          void enqueueSave(restored);
-        } else {
-          if (!cancelled) {
-            setState(loadedState);
-            setUi(initialUi(loadedState));
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setBootError(getErrorMessage(error, "Unexpected boot error."));
-        }
-      }
-    }
-
-    void boot();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser, useLocalProfile, enqueueSave, platforms]);
 
   const activeTab = ui?.activeTab;
   useEffect(() => {
     if (!activeTab) return;
+    const managesProductTabs = ["/", "/play"].includes(window.location.pathname);
+    if (!managesProductTabs) return;
     const hash = activeTab === "today" ? "" : activeTab;
     if (hash) {
       window.location.hash = hash;
@@ -346,14 +108,7 @@ export function PlayfitProvider({
 
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "") as ProductTab;
-      const validTabs: ProductTab[] = [
-        "today",
-        "library",
-        "finder",
-        "upcoming",
-        "profile",
-        "onboarding",
-      ];
+      const validTabs: ProductTab[] = ["today", "onboarding"];
       if (!hash || !validTabs.includes(hash)) return;
 
       const nextTab = onboardingCompleted || hash === "onboarding" ? hash : "onboarding";
@@ -363,7 +118,7 @@ export function PlayfitProvider({
 
       setUi((current) => {
         if (!current || nextTab === current.activeTab) return current;
-        return { ...current, activeTab: nextTab, profileMode: "overview" };
+        return { ...current, activeTab: nextTab };
       });
     };
     window.addEventListener("hashchange", handleHashChange);
@@ -428,7 +183,6 @@ export function PlayfitProvider({
         platforms,
       } satisfies ProductSeedData,
       state,
-      isPending: false,
       isSaving,
       authUser,
       useLocalProfile,
@@ -565,7 +319,6 @@ export function PlayfitProvider({
       | "ui"
       | "setUi"
       | "setStatusMessage"
-      | "finderSearchError"
       | "onboardingSearchError"
       | "onboardingSearchPending"
       | "searchGames"
@@ -599,17 +352,13 @@ export function PlayfitProvider({
           current ? { ...current, statusMessage: message, undoAction: null } : current,
         );
       },
-      finderSearchError,
       onboardingSearchError,
       onboardingSearchPending,
       searchGames(query: string) {
         const trimmed = query.trim();
         if (!trimmed) return [];
-        const fq = ui?.finderQuery?.trim();
         const oq = ui?.onboardingQuery?.trim();
-        if (trimmed === fq) return searchResults;
         if (trimmed === oq) return onboardingSearchResults;
-        if (fq?.startsWith(trimmed)) return searchResults;
         if (oq?.startsWith(trimmed)) return onboardingSearchResults;
         return [];
       },
@@ -623,10 +372,8 @@ export function PlayfitProvider({
   }, [
     ui,
     updateUi,
-    finderSearchError,
     onboardingSearchError,
     onboardingSearchPending,
-    searchResults,
     onboardingSearchResults,
     flushSave,
     enqueueSave,
@@ -708,19 +455,4 @@ export function usePlayfitUi() {
     throw new Error("usePlayfitUi must be used inside PlayfitProvider.");
   }
   return context;
-}
-
-export function usePlayfit() {
-  const stateContext = useContext(PlayfitStateContext);
-  const uiContext = useContext(PlayfitUiContext);
-  if (!stateContext || !uiContext) {
-    throw new Error("usePlayfit must be used inside PlayfitProvider.");
-  }
-  return useMemo(
-    () => ({
-      ...stateContext,
-      ...uiContext,
-    }),
-    [stateContext, uiContext],
-  );
 }

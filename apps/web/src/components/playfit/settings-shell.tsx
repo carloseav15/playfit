@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { ToggleButton, ToggleGroup } from "@/components/ui/toggle-group";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { useHeader } from "../playfit/header-context";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { StatusToast } from "../playfit/status-toast";
 import { SettingsDesktop } from "./desktop/settings-desktop";
 import { SettingsMobile } from "./mobile/settings-mobile";
@@ -26,8 +27,8 @@ export function SettingsShell() {
     linkGoogleAccount,
     resetTasteProfile,
     deleteAccount,
-    setStatusMessage,
-  } = usePlayfit();
+  } = usePlayfitState();
+  const { setStatusMessage } = usePlayfitUi();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -57,30 +58,12 @@ export function SettingsShell() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!profileReady) redirectToMarketingLanding();
+  }, [profileReady]);
+
   if (!profileReady) {
-    return (
-      <div className="min-h-screen text-foreground relative flex items-center justify-center">
-        <Container as="main" size="sm" className="py-8">
-          <Card className="rounded-3xl border border-border bg-card shadow-lg p-6 text-center">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-2xl font-black">Set up your taste first</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground mt-1">
-                Select your platforms and a few favorite games so we can build your recommendations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 pb-0 pt-4">
-              <Button
-                type="button"
-                asChild
-                className="bg-accent text-accent-foreground font-extrabold hover:bg-accent/90"
-              >
-                <Link href="/">Start Play Next</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </Container>
-      </div>
-    );
+    return null;
   }
 
   const renderThemeCard = () => (
@@ -167,7 +150,7 @@ export function SettingsShell() {
                 variant="outline"
                 onClick={async () => {
                   await signOut();
-                  window.location.assign("/");
+                  window.location.replace("/");
                 }}
                 className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 shrink-0"
               >

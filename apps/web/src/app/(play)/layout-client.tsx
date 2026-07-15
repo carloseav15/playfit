@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { DesktopAppNav } from "@/components/playfit/desktop-app-nav";
 import { HeaderProvider, useHeaderContext } from "@/components/playfit/header-context";
 import { MobileBottomNav } from "@/components/playfit/mobile-bottom-nav";
-import { PlayfitProvider, usePlayfit } from "@/components/playfit/playfit-context";
+import { PlayfitProvider, usePlayfitState } from "@/components/playfit/playfit-context";
 import { SaveIndicator } from "@/components/playfit/save-indicator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ export function PlayLayoutClient({
 }
 
 function PlayLayoutContent({ children }: { children: React.ReactNode }) {
-  const { state } = usePlayfit();
+  const { state } = usePlayfitState();
   const { config: headerConfig } = useHeaderContext();
   const pathname = usePathname();
   const router = useRouter();
