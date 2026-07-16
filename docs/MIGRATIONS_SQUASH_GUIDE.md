@@ -1,6 +1,6 @@
 # Guía de Backup/Restore y Squash de Migraciones
 
-> **Actualizado 2026-07-07.** La versión anterior de esta guía (Pasos 3-4 con
+> **Actualizado 2026-07-16.** La versión anterior de esta guía (Pasos 3-4 con
 > `restore-backup.sh`) quedó **confirmada como insegura**: ese script solo cubría 9 de
 > las 67 tablas reales (`games_library` + `games_library_private` + `igdb_raw`), y esas 9
 > usaban una forma vieja del esquema (pre-claves-surrogadas) que ya no coincide con las
@@ -9,8 +9,10 @@
 > proyecto Supabase descartable (contenedores y puertos separados del proyecto local
 > principal) el 2026-07-07: conteos de filas y checksums de datos idénticos en las 67
 > tablas de las 3 schemas, más un bug real encontrado y corregido en el camino (ver
-> abajo). El squash de migraciones en sí (Paso 2) todavía no está validado — no lo
-> ejecutes hasta que esa parte del trabajo esté probada por separado.
+> abajo). El 2026-07-16 se separaron definitivamente el contrato de esquema y los
+> datos: las migraciones quedan ligeras en Git y los dumps recuperables viven en
+> Expanse. La reconstrucción de producción con el catálogo runtime externo fue
+> validada en una instancia temporal.
 
 ---
 
@@ -46,17 +48,19 @@ Desde el directorio raíz de `product`:
 
 Esto corre `scripts/backup-schema.mjs` para cada uno de los 3 schemas
 (`games_library`, `games_library_private`, `igdb_raw`), dejando un `.dump` con formato
-custom de `pg_dump` por schema en `/Volumes/Elements/Backups/<schema>/`. Podés apuntar a
+custom de `pg_dump` por schema en `/Volumes/Elements/Playfit/Backups/<schema>/`. Podés apuntar a
 otro destino con `./scripts/backup-all.sh --out <dir>` o la variable de entorno
 `PLAYFIT_BACKUP_ROOT`.
 
 ---
 
-## Paso 2: Squash de migraciones (pendiente de validar — no ejecutar todavía)
+## Paso 2: Estructura, catálogo y squash
 
-El squash de las 107 migraciones actuales en un esquema base limpio es un trabajo
-separado, todavía no probado contra un proyecto descartable. No corras
-`npx supabase db squash` como parte de este flujo hasta que esa validación esté hecha.
+Las migraciones ahora representan únicamente estructura y contrato de producción. El
+catálogo runtime se guarda fuera de Git en Expanse y se carga después mediante
+`npm run seed:catalog`; los datos completos de desarrollo se recuperan con los backups
+de este documento. No corras `npx supabase db squash` otra vez: el historial vigente ya
+fue consolidado. La operación y sus límites están en `docs/OPERACIONES-DATOS.md`.
 
 ---
 
