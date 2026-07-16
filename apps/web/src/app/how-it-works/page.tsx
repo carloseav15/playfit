@@ -64,7 +64,7 @@ export default function HowItWorksPage() {
             <Card key={item.title}>
               <CardHeader>
                 <item.icon className="size-6 text-accent" />
-                <CardTitle>{item.title}</CardTitle>
+                <CardTitle as="h2">{item.title}</CardTitle>
                 <CardDescription>{item.copy}</CardDescription>
               </CardHeader>
             </Card>
@@ -102,7 +102,10 @@ export default function HowItWorksPage() {
         </article>
 
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
+          <Button
+            asChild
+            className="!bg-accent !text-white hover:!bg-[#0b625b] dark:!text-slate-950"
+          >
             <Link href="/">Open app</Link>
           </Button>
         </div>

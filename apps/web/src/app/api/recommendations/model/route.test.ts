@@ -40,7 +40,7 @@ describe("model recommendations API route", () => {
 
   it("returns the scored model and its cache scope", async () => {
     const state = { user: { profile: { ratedCount: 3 } } };
-    const model = { primary: null, alternatives: [], savedPickIds: [], stateVersion: "v1" };
+    const model = { currentRun: [], nextUp: [], resume: [], picks: [] };
     mocks.loadRecommendationState.mockResolvedValue({
       ok: true,
       userId: "user-1",

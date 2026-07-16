@@ -26,15 +26,7 @@ function sanitizeNextPath(rawNext: string | null) {
 }
 
 export async function GET(request: Request) {
-  console.log("Supabase Auth Callback URL:", request.url);
   const { searchParams, origin } = new URL(request.url);
-
-  if (searchParams.get("error") || searchParams.get("error_description")) {
-    console.error("Auth Callback error from provider:", {
-      error: searchParams.get("error"),
-      description: searchParams.get("error_description"),
-    });
-  }
 
   const code = searchParams.get("code");
   const next = sanitizeNextPath(searchParams.get("next"));
@@ -53,11 +45,7 @@ export async function GET(request: Request) {
         maxAge: 60 * 60 * 24 * 365,
       });
       return response;
-    } else {
-      console.error("Supabase Auth Code Exchange Error:", error.message, error);
     }
-  } else {
-    console.error("Supabase Auth Callback: No code provided in query params");
   }
 
   return NextResponse.redirect(`${redirectOrigin}/?error=auth_failed`);

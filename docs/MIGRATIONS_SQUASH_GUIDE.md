@@ -1,10 +1,10 @@
 # Guía de Backup/Restore y Squash de Migraciones
 
-> **Actualizado 2026-07-16.** La versión anterior de esta guía (Pasos 3-4 con
-> `restore-backup.sh`) quedó **confirmada como insegura**: ese script solo cubría 9 de
+> **Actualizado 2026-07-16.** La versión anterior de esta guía (Pasos 3-4 con el
+> restore legacy) quedó **confirmada como insegura** y fue eliminada: ese flujo solo cubría 9 de
 > las 67 tablas reales (`games_library` + `games_library_private` + `igdb_raw`), y esas 9
 > usaban una forma vieja del esquema (pre-claves-surrogadas) que ya no coincide con las
-> columnas actuales. `scripts/restore-backup.sh` queda marcado como deprecado — no lo uses.
+> columnas actuales. Usá `scripts/backup-all.sh` y `scripts/restore-all.sh` para el flujo vigente.
 > Este documento ahora describe el flujo real de backup/restore, validado contra un
 > proyecto Supabase descartable (contenedores y puertos separados del proyecto local
 > principal) el 2026-07-07: conteos de filas y checksums de datos idénticos en las 67

@@ -90,8 +90,11 @@ export function LandingDemo() {
           <ChevronLeft className="size-4" />
         </Button>
 
-        <div
+        <section
           ref={carouselRef}
+          aria-label="Example recommendations carousel"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: the horizontal carousel must be keyboard focusable for WCAG scrollable-region guidance
+          tabIndex={0}
           className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 py-1 sm:px-10"
         >
           {landingDemoResults.map((entry) => (
@@ -110,7 +113,7 @@ export function LandingDemo() {
               </div>
             </div>
           ))}
-        </div>
+        </section>
 
         <Button
           type="button"

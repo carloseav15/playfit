@@ -61,8 +61,8 @@
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f8fafc;
-  --muted-foreground: #475569;
-  --accent: #0f766e;
+  --muted-foreground: #334155;
+  --accent: #0b625b;
   --accent-foreground: #ffffff;
   --destructive: #be123c;
   --destructive-foreground: #fff1f2;
@@ -73,7 +73,7 @@
   --radius: 0.5rem;
   --positive: #047857;
   --positive-bg: rgba(4, 120, 87, 0.08);
-  --warning: #b45309;
+  --warning: #92400e;
   --warning-bg: rgba(180, 83, 9, 0.08);
   --negative: #be123c;
   --negative-bg: rgba(190, 18, 60, 0.08);

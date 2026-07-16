@@ -71,7 +71,7 @@ export function TasteDesktop({
               )}
             >
               {labels[tab]}
-              <span className="opacity-50 text-[10px] font-mono">({counts[tab]})</span>
+              <span className="text-muted-foreground text-[10px] font-mono">({counts[tab]})</span>
             </button>
           );
         })}

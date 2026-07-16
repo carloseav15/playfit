@@ -1,3 +1,5 @@
+import { healthResponseSchema } from "@/lib/api-contracts";
+import { jsonData } from "@/lib/api-errors";
 import { createAnonClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -22,7 +24,7 @@ export async function GET() {
     healthy = false;
   }
 
-  return Response.json({
+  return jsonData(healthResponseSchema, {
     ok: healthy,
     app: "playfit",
     timestamp: new Date().toISOString(),

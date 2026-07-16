@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { getErrorMessage } from "@/lib/api-errors";
+import { getErrorMessage, jsonError } from "@/lib/api-errors";
 
 interface CaptureApiErrorOptions {
   route: string;
@@ -36,4 +36,43 @@ export function captureApiError(error: unknown, options: CaptureApiErrorOptions)
       requestId,
     },
   });
+}
+
+function requestId(request: Request) {
+  return (
+    request.headers.get("x-vercel-id") ?? request.headers.get("x-request-id") ?? crypto.randomUUID()
+  );
+}
+
+export async function withApiTiming(
+  request: Request,
+  route: string,
+  handler: () => Promise<Response>,
+) {
+  const startedAt = performance.now();
+  const id = requestId(request);
+
+  try {
+    const response = await handler();
+    console.log(
+      JSON.stringify({
+        level: response.status >= 500 ? "error" : "info",
+        msg: "api_response",
+        route,
+        method: request.method,
+        requestId: id,
+        statusCode: response.status,
+        durationMs: Math.round(performance.now() - startedAt),
+      }),
+    );
+    return response;
+  } catch (error) {
+    captureApiError(error, {
+      route,
+      request,
+      operation: "unhandled_route_error",
+      statusCode: 500,
+    });
+    return jsonError("Internal server error", 500);
+  }
 }

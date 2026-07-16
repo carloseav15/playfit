@@ -44,6 +44,40 @@ const searchFixtureGames = [
 async function mockAuthAndSearch(page: Page) {
   let signupCalls = 0;
 
+  await page.route("**/api/profile", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        state: {
+          version: 1,
+          user: {
+            onboarding: {
+              step: "dislikes",
+              platforms: [{ platformId: "snes", status: "available" }],
+              likedGameIds: ["chrono_trigger"],
+              dislikedGameIds: [],
+            },
+            onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+            profile: {
+              summary: "A profile built from the search fixture.",
+              likedGenres: ["jrpg"],
+              avoidedGenres: [],
+              likedTags: {},
+              dislikedTags: {},
+              ratedCount: 1,
+              signals: [],
+            },
+            gameStates: {},
+            lastUpdatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      }),
+    });
+  });
+
   await page.route("**/auth/v1/signup", async (route) => {
     signupCalls += 1;
     await route.fulfill({
@@ -133,6 +167,17 @@ test("search filters by query without creating a session", async ({ page }) => {
   await expect(page.getByText("The Legend of Zelda: Tears of the Kingdom")).toBeVisible();
   await expect(page.getByText("Chrono Trigger")).toHaveCount(0);
 
+  expect(getSignupCalls()).toBe(0);
+});
+
+test("search explains an empty result without creating a session", async ({ page }) => {
+  const getSignupCalls = await mockAuthAndSearch(page);
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Chrono Trigger")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByPlaceholder("Search by title...").fill("no matching game");
+  await expect(page.getByText("No games found matching your search.")).toBeVisible();
   expect(getSignupCalls()).toBe(0);
 });
 

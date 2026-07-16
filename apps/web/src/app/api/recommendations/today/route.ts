@@ -1,5 +1,6 @@
-import { jsonError } from "@/lib/api-errors";
-import { captureApiError } from "@/lib/monitoring";
+import { playNextModelSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
+import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { buildPlayNextModel, loadRecommendationState } from "../shared";
 
 export const maxDuration = 30;
@@ -26,7 +27,7 @@ async function rejectLegacyPayload(request: Request) {
   return null;
 }
 
-export async function POST(request: Request) {
+async function postRecommendations(request: Request) {
   const payloadError = await rejectLegacyPayload(request);
   if (payloadError) return payloadError;
 
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       stateVersion: loaded.stateVersion,
       userId: loaded.userId,
     });
-    return Response.json(model);
+    return jsonData(playNextModelSchema, model);
   } catch (error) {
     captureApiError(error, {
       route: "/api/recommendations/today",
@@ -54,4 +55,8 @@ export async function POST(request: Request) {
     });
     return jsonError("Failed to score recommendations", 500);
   }
+}
+
+export function POST(request: Request) {
+  return withApiTiming(request, "/api/recommendations/today", () => postRecommendations(request));
 }

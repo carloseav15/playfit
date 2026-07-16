@@ -1,4 +1,5 @@
-import { getErrorMessage, jsonError } from "@/lib/api-errors";
+import { platformsResponseSchema } from "@/lib/api-contracts";
+import { getErrorMessage, jsonData, jsonError } from "@/lib/api-errors";
 import { createAnonClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -23,7 +24,7 @@ export async function GET() {
       sortOrder: row.gen,
     }));
 
-    return Response.json({ platforms: mapped });
+    return jsonData(platformsResponseSchema, { platforms: mapped });
   } catch (e) {
     return jsonError(getErrorMessage(e, "unknown"), 500);
   }

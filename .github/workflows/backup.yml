@@ -20,11 +20,14 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       - name: Dump database
-        run: >
-          supabase db dump
-          --db-url "$SUPABASE_DB_URL"
-          -f backup_$(date +%Y%m%d_%H%M%S).sql
-          --schema games_library
+        run: |
+          timestamp="$(date +%Y%m%d_%H%M%S)"
+          for schema in games_library games_library_private igdb_raw; do
+            supabase db dump \
+              --db-url "$SUPABASE_DB_URL" \
+              -f "backup_${schema}_${timestamp}.sql" \
+              --schema "$schema"
+          done
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       - uses: actions/upload-artifact@v4

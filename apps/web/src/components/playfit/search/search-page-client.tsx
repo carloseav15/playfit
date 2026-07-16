@@ -137,7 +137,11 @@ export function SearchPageClient({
           </p>
         </div>
 
+        <label htmlFor="search-query" className="sr-only">
+          Search by title
+        </label>
         <Input
+          id="search-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by title..."

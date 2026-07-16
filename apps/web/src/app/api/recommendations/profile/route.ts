@@ -2,7 +2,8 @@ import { buildAdaptiveProfile } from "@playfit/core/domain";
 import { productGameStateSchema, productStateSchema } from "@playfit/core/schemas";
 import type { SeedGame } from "@playfit/core/types";
 import { z } from "zod";
-import { jsonError } from "@/lib/api-errors";
+import { adaptiveProfileResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { createAnonClient } from "@/lib/supabase/server";
 
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
 
   if (gameIds.size === 0) {
     const fallback = buildAdaptiveProfile(onboarding, new Map(), gameStates);
-    return Response.json({ profile: fallback });
+    return jsonData(adaptiveProfileResponseSchema, { profile: fallback });
   }
 
   const supabase = createAnonClient();
@@ -126,5 +127,5 @@ export async function POST(request: Request) {
 
   const profile = buildAdaptiveProfile(onboarding, gamesById, gameStates);
 
-  return Response.json({ profile });
+  return jsonData(adaptiveProfileResponseSchema, { profile });
 }

@@ -24,6 +24,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:ci
+      - name: Report web test coverage
+        run: npm run test:coverage -w apps/web
 
   migrations:
     runs-on: ubuntu-latest
@@ -34,3 +36,16 @@ jobs:
           node-version: 22
       - name: Validate migration files
         run: npm run validate:migrations
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run Chromium browser checks
+        run: npm run test:e2e -w apps/web -- --project=chromium
