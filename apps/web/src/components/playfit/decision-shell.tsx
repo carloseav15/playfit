@@ -1,73 +1,46 @@
 "use client";
 
-import type { ProductDecisionFeedback, RankedSeedGame } from "@playfit/core/types";
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { cn } from "@/lib/utils";
-import { AuthPanel } from "../playfit/auth-panel";
 import { CoverArt } from "../playfit/cover-art";
 import { OnboardingSection } from "../playfit/onboarding-section";
-import type { SaveStatus } from "../playfit/playfit-context";
-import { usePlayfit } from "../playfit/playfit-context";
+import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
-import { DecisionIntro } from "./decision-intro";
 import { PlayNextCard } from "./play-next-card";
-import { usePlayNextRecommendations } from "./use-play-next-recommendations";
+import {
+  shouldShowNoRecommendations,
+  useDecisionRecommendations,
+} from "./use-decision-recommendations";
 
-export function shouldRefreshRecommendationsAfterSave({
-  pending,
-  previousSaveStatus,
-  saveStatus,
-}: {
-  pending: boolean;
-  previousSaveStatus: SaveStatus;
-  saveStatus: SaveStatus;
-}) {
-  return pending && previousSaveStatus === "saving" && saveStatus === "saved";
-}
-
-export function shouldShowNoRecommendations({
-  primary,
-  loading,
-  refreshing,
-  refreshPending,
-}: {
-  primary: RankedSeedGame | null;
-  loading: boolean;
-  refreshing: boolean;
-  refreshPending: boolean;
-}) {
-  return !primary && !loading && !refreshing && !refreshPending;
-}
+export {
+  shouldRefreshRecommendationsAfterSave,
+  shouldShowNoRecommendations,
+} from "./use-decision-recommendations";
 
 export function DecisionShell({
   startInCalibration = false,
   onExitToLanding,
 }: {
   startInCalibration?: boolean;
-  /** When set (only by the marketing landing page), exiting the wizard returns there
-   * instead of falling back to DecisionIntro — which would otherwise read as a second,
-   * older-looking landing screen right after the one the visitor already saw. */
+  /** When set by the marketing landing page, open the onboarding wizard directly. */
   onExitToLanding?: () => void;
 }) {
-  const { state, ui, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfit();
-  const [slowLoading, setSlowLoading] = useState(false);
-  // Resume the onboarding wizard directly (instead of the generic welcome
-  // screen) when the account already has in-progress onboarding data saved
-  // server-side — otherwise a returning user with saved platform/game
-  // picks sees the same intro as a brand-new signup. `startInCalibration` covers the
-  // other case: arriving via the marketing landing page's own CTA, which already made
-  // the "let's start" pitch once — showing DecisionIntro's near-identical intro again
-  // right after would read as a second, redundant landing screen.
+  const { state, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfitState();
+  const { ui } = usePlayfitUi();
+  // Resume the onboarding wizard directly when the account has in-progress onboarding
+  // data saved server-side. The marketing landing also sets this flag when its CTA opens
+  // the wizard, so there is only one onboarding entry experience.
   const [calibrationOpen, setCalibrationOpen] = useState(() => {
     if (startInCalibration) return true;
     const onboarding = state.user.onboarding;
@@ -78,178 +51,34 @@ export function DecisionShell({
         onboarding.dislikedGameIds.length > 0)
     );
   });
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [recommendationRefreshPending, setRecommendationRefreshPending] = useState(false);
-  const recommendationRefreshPendingRef = useRef(false);
-  const previousSaveStatusRef = useRef<SaveStatus>(ui.saveStatus);
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
-
-  const [pool, setPool] = useState<RankedSeedGame[]>([]);
-  const [stablePrimaryId, setStablePrimaryId] = useState<string | null>(null);
-  const [excludedIds, setExcludedIds] = useState<Set<string>>(() => new Set());
-  const initialPrimarySetRef = useRef(false);
-  const exhaustedRef = useRef(false);
-  const { model, loading, refreshing, loadError, refreshRecommendations } =
-    usePlayNextRecommendations({
-      enabled: profileReady,
-      errorMessage: "Play Next could not be refreshed.",
-      onNeedsResync: resetLocalState,
-    });
-
-  const isInitialLoading = loading && !model;
-  const isWaitingForCandidates = recommendationRefreshPending || refreshing;
-
-  useEffect(() => {
-    if (
-      shouldRefreshRecommendationsAfterSave({
-        pending: recommendationRefreshPendingRef.current,
-        previousSaveStatus: previousSaveStatusRef.current,
-        saveStatus: ui.saveStatus,
-      })
-    ) {
-      recommendationRefreshPendingRef.current = false;
-      setRecommendationRefreshPending(false);
-      refreshRecommendations();
-    }
-
-    if (recommendationRefreshPendingRef.current && ui.saveStatus === "error") {
-      recommendationRefreshPendingRef.current = false;
-      setRecommendationRefreshPending(false);
-    }
-
-    previousSaveStatusRef.current = ui.saveStatus;
-  }, [refreshRecommendations, ui.saveStatus]);
-
-  useEffect(() => {
-    if (!profileReady) {
-      recommendationRefreshPendingRef.current = false;
-      setRecommendationRefreshPending(false);
-    }
-  }, [profileReady]);
-
-  const isTransient = isInitialLoading;
-
-  useEffect(() => {
-    if (!isTransient) {
-      setSlowLoading(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => setSlowLoading(true), 3000);
-    return () => window.clearTimeout(timeoutId);
-  }, [isTransient]);
-
-  const visiblePool = useMemo(
-    () => pool.filter((entry) => !excludedIds.has(entry.game.gameId)),
-    [pool, excludedIds],
-  );
-
-  const primary = useMemo(
-    () =>
-      visiblePool.find((entry) => entry.game.gameId === stablePrimaryId) ?? visiblePool[0] ?? null,
-    [visiblePool, stablePrimaryId],
-  );
-
-  const primaryIndex = useMemo(
-    () => visiblePool.findIndex((entry) => entry.game.gameId === primary?.game.gameId),
-    [visiblePool, primary],
-  );
-
-  const alternatives = useMemo(() => {
-    if (primaryIndex < 0 || !primary) return [];
-    return visiblePool.slice(primaryIndex + 1, primaryIndex + 4);
-  }, [visiblePool, primaryIndex, primary]);
-
-  // Set stable primary from the very first model load
-  useEffect(() => {
-    if (model?.primary && !initialPrimarySetRef.current) {
-      initialPrimarySetRef.current = true;
-      setStablePrimaryId(model.primary.game.gameId);
-    }
-  }, [model]);
-
-  // Merge model entries into the pool (accumulates across refreshes)
-  useEffect(() => {
-    if (!model) return;
-    const modelEntries = [model.primary, ...model.alternatives].filter(
-      (entry): entry is RankedSeedGame => entry !== null,
-    );
-
-    if (modelEntries.length === 0) return;
-
-    setPool((prev) => {
-      const existingIds = new Set(prev.map((e) => e.game.gameId));
-      const newEntries = modelEntries.filter((e) => !existingIds.has(e.game.gameId));
-      if (newEntries.length === 0 && prev.length > 0) {
-        exhaustedRef.current = true;
-      }
-      return newEntries.length > 0 ? [...prev, ...newEntries] : prev;
-    });
-  }, [model]);
-
-  // Auto-load next page when the visible pool is nearly empty
-  useEffect(() => {
-    if (
-      visiblePool.length <= 2 &&
-      !exhaustedRef.current &&
-      !refreshing &&
-      !recommendationRefreshPending &&
-      profileReady
-    ) {
-      refreshRecommendations();
-    }
-  }, [
-    visiblePool.length,
-    refreshing,
+  const {
+    alternatives,
+    handleAddPick,
+    handleFeedback,
+    handleShowAnother,
+    isTransient,
+    isWaitingForCandidates,
+    loadError,
+    loading,
+    pool,
+    primary,
     recommendationRefreshPending,
+    refreshing,
+    setExcludedIds,
+    slowLoading,
+    visiblePool,
+  } = useDecisionRecommendations({
     profileReady,
-    refreshRecommendations,
-  ]);
+    saveStatus: ui.saveStatus,
+    applyDecisionFeedback,
+    setPlayfitPick,
+    resetLocalState,
+  });
 
-  // Scroll to top whenever the primary recommendation changes
   useEffect(() => {
-    if (primary?.game.gameId) {
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
-    }
-  }, [primary?.game.gameId]);
-
-  function advancePrimaryPast(currentGameId: string) {
-    const currentIdx = visiblePool.findIndex((e) => e.game.gameId === currentGameId);
-    const next = visiblePool[currentIdx + 1] ?? null;
-    setStablePrimaryId(next?.game.gameId ?? null);
-  }
-
-  function handleFeedback(entry: RankedSeedGame, feedback: ProductDecisionFeedback) {
-    const gameId = entry.game.gameId;
-    setExcludedIds((prev) => new Set([...prev, gameId]));
-    advancePrimaryPast(gameId);
-    recommendationRefreshPendingRef.current = true;
-    setRecommendationRefreshPending(true);
-    applyDecisionFeedback(gameId, feedback, () => {
-      setExcludedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(gameId);
-        return next;
-      });
-      setStablePrimaryId(gameId);
-      recommendationRefreshPendingRef.current = false;
-      setRecommendationRefreshPending(false);
-    });
-  }
-
-  function handleAddPick(entry: RankedSeedGame) {
-    setExcludedIds((prev) => new Set([...prev, entry.game.gameId]));
-    advancePrimaryPast(entry.game.gameId);
-    recommendationRefreshPendingRef.current = true;
-    setRecommendationRefreshPending(true);
-    setPlayfitPick(entry.game.gameId, true);
-  }
-
-  function handleShowAnother(entry: RankedSeedGame) {
-    setExcludedIds((prev) => new Set([...prev, entry.game.gameId]));
-    advancePrimaryPast(entry.game.gameId);
-  }
+    if (!profileReady && !startInCalibration) redirectToMarketingLanding();
+  }, [profileReady, startInCalibration]);
 
   const positiveSignalCount = state.user.onboarding.likedGameIds.length;
   const negativeSignalCount = state.user.onboarding.dislikedGameIds.length;
@@ -257,6 +86,8 @@ export function DecisionShell({
   const ratedCount = state.user.profile?.ratedCount ?? 0;
 
   if (!profileReady) {
+    if (!startInCalibration) return null;
+
     return (
       <div
         className={cn(
@@ -276,26 +107,11 @@ export function DecisionShell({
               : "grid gap-6 py-4 md:py-8",
           )}
         >
-          {!calibrationOpen ? (
-            <DecisionIntro
-              onStart={() => setCalibrationOpen(true)}
-              onSignIn={() => setShowSignIn(true)}
-            />
-          ) : (
-            <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
-              <OnboardingSection onExit={onExitToLanding ?? (() => setCalibrationOpen(false))} />
-            </div>
-          )}
+          <div id="tune-your-taste" className="flex-1 flex flex-col min-h-0 w-full">
+            <OnboardingSection onExit={onExitToLanding ?? (() => setCalibrationOpen(false))} />
+          </div>
         </Container>
         <StatusToast />
-        {showSignIn && (
-          <div className="fixed inset-0 z-50">
-            <AuthPanel
-              onAuth={() => setShowSignIn(false)}
-              onContinueLocal={() => setShowSignIn(false)}
-            />
-          </div>
-        )}
       </div>
     );
   }

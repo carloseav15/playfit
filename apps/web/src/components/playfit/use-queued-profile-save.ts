@@ -1,7 +1,7 @@
 import { saveProductState } from "@playfit/core/store";
 import type { ProductState } from "@playfit/core/types";
 import { useCallback, useRef } from "react";
-import type { ProductUiState } from "./playfit-context";
+import type { ProductUiState } from "./playfit-context-types";
 import type { AuthUser } from "./use-playfit-auth";
 
 export function useQueuedProfileSave({

@@ -246,10 +246,7 @@ describe("product indexeddb store", () => {
   describe("resetProductState", () => {
     it("resolves without throwing on a 204 No Content response", async () => {
       const { resetProductState } = await import("./indexed-db");
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
-      );
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 204 }));
 
       await expect(resetProductState()).resolves.toBeUndefined();
     });

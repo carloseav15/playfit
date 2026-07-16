@@ -1,6 +1,5 @@
 import {
   applyProductDecisionFeedback,
-  buildAdaptiveProfile,
   productDecisionFeedbackMessages,
 } from "@playfit/core/domain";
 import type {
@@ -9,76 +8,25 @@ import type {
   ProductRating,
   ProductState,
   ProductTasteSignalSource,
-  SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import { useCallback } from "react";
 import { getCachedGame } from "@/lib/game-cache";
-import type { ProductUiState } from "./playfit-context";
-
-const PLAYFIT_PICKS_LIMIT = 100;
+import {
+  activePlayfitPickCount,
+  buildGameState,
+  isTerminalGameState,
+  PLAYFIT_PICKS_LIMIT,
+  rebuildAdaptiveProfileFromCache,
+  shouldDeleteManualState,
+} from "./game-action-helpers";
+import type { ProductUiState } from "./playfit-context-types";
+import { buildAdaptiveProfileFromCache, buildProfileGamesById } from "./profile-cache-helpers";
 
 interface UsePlayfitGameActionsProps {
   state: ProductState | null;
   updateState: (updater: (draft: ProductState) => void) => void;
   updateUi: React.Dispatch<React.SetStateAction<ProductUiState>>;
-}
-
-function buildGameState(game: SeedGame, source: ProductGameState["source"]): ProductGameState {
-  const timestamp = nowIso();
-  return {
-    gameId: game.gameId,
-    title: game.title,
-    inBacklog: false,
-    inWishlist: false,
-    inPlayfitPicks: false,
-    excluded: false,
-    source,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-}
-
-function isTerminalGameState(record: ProductGameState | undefined) {
-  return (
-    record?.status === "completed" ||
-    record?.status === "beaten" ||
-    record?.status === "abandoned" ||
-    record?.excluded === true
-  );
-}
-
-function activePlayfitPickCount(gameStates: Record<string, ProductGameState>) {
-  return Object.values(gameStates).filter(
-    (record) => record.inPlayfitPicks && !isTerminalGameState(record),
-  ).length;
-}
-
-function shouldDeleteManualState(record: ProductGameState) {
-  return (
-    record.source === "manual" &&
-    !record.status &&
-    record.rating == null &&
-    !record.inBacklog &&
-    !record.inWishlist &&
-    !record.inPlayfitPicks &&
-    !record.excluded
-  );
-}
-
-function rebuildAdaptiveProfileFromCache(draft: ProductState) {
-  if (!draft.user.profile && !draft.user.onboardingCompletedAt) return;
-  const ids = new Set([
-    ...draft.user.onboarding.likedGameIds,
-    ...(draft.user.onboarding.dislikedGameIds ?? []),
-    ...Object.keys(draft.user.gameStates),
-  ]);
-  const map = new Map<string, SeedGame>();
-  for (const id of ids) {
-    const game = getCachedGame(id);
-    if (game) map.set(id, game);
-  }
-  draft.user.profile = buildAdaptiveProfile(draft.user.onboarding, map, draft.user.gameStates);
 }
 
 export function usePlayfitGameActions({
@@ -99,19 +47,8 @@ export function usePlayfitGameActions({
           updatedAt: nowIso(),
         };
         if (draft.user.profile) {
-          const ids = new Set([
-            ...draft.user.onboarding.likedGameIds,
-            ...(draft.user.onboarding.dislikedGameIds ?? []),
-            ...Object.keys(draft.user.gameStates),
-          ]);
-          const map = new Map<string, SeedGame>();
-          for (const id of ids) {
-            const game = getCachedGame(id);
-            if (game) map.set(id, game);
-          }
-          draft.user.profile = buildAdaptiveProfile(
+          draft.user.profile = buildAdaptiveProfileFromCache(
             draft.user.onboarding,
-            map,
             draft.user.gameStates,
           );
         }
@@ -152,19 +89,8 @@ export function usePlayfitGameActions({
         }
         draft.user.gameStates[gameId] = next;
         if (draft.user.profile) {
-          const ids = new Set([
-            ...draft.user.onboarding.likedGameIds,
-            ...(draft.user.onboarding.dislikedGameIds ?? []),
-            ...Object.keys(draft.user.gameStates),
-          ]);
-          const map = new Map<string, SeedGame>();
-          for (const id of ids) {
-            const game = getCachedGame(id);
-            if (game) map.set(id, game);
-          }
-          draft.user.profile = buildAdaptiveProfile(
+          draft.user.profile = buildAdaptiveProfileFromCache(
             draft.user.onboarding,
-            map,
             draft.user.gameStates,
           );
         }
@@ -181,17 +107,8 @@ export function usePlayfitGameActions({
       updateState((draft) => {
         const g = getCachedGame(gameId);
         if (!g) return;
-        const ids = new Set([
-          ...draft.user.onboarding.likedGameIds,
-          ...(draft.user.onboarding.dislikedGameIds ?? []),
-          ...Object.keys(draft.user.gameStates),
-          gameId,
-        ]);
-        const map = new Map<string, SeedGame>([[g.gameId, g]]);
-        for (const id of ids) {
-          const cachedGame = getCachedGame(id);
-          if (cachedGame) map.set(id, cachedGame);
-        }
+        const map = buildProfileGamesById(draft.user.onboarding, draft.user.gameStates);
+        map.set(g.gameId, g);
         applyProductDecisionFeedback({
           state: draft,
           game: g,

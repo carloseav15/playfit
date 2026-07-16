@@ -18,7 +18,7 @@ import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import process from "node:process";
 
-const DEFAULT_BACKUP_ROOT = process.env.PLAYFIT_BACKUP_ROOT ?? "/Volumes/Elements/Backups";
+const DEFAULT_BACKUP_ROOT = process.env.PLAYFIT_BACKUP_ROOT ?? "/Volumes/Elements/Playfit/Backups";
 
 function parseArgs(argv) {
   const args = { schema: null, out: null };

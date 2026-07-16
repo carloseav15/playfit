@@ -6,7 +6,8 @@ what is live, what is protected by tests or workflow gates, and what remains fut
 ## Current Publish-Readiness Scope
 
 - Keep `/play` as the focused MVP entry point for first-contact recommendation flow.
-- Keep `/app` as the broader product shell, now aligned with `/play` local-first behavior.
+- Keep `/app` only as a legacy compatibility alias to the current routes; it is not a separate
+  product shell.
 - Treat [playfit-gold.vercel.app](https://playfit-gold.vercel.app) as the current public product demo.
 - Preserve local data during development; do not reset local Supabase unless the database is
   disposable.

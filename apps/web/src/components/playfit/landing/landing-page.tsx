@@ -1,11 +1,12 @@
 "use client";
 
 import type { ProductPlatformOption } from "@playfit/core/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PlayLayoutClient } from "@/app/(play)/layout-client";
 import { AuthPanel } from "@/components/playfit/auth-panel";
 import { DecisionShell } from "@/components/playfit/decision-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { LANDING_REDIRECT_MARKER } from "@/lib/redirect-to-landing";
 import { LandingDemo } from "./landing-demo";
 import { LandingFinalCta } from "./landing-final-cta";
 import { LandingHero } from "./landing-hero";
@@ -40,6 +41,21 @@ function forceHardNavigationForInternalLinks(event: React.MouseEvent<HTMLDivElem
 
 export function LandingPage({ platforms }: { platforms: ProductPlatformOption[] }) {
   const [view, setView] = useState<"landing" | "auth" | "calibration">("landing");
+
+  useEffect(() => {
+    const redirectedFromApp = window.sessionStorage.getItem(LANDING_REDIRECT_MARKER) === "1";
+    const referrer = document.referrer ? new URL(document.referrer) : null;
+    if (
+      window.location.pathname === "/" &&
+      window.location.hash === "#onboarding" &&
+      (redirectedFromApp ||
+        (referrer?.origin === window.location.origin &&
+          ["/app", "/settings"].includes(referrer.pathname)))
+    ) {
+      window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
+      window.history.replaceState(null, "", "/");
+    }
+  }, []);
 
   // Mounting PlayLayoutClient (and the anonymous Supabase session it creates on first
   // render) is deferred until the visitor actually clicks in — a cold visitor never

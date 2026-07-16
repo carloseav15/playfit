@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PlayfitProvider, usePlayfit } from "./playfit-context";
+import { PlayfitProvider, usePlayfitState } from "./playfit-context";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -98,7 +98,7 @@ vi.mock("@/lib/supabase/client", () => ({
 // Helper component to consume context and trigger mutations
 function TestConsumer() {
   const { state, setPlayfitPick, applyDecisionFeedback, resetTasteProfile, deleteAccount } =
-    usePlayfit();
+    usePlayfitState();
   const [resetOutcome, setResetOutcome] = useState("idle");
   const [deleteOutcome, setDeleteOutcome] = useState("idle");
 

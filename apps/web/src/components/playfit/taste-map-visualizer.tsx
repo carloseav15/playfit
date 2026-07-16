@@ -7,19 +7,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { calculateGameCoordinates, scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
+import { scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
-import { usePlayfit } from "../playfit/playfit-context";
-
-interface GameNode {
-  game: SeedGame;
-  x: number;
-  y: number;
-  type: "liked" | "disliked" | "pending";
-  score?: number;
-  state?: ProductGameState;
-}
+import { usePlayfitState } from "../playfit/playfit-context";
+import { buildTasteMapNodes, type TasteMapNode } from "./taste-map-helpers";
 
 export function TasteMapVisualizer({
   gamesById,
@@ -29,53 +21,16 @@ export function TasteMapVisualizer({
   gameStates: Record<string, ProductGameState>;
   recommendations?: RankedSeedGame[]; // Kept for prop compatibility in taste-shell.tsx
 }) {
-  const { state: playfitState } = usePlayfit();
+  const { state: playfitState } = usePlayfitState();
   const onboarding = playfitState.user.onboarding;
 
   const carouselRef = useRef<HTMLDivElement>(null);
-  const [activeNode, setActiveNode] = useState<GameNode | null>(null);
+  const [activeNode, setActiveNode] = useState<TasteMapNode | null>(null);
 
-  const nodes = useMemo(() => {
-    const list: GameNode[] = [];
-    const addedIds = new Set<string>();
-
-    // Add historical games (rated, onboarding, playing, picks)
-    gamesById.forEach((game) => {
-      const state = gameStates[game.gameId];
-      const isLikedOnboarding = onboarding.likedGameIds.includes(game.gameId);
-      const isDislikedOnboarding = (onboarding.dislikedGameIds ?? []).includes(game.gameId);
-
-      // If it's not onboarding, active state, or pick, ignore
-      if (!state && !isLikedOnboarding && !isDislikedOnboarding) return;
-
-      const isPick = state?.inPlayfitPicks;
-      const isPlaying = state?.status === "playing";
-      const hasRating = state?.rating != null && state.rating > 0;
-
-      let type: "liked" | "disliked" | "pending" = "liked";
-
-      if (isPick && !isPlaying && !hasRating) {
-        type = "pending";
-      } else {
-        const isLikedSignal =
-          isLikedOnboarding ||
-          isPlaying ||
-          (state?.rating && state.rating >= 4) ||
-          ((state?.status === "completed" || state?.status === "beaten") &&
-            state?.rating &&
-            state.rating >= 3);
-
-        type = isLikedSignal ? "liked" : "disliked";
-      }
-
-      const { x, y } = calculateGameCoordinates(game);
-
-      list.push({ game, x, y, type, state });
-      addedIds.add(game.gameId);
-    });
-
-    return list;
-  }, [gamesById, gameStates, onboarding]);
+  const nodes = useMemo(
+    () => buildTasteMapNodes(gamesById, gameStates, onboarding),
+    [gamesById, gameStates, onboarding],
+  );
 
   // Set the first node as active initially
   const [hasDefaulted, setHasDefaulted] = useState(false);

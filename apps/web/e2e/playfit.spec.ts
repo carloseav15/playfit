@@ -246,6 +246,23 @@ async function mockSupabase(page: Page) {
     });
   });
 
+  await page.route("**/auth/v1/logout", async (route) => {
+    await route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route("**/api/auth/mark-returning", async (route) => {
+    if (route.request().method() === "DELETE") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "set-cookie": "pf_returning=; Max-Age=0; Path=/; SameSite=Lax" },
+        body: '{"ok":true}',
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   await page.route("**/rest/v1/games**", (route) =>
     route.fulfill({
       status: 200,
@@ -450,6 +467,17 @@ async function openCalibration(page: Page) {
   }
 }
 
+async function openAuthPanel(page: Page) {
+  const authHeading = page.getByRole("heading", { name: "Welcome to Playfit" });
+  const signIn = page.getByRole("button", { name: "Sign in" });
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await authHeading.isVisible()) return;
+    if (await signIn.isVisible()) await signIn.click();
+    await page.waitForTimeout(250);
+  }
+  await expect(authHeading).toBeVisible({ timeout: 15_000 });
+}
+
 async function advanceFromPlatformStep(page: Page) {
   await openCalibration(page);
   await expect(page.getByRole("heading", { name: "Where do you play?" })).toBeVisible({
@@ -502,6 +530,130 @@ test("public home and health endpoint load", async ({ page, request }) => {
   const health = await request.get("/api/health");
   await expect(health).toBeOK();
   await expect(health.json()).resolves.toMatchObject({ app: "playfit" });
+});
+
+test.describe("auth and logout navigation inventory", () => {
+  test("cold visitor closes sign in back to the marketing landing", async ({ page }) => {
+    await gotoApp(page, "/");
+    await openAuthPanel(page);
+    await page.getByRole("button", { name: "Close" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("guest onboarding creates an anonymous auth session before calibration", async ({
+    page,
+  }) => {
+    await mockSupabase(page);
+    await gotoApp(page, "/");
+    await openCalibration(page);
+
+    await expect(page.getByRole("heading", { name: "Where do you play?" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect
+      .poll(async () => {
+        const cookie = (await page.context().cookies()).find(
+          (entry) => entry.name === "sb-127-auth-token",
+        );
+        if (!cookie) return "";
+        return Buffer.from(cookie.value.replace(/^base64-/, ""), "base64").toString("utf8");
+      })
+      .toContain("is_anonymous");
+  });
+
+  test("returning visitor cookie without a profile returns to the current marketing landing", async ({
+    page,
+  }) => {
+    await page
+      .context()
+      .addCookies([{ name: "pf_returning", value: "1", url: "http://localhost:3107/" }]);
+    await gotoApp(page, "/");
+
+    await expect(
+      page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("heading", { name: "Where do you play?" })).toHaveCount(0);
+    await expect(page.getByText("Hades")).toHaveCount(0);
+    await expect(page.getByText("Your next game")).toHaveCount(0);
+  });
+
+  test("logout clears auth markers and returns to the marketing landing", async ({ page }) => {
+    await mockSupabase(page);
+    await gotoApp(page, "/");
+    await advanceFromPlatformStep(page);
+    await selectLovedGame(page, "Chrono", /Chrono Trigger/);
+    await selectLovedGame(page, "Metroid", /Metroid Prime/);
+    await selectLovedGame(page, "Tears", /Tears of the Kingdom/);
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await selectMissedGame(page, "Resident Evil", /Resident Evil 4/);
+    await page.getByRole("button", { name: "Find Play Next" }).click();
+    await expect(page.getByText("Play this next")).toBeVisible();
+
+    await expect
+      .poll(() => page.context().cookies("http://localhost:3107/"))
+      .toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: "pf_returning", value: "1" })]),
+      );
+
+    await gotoApp(page, "/settings");
+    if ((page.viewportSize()?.width ?? 0) < 768) {
+      await page.getByRole("button", { name: /Your Account/ }).click();
+    }
+    await expect(page.getByRole("button", { name: "Sign Out" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Sign Out" }).click();
+
+    await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+    ).toBeVisible();
+    await expect(page.context().cookies("http://localhost:3107/")).resolves.not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "pf_returning", value: "1" })]),
+    );
+  });
+
+  test("legacy app aliases redirect to their current routes", async ({ page }) => {
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page).not.toHaveURL(/#onboarding$/);
+
+    await page.goto("/app/settings", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/settings$/);
+  });
+
+  test("incomplete profile routes redirect to the current marketing landing", async ({ page }) => {
+    await mockSupabase(page);
+
+    for (const path of ["/settings#onboarding", "/picks", "/taste"]) {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+      await expect(
+        page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+      ).toBeVisible();
+      await expect(page.getByText("Set up your taste first")).toHaveCount(0);
+    }
+  });
+
+  test("returning cookie without a profile never renders the Hades legacy intro", async ({
+    page,
+  }) => {
+    await page
+      .context()
+      .addCookies([{ name: "pf_returning", value: "1", url: "http://localhost:3107/" }]);
+    await mockSupabase(page);
+    await gotoApp(page, "/");
+
+    await expect(
+      page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Hades")).toHaveCount(0);
+    await expect(page.getByText("Your next game")).toHaveCount(0);
+  });
 });
 
 test("anonymous local profile can complete setup and save by device id", async ({ page }) => {
@@ -607,27 +759,30 @@ test("play route loads locally without mandatory sign in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Continue locally" })).toHaveCount(0);
 });
 
-test("play dossier direct link fetches a valid game before asking for taste", async ({ page }) => {
+test("play dossier direct link redirects incomplete users to the marketing landing", async ({
+  page,
+}) => {
   await mockSupabase(page);
 
   await gotoApp(page, "/game/metroid_prime");
 
-  await expect(page.getByRole("heading", { name: "Metroid Prime" })).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(page.getByText("Matches your early taste signals.")).toBeVisible();
-  await expect(page.getByText("Game not found")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+  ).toBeVisible();
+  await expect(page.getByText("Set up your taste first")).toHaveCount(0);
+  await expect(page.getByText("Hades")).toHaveCount(0);
 });
 
-test("picks route asks new users to tune taste first", async ({ page }) => {
+test("picks route redirects new users to the marketing landing", async ({ page }) => {
   await mockSupabase(page);
 
   await gotoApp(page, "/picks");
 
-  await expect(page.getByRole("heading", { name: "Set up your taste first" })).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(page.getByRole("link", { name: "Start Play Next" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", { name: "Never waste your time on the wrong game again." }),
+  ).toBeVisible();
 });
 
 test("taste route explains onboarding signals and lets users remove one", async ({ page }) => {

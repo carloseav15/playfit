@@ -1,7 +1,4 @@
-import { cosineSimilarity } from "../data/tags";
 import type {
-  GameAccessStatus,
-  PlatformAvailability,
   ProductConfidence,
   ProductProfile,
   ProductState,
@@ -9,6 +6,24 @@ import type {
   RankedSeedGame,
   SeedGame,
 } from "../types";
+
+import {
+  buildAccessiblePlatformIds,
+  getAccessStatus,
+  getPlatformAvailability,
+  isPlayableNow,
+} from "./recommendation-access";
+import { buildTodayModel as buildTodayModelFromPipeline } from "./recommendation-model";
+import {
+  buildDislikedTagsFromProfile,
+  buildLikedTagsFromProfile,
+} from "./recommendation-profile-tags";
+
+export {
+  buildDislikedTagsFromProfile,
+  buildLikedTagsFromProfile,
+} from "./recommendation-profile-tags";
+export { findSeriesGames, findSimilarGames } from "./recommendation-similarity";
 
 // Scoring constants
 export const HIGH_FRICTION_THRESHOLD = 58;
@@ -207,29 +222,6 @@ function caveatCopy(tag: string, confidence: RankedSeedGame["confidence"]) {
   return `Early caveat around ${label}`;
 }
 
-function isPlayableNow(entry: RankedSeedGame) {
-  return entry.accessStatus === "playable";
-}
-
-function getAccessStatus(
-  game: SeedGame,
-  platformAvailability: PlatformAvailability,
-): GameAccessStatus {
-  if (game.releaseState === "unreleased") {
-    return "unreleased";
-  }
-
-  if (platformAvailability === "unavailable") {
-    return "not_on_platforms";
-  }
-
-  if (platformAvailability === "unknown") {
-    return "unknown_platform";
-  }
-
-  return "playable";
-}
-
 function updatedAtValue(state: ProductState, entry: RankedSeedGame) {
   const value = state.user.gameStates[entry.game.gameId]?.updatedAt;
   return value ? Date.parse(value) || 0 : 0;
@@ -240,27 +232,6 @@ function sortPlayingNow(state: ProductState) {
     right.affinityScore - left.affinityScore ||
     left.riskScore - right.riskScore ||
     updatedAtValue(state, right) - updatedAtValue(state, left);
-}
-
-function buildAccessiblePlatformIds(state: ProductState) {
-  return new Set(
-    state.user.onboarding.platforms
-      .filter((entry) => ["available", "limited"].includes(entry.status))
-      .map((entry) => entry.platformId),
-  );
-}
-
-function getPlatformAvailability(
-  game: SeedGame,
-  accessiblePlatformIds: Set<string>,
-): PlatformAvailability {
-  if (!game.availablePlatformIds || game.availablePlatformIds.length === 0) {
-    return "unknown";
-  }
-
-  return game.availablePlatformIds.some((platformId) => accessiblePlatformIds.has(platformId))
-    ? "available"
-    : "unavailable";
 }
 
 function clampWeight(value: number) {
@@ -274,22 +245,6 @@ export function getTagWeight(tag: string): number {
   const gameCount = TAG_DOCUMENT_FREQUENCY[tag] ?? 1;
   const idf = Math.log(TAG_DOCUMENT_FREQUENCY_TOTAL_GAMES / Math.max(gameCount, 1));
   return clampWeight(TAG_WEIGHT_MIN + TAG_WEIGHT_IDF_SCALE * idf);
-}
-
-export function buildLikedTagsFromProfile(profile: ProductProfile) {
-  return Object.fromEntries(
-    Object.entries(profile.likedTags).filter(
-      ([tag, count]) => count > (profile.dislikedTags[tag] ?? 0),
-    ),
-  );
-}
-
-export function buildDislikedTagsFromProfile(profile: ProductProfile) {
-  return Object.fromEntries(
-    Object.entries(profile.dislikedTags).filter(
-      ([tag, count]) => count > (profile.likedTags[tag] ?? 0),
-    ),
-  );
 }
 
 function weightedCosineSimilarity(gameTags: string[], profileTags: Record<string, number>): number {
@@ -444,185 +399,22 @@ function scoreSeedGameWithContext(
   };
 }
 
-export function findSeriesGames(game: SeedGame, allGames: SeedGame[], limit = 20): SeedGame[] {
-  const seriesKey = game.seriesId ?? game.series;
-  if (!seriesKey) return [];
-  return allGames
-    .filter((g) => (g.seriesId ?? g.series) === seriesKey && g.gameId !== game.gameId)
-    .slice(0, limit);
-}
-
-export function findSimilarGames(game: SeedGame, allGames: SeedGame[], limit = 20): SeedGame[] {
-  return allGames
-    .filter((g) => g.gameId !== game.gameId && isScoredGame(g))
-    .map((g) => ({
-      game: g,
-      similarity: cosineSimilarity(game.tags, g.tags),
-    }))
-    .sort((left, right) => right.similarity - left.similarity)
-    .slice(0, limit)
-    .map((entry) => entry.game);
-}
-
 export function buildTodayModel(
   games: SeedGame[],
   state: ProductState,
   profile: ProductProfile | null,
 ): ProductTodayModel {
-  const debug = process.env.NODE_ENV === "development";
-  if (!profile) {
-    return { currentRun: [], nextUp: [], resume: [], picks: [] };
-  }
-
-  const onboardingGameIds = new Set([
-    ...state.user.onboarding.likedGameIds,
-    ...(state.user.onboarding.dislikedGameIds ?? []),
-  ]);
-
-  // Hoist: compute profile vectors once instead of per-game
-  const likedTags = buildLikedTagsFromProfile(profile);
-  const dislikedTags = buildDislikedTagsFromProfile(profile);
-  const accessiblePlatformIds = buildAccessiblePlatformIds(state);
-
-  const allProfileTags = new Set([...Object.keys(likedTags), ...Object.keys(dislikedTags)]);
-  const hasProfileTags = allProfileTags.size > 0;
-
-  const afterScored = games.filter((game) => {
-    if (!isScoredGame(game)) return false;
-    // Pre-filter: skip games with zero tag overlap with the user's profile.
-    // Games the user has interacted with (playing, wishlist, picks) are always kept.
-    if (hasProfileTags && !game.tags.some((tag) => allProfileTags.has(tag))) {
-      const gs = state.user.gameStates[game.gameId];
-      const hasState = gs?.status || gs?.inPlayfitPicks || gs?.inWishlist;
-      if (!hasState) return false;
-    }
-    return true;
+  return buildTodayModelFromPipeline(games, state, profile, {
+    buildAccessiblePlatformIds,
+    buildDislikedTagsFromProfile,
+    buildLikedTagsFromProfile,
+    confidenceRank: CONFIDENCE_RANK,
+    highFrictionThreshold: HIGH_FRICTION_THRESHOLD,
+    isPlayableNow,
+    isScoredGame,
+    scoreSeedGameWithContext,
+    sortPlayingNow,
   });
-  const afterMap = afterScored.map((game) =>
-    scoreSeedGameWithContext(game, state, likedTags, dislikedTags, accessiblePlatformIds, profile),
-  );
-  const rankedFiltered = afterMap.filter((entry) => {
-    const stateEntry = state.user.gameStates[entry.game.gameId];
-    if (onboardingGameIds.has(entry.game.gameId)) return false;
-    if (stateEntry?.status === "completed" || stateEntry?.status === "beaten") return false;
-    if (stateEntry?.status === "abandoned") return false;
-    if (stateEntry?.excluded) return false;
-    return true;
-  });
-
-  if (debug) {
-    const platformCounts: Record<string, number> = {};
-    for (const entry of afterMap) {
-      const key = entry.accessStatus;
-      platformCounts[key] = (platformCounts[key] ?? 0) + 1;
-    }
-    const terminal = afterMap.filter((e) => {
-      const s = state.user.gameStates[e.game.gameId];
-      return (
-        s?.status === "completed" ||
-        s?.status === "beaten" ||
-        s?.status === "abandoned" ||
-        s?.excluded
-      );
-    });
-    console.log(
-      JSON.stringify({
-        stage: "buildTodayModel",
-        totalGames: games.length,
-        afterIsScoredGame: afterScored.length,
-        afterScore: afterMap.length,
-        afterOnboardingExclusion: afterMap.length - (afterMap.length - rankedFiltered.length),
-        afterTerminal: rankedFiltered.length,
-        filteredAsOnboarding: afterMap.filter((e) => onboardingGameIds.has(e.game.gameId)).length,
-        filteredAsTerminal: terminal.length,
-        accessStatusDistribution: platformCounts,
-        accessiblePlatformIds: [...accessiblePlatformIds],
-      }),
-    );
-  }
-
-  const currentRun = rankedFiltered
-    .filter((entry) => state.user.gameStates[entry.game.gameId]?.status === "playing")
-    .sort(sortPlayingNow(state));
-
-  const resume = rankedFiltered
-    .filter(
-      (entry) =>
-        (state.user.gameStates[entry.game.gameId]?.status === "on_hold" ||
-          state.user.gameStates[entry.game.gameId]?.status === "shelved") &&
-        entry.accessStatus === "playable",
-    )
-    .sort((left, right) => right.affinityScore - left.affinityScore)
-    .slice(0, 10);
-
-  const picks = rankedFiltered
-    .filter((entry) => entry.inPlayfitPicks && isPlayableNow(entry))
-    .sort(
-      (left, right) =>
-        right.affinityScore - left.affinityScore ||
-        left.riskScore - right.riskScore ||
-        CONFIDENCE_RANK[right.confidence] - CONFIDENCE_RANK[left.confidence],
-    )
-    .slice(0, 100);
-
-  const playableCandidates = rankedFiltered.filter((entry) => {
-    const stateEntry = state.user.gameStates[entry.game.gameId];
-    return (
-      isPlayableNow(entry) &&
-      entry.riskScore < HIGH_FRICTION_THRESHOLD &&
-      stateEntry?.status !== "playing" &&
-      stateEntry?.status !== "on_hold" &&
-      stateEntry?.status !== "shelved" &&
-      stateEntry?.status !== "abandoned" &&
-      !entry.inWishlist &&
-      !entry.inPlayfitPicks
-    );
-  });
-
-  if (debug) {
-    const reasons: Record<string, number> = {};
-    for (const entry of rankedFiltered) {
-      const stateEntry = state.user.gameStates[entry.game.gameId];
-      if (!isPlayableNow(entry)) {
-        const key = `not_playable:${entry.accessStatus}`;
-        reasons[key] = (reasons[key] ?? 0) + 1;
-      } else if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) {
-        reasons[`high_risk:${entry.riskScore}`] =
-          (reasons[`high_risk:${entry.riskScore}`] ?? 0) + 1;
-      } else if (
-        stateEntry?.status === "playing" ||
-        stateEntry?.status === "on_hold" ||
-        stateEntry?.status === "shelved" ||
-        stateEntry?.status === "abandoned"
-      ) {
-        reasons[`status:${stateEntry.status}`] = (reasons[`status:${stateEntry.status}`] ?? 0) + 1;
-      } else if (entry.inWishlist) {
-        reasons.in_wishlist = (reasons.in_wishlist ?? 0) + 1;
-      } else if (entry.inPlayfitPicks) {
-        reasons.in_playfit_picks = (reasons.in_playfit_picks ?? 0) + 1;
-      }
-    }
-    console.log(
-      JSON.stringify({
-        stage: "buildTodayModel.playableCandidates",
-        rankedFiltered: rankedFiltered.length,
-        playableCandidates: playableCandidates.length,
-        notPlayableBreakdown: reasons,
-        currentRun: currentRun.length,
-        resume: resume.length,
-        picks: picks.length,
-        nextUp: playableCandidates.slice(0, 100).length,
-      }),
-    );
-  }
-
-  const sortedPlayable = playableCandidates.sort((left, right) => {
-    return right.affinityScore - left.affinityScore || left.riskScore - right.riskScore;
-  });
-
-  const nextUp = sortedPlayable.slice(0, 10);
-
-  return { currentRun, nextUp, resume, picks };
 }
 export {
   buildFinderIndex,

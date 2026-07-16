@@ -3,11 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  usePlayfit: vi.fn(),
+  usePlayfitState: vi.fn(),
 }));
 
 vi.mock("../playfit/playfit-context", () => ({
-  usePlayfit: mocks.usePlayfit,
+  usePlayfitState: mocks.usePlayfitState,
 }));
 
 vi.mock("../playfit/status-toast", () => ({
@@ -24,8 +24,8 @@ describe("PicksShell", () => {
     vi.clearAllMocks();
   });
 
-  it("asks users to tune taste before showing picks", async () => {
-    mocks.usePlayfit.mockReturnValue({
+  it("renders no fallback screen before redirecting users without a profile", async () => {
+    mocks.usePlayfitState.mockReturnValue({
       state: createInitialState(),
       applyDecisionFeedback: vi.fn(),
       setPlayfitPick: vi.fn(),
@@ -34,7 +34,6 @@ describe("PicksShell", () => {
 
     const html = renderToStaticMarkup(<PicksShell />);
 
-    expect(html).toContain("Set up your taste first");
-    expect(html).toContain("Start Play Next");
+    expect(html).toBe("");
   });
 });
