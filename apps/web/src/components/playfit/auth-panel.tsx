@@ -4,14 +4,11 @@ import { ArrowLeft, ArrowRight, Lock, Mail, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import type React from "react";
-import { useCallback, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { buildSiteUrl } from "@/lib/site-url";
-import { supabase } from "@/lib/supabase/client";
+import { useAuthPanel } from "./use-auth-panel";
 
 interface AuthPanelProps {
   onAuth: (userId: string, email: string) => void;
@@ -19,130 +16,21 @@ interface AuthPanelProps {
   onClose?: () => void;
 }
 
-type AuthView = "options" | "signin" | "signup";
-
 export function AuthPanel({ onAuth, onContinueLocal, onClose }: AuthPanelProps) {
-  const [view, setView] = useState<AuthView>("options");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const clearMessages = useCallback(() => {
-    setError(null);
-    setSuccess(null);
-  }, []);
-
-  const handleSwitchView = useCallback(
-    (nextView: AuthView) => {
-      clearMessages();
-      setView(nextView);
-    },
-    [clearMessages],
-  );
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError(null);
-      setSuccess(null);
-      setBusy(true);
-
-      const isSignUp = view === "signup";
-
-      try {
-        const fn = isSignUp
-          ? supabase.auth.signUp({
-              email,
-              password,
-              options: { emailRedirectTo: buildSiteUrl("/auth/callback") },
-            })
-          : supabase.auth.signInWithPassword({ email, password });
-
-        const { data, error: authError } = await fn;
-
-        if (authError) {
-          setError(authError.message);
-          return;
-        }
-
-        if (isSignUp && !data.session) {
-          setSuccess("Please check your email to verify your account.");
-          return;
-        }
-
-        const userId = data.user?.id;
-        if (userId) {
-          if (data.session?.access_token) {
-            try {
-              await fetch("/api/auth/mark-returning", {
-                method: "POST",
-                headers: { authorization: `Bearer ${data.session.access_token}` },
-              });
-            } catch {
-              // Best-effort -- only smooths out the next visit to "/", never blocks sign-in.
-            }
-          }
-          onAuth(userId, email);
-        } else {
-          setError("Could not authenticate. Check your credentials.");
-        }
-      } catch {
-        setError("Connection error. Please try again.");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [email, password, view, onAuth],
-  );
-
-  const handleGoogleSignIn = useCallback(async () => {
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-
-    try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: buildSiteUrl("/auth/callback"),
-        },
-      });
-
-      if (authError) {
-        setError(authError.message);
-        setBusy(false);
-      }
-    } catch {
-      setError("Connection error. Please try again.");
-      setBusy(false);
-    }
-  }, []);
-
-  const handleForgotPassword = useCallback(async () => {
-    if (!email) {
-      setError("Enter your email address first.");
-      return;
-    }
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: buildSiteUrl("/auth/callback?next=/auth/reset-password"),
-      });
-      if (resetError) {
-        setError(resetError.message);
-      } else {
-        setSuccess("If that email is registered, you'll receive a reset link shortly.");
-      }
-    } catch {
-      setError("Connection error. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }, [email]);
+  const {
+    view,
+    email,
+    password,
+    error,
+    success,
+    busy,
+    setEmail,
+    setPassword,
+    handleSwitchView,
+    handleSubmit,
+    handleGoogleSignIn,
+    handleForgotPassword,
+  } = useAuthPanel({ onAuth });
 
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden p-6 text-center bg-background text-foreground animate-in fade-in duration-300">

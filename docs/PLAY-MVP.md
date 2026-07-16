@@ -60,9 +60,11 @@ recommendation quickly and gives at least one signal back.
 | `/game/[gameId]` | Focused dossier explaining a recommendation |
 | `/picks` | Short ordered list of saved Playfit recommendations |
 | `/taste` | Explanation and correction layer for taste signals |
+| `/settings` | Platforms, appearance, account, and privacy settings |
 
-`/app` remains the broader product shell. It should not define the first-contact
-experience for this MVP.
+`/app` is a legacy alias: `/app` redirects to `/` and `/app/:path*` redirects to
+the equivalent current route. It is not a separate product shell and should not
+define the first-contact experience for this MVP.
 
 ## Target User
 

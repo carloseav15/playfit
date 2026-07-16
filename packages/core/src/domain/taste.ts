@@ -3,36 +3,16 @@ import type {
   ProductOnboardingDraft,
   ProductProfile,
   ProductTasteConfidence,
-  ProductTasteDecision,
   ProductTasteHistoryEntry,
   ProductTasteMapTrait,
   ProductTasteModel,
-  ProductTasteSignalSource,
   ProductTasteSummaryConfidence,
-  ProductTasteTone,
   SeedGame,
 } from "../types";
 import { buildTagPreferenceAnalysis } from "./onboarding";
+import { buildTasteHistoryEntries } from "./taste-history";
 
 const MAX_TASTE_TRAITS = 25;
-
-function decisionFromRating(record: ProductGameState): ProductTasteDecision | null {
-  if (record.status === "abandoned") return "dropped";
-  if (record.excluded) return "not_for_me";
-  if (record.rating == null || record.rating <= 0) return null;
-  if (record.rating >= 4.5) return "loved";
-  if (record.rating >= 4) return "liked";
-  if (record.rating >= 3) return "mixed";
-  return "not_for_me";
-}
-
-function toneFromDecision(decision: ProductTasteDecision): ProductTasteTone {
-  if (decision === "setup_miss" || decision === "dropped" || decision === "not_for_me") {
-    return "negative";
-  }
-  if (decision === "mixed") return "mixed";
-  return "positive";
-}
 
 function confidenceFromCount(count: number): ProductTasteConfidence {
   if (count >= 4) return "Strong";
@@ -44,30 +24,6 @@ function summaryConfidence(evidenceCount: number): ProductTasteSummaryConfidence
   if (evidenceCount >= 8) return "Strong";
   if (evidenceCount >= 4) return "Emerging";
   return "Still learning";
-}
-
-function buildHistoryEntry({
-  game,
-  decision,
-  source,
-  record,
-}: {
-  game: SeedGame;
-  decision: ProductTasteDecision;
-  source: ProductTasteSignalSource;
-  record?: ProductGameState;
-}): ProductTasteHistoryEntry {
-  return {
-    gameId: game.gameId,
-    title: game.title,
-    decision,
-    source,
-    tone: toneFromDecision(decision),
-    rating: record?.rating,
-    status: record?.status,
-    updatedAt: record?.updatedAt,
-    traits: [game.genreId ?? game.primaryGenre, ...game.tags].filter(Boolean).slice(0, 4),
-  };
 }
 
 function countGenreTraits(
@@ -134,44 +90,7 @@ export function buildTasteModel(
   gamesById: Map<string, SeedGame>,
   profile: ProductProfile | null,
 ): ProductTasteModel {
-  const entriesByGame = new Map<string, ProductTasteHistoryEntry>();
-
-  for (const record of Object.values(gameStates)) {
-    const game = gamesById.get(record.gameId);
-    if (!game) continue;
-    const decision = decisionFromRating(record);
-    if (!decision) continue;
-    entriesByGame.set(
-      record.gameId,
-      buildHistoryEntry({ game, decision, source: "rating", record }),
-    );
-  }
-
-  for (const gameId of draft.likedGameIds) {
-    if (entriesByGame.has(gameId)) continue;
-    const game = gamesById.get(gameId);
-    if (!game) continue;
-    entriesByGame.set(
-      gameId,
-      buildHistoryEntry({ game, decision: "setup_favorite", source: "onboarding_liked" }),
-    );
-  }
-
-  for (const gameId of draft.dislikedGameIds ?? []) {
-    if (entriesByGame.has(gameId)) continue;
-    const game = gamesById.get(gameId);
-    if (!game) continue;
-    entriesByGame.set(
-      gameId,
-      buildHistoryEntry({ game, decision: "setup_miss", source: "onboarding_disliked" }),
-    );
-  }
-
-  const historyEntries = [...entriesByGame.values()].sort((left, right) => {
-    const leftTime = left.updatedAt ? Date.parse(left.updatedAt) : 0;
-    const rightTime = right.updatedAt ? Date.parse(right.updatedAt) : 0;
-    return rightTime - leftTime || left.title.localeCompare(right.title);
-  });
+  const historyEntries = buildTasteHistoryEntries(draft, gameStates, gamesById);
 
   const tagEvidence = buildTagPreferenceAnalysis(draft, gamesById, gameStates);
   const traitsById = new Map<string, ProductTasteMapTrait>();

@@ -1,6 +1,5 @@
 "use client";
 
-import { buildAdaptiveProfile } from "@playfit/core/domain";
 import type { SeedGame } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import { X } from "lucide-react";
@@ -21,6 +20,7 @@ import { OnboardingProgress } from "./onboarding/onboarding-progress";
 import { OnboardingSearchDialog } from "./onboarding/onboarding-search-dialog";
 import { PlatformsStep } from "./onboarding/platforms-step";
 import { usePlayfitState, usePlayfitUi } from "./playfit-context";
+import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
 import { SectionHead } from "./section-head";
 
 export function OnboardingSection({ onExit }: { onExit?: () => void }) {
@@ -209,17 +209,7 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
 
   function finalize() {
     updateState((next) => {
-      const ids = new Set([
-        ...next.user.onboarding.likedGameIds,
-        ...(next.user.onboarding.dislikedGameIds ?? []),
-        ...Object.keys(next.user.gameStates),
-      ]);
-      const map = new Map<string, SeedGame>();
-      for (const id of ids) {
-        const game = getSeedGame(id);
-        if (game) map.set(id, game);
-      }
-      next.user.profile = buildAdaptiveProfile(next.user.onboarding, map, next.user.gameStates);
+      next.user.profile = buildAdaptiveProfileFromCache(next.user.onboarding, next.user.gameStates);
       next.user.onboardingCompletedAt = nowIso();
     });
     flushSave();

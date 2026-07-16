@@ -1,39 +1,36 @@
 "use client";
 
-import { buildAdaptiveProfile } from "@playfit/core/domain";
 import { createInitialState, resetProductState, setCachedAuth } from "@playfit/core/store";
 import type {
   ProductGameState,
   ProductPlatformOption,
   ProductSeedData,
   ProductState,
-  SeedGame,
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import type React from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { clearGameCache, getCachedGame } from "@/lib/game-cache";
-import { LANDING_REDIRECT_MARKER } from "@/lib/redirect-to-landing";
 import { buildSiteUrl } from "@/lib/site-url";
 import { supabase } from "@/lib/supabase/client";
 import { AuthPanel } from "./auth-panel";
+import { buildGameState } from "./game-action-helpers";
 import type {
   PlayfitStateContextValue,
   PlayfitUiContextValue,
-  ProductTab,
   ProductUiState,
 } from "./playfit-context-types";
+import { cloneState, initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
 import {
-  buildGameState,
-  cloneState,
-  initialUi,
-  withDefaultPlatforms,
-} from "./playfit-provider-helpers";
+  buildAdaptiveProfileFromCache,
+  rebuildAdaptiveProfileFromCache,
+} from "./profile-cache-helpers";
 import { usePlayfitAuth } from "./use-playfit-auth";
 import { usePlayfitBoot } from "./use-playfit-boot";
 import { usePlayfitGameActions } from "./use-playfit-game-actions";
 import { usePlayfitSearch } from "./use-playfit-search";
+import { useProductTabNavigation } from "./use-product-tab-navigation";
 import { useQueuedProfileSave } from "./use-queued-profile-save";
 
 export type {
@@ -90,51 +87,7 @@ export function PlayfitProvider({
     setUi,
   });
 
-  const activeTab = ui?.activeTab;
-  useEffect(() => {
-    if (!activeTab) return;
-    const redirectedFromApp = window.sessionStorage.getItem(LANDING_REDIRECT_MARKER) === "1";
-    const referrer = document.referrer ? new URL(document.referrer) : null;
-    const redirectedFromSettings =
-      redirectedFromApp ||
-      (referrer?.origin === window.location.origin && referrer.pathname === "/settings");
-    if (window.location.pathname === "/" && redirectedFromSettings) {
-      window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
-      if (window.location.hash) window.history.replaceState(null, "", "/");
-      return;
-    }
-    const managesProductTabs = ["/", "/play"].includes(window.location.pathname);
-    if (!managesProductTabs) return;
-    const hash = activeTab === "today" ? "" : activeTab;
-    if (hash) {
-      window.location.hash = hash;
-    } else if (window.location.hash) {
-      history.replaceState(null, "", window.location.pathname);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!ui || !state) return;
-    const onboardingCompleted = !!state.user.onboardingCompletedAt;
-
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "") as ProductTab;
-      const validTabs: ProductTab[] = ["today", "onboarding"];
-      if (!hash || !validTabs.includes(hash)) return;
-
-      const nextTab = onboardingCompleted || hash === "onboarding" ? hash : "onboarding";
-      if (nextTab !== hash) {
-        history.replaceState(null, "", `${window.location.pathname}#${nextTab}`);
-      }
-
-      setUi((current) => {
-        if (!current || nextTab === current.activeTab) return current;
-        return { ...current, activeTab: nextTab };
-      });
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, [ui, state]);
+  useProductTabNavigation({ activeTab: ui?.activeTab, state, setUi });
 
   const updateState = useCallback(
     (updater: (draft: ProductState) => void) => {
@@ -156,26 +109,6 @@ export function PlayfitProvider({
       return typeof action === "function" ? action(current) : action;
     });
   }, []);
-
-  const gamesByIdForProfile = useMemo(() => {
-    if (!state) return new Map<string, SeedGame>();
-    const map = new Map<string, SeedGame>();
-    const ids = new Set([
-      ...state.user.onboarding.likedGameIds,
-      ...(state.user.onboarding.dislikedGameIds ?? []),
-      ...Object.keys(state.user.gameStates),
-    ]);
-    for (const id of ids) {
-      const game = getCachedGame(id);
-      if (game) map.set(id, game);
-    }
-    return map;
-  }, [
-    state?.user.onboarding.likedGameIds,
-    state?.user.onboarding.dislikedGameIds,
-    state?.user.gameStates,
-    state,
-  ]);
 
   const gameActions = usePlayfitGameActions({
     state,
@@ -203,30 +136,12 @@ export function PlayfitProvider({
         return getCachedGame(gameId) ?? null;
       },
       buildProfileFromCurrentData() {
-        return buildAdaptiveProfile(
-          state.user.onboarding,
-          gamesByIdForProfile,
-          state.user.gameStates,
-        );
+        return buildAdaptiveProfileFromCache(state.user.onboarding, state.user.gameStates);
       },
       refreshAdaptiveProfile() {
         updateState((draft) => {
           if (draft.user.onboardingCompletedAt) {
-            const ids = new Set([
-              ...draft.user.onboarding.likedGameIds,
-              ...(draft.user.onboarding.dislikedGameIds ?? []),
-              ...Object.keys(draft.user.gameStates),
-            ]);
-            const map = new Map<string, SeedGame>();
-            for (const id of ids) {
-              const game = getCachedGame(id);
-              if (game) map.set(id, game);
-            }
-            draft.user.profile = buildAdaptiveProfile(
-              draft.user.onboarding,
-              map,
-              draft.user.gameStates,
-            );
+            rebuildAdaptiveProfileFromCache(draft);
           }
         });
         setTimeout(() => {
@@ -340,7 +255,6 @@ export function PlayfitProvider({
     state,
     isSaving,
     platforms,
-    gamesByIdForProfile,
     updateState,
     updateUi,
     enqueueSave,

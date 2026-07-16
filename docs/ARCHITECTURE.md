@@ -26,9 +26,8 @@ apps/web/src/
       games/                # catalog search, batch and detail
       profile/              # profile and per-game state persistence
       recommendations/      # today, picks, taste model, similar and dossier
-      admin/covers/         # authenticated cover maintenance
-    auth/callback/          # OAuth callback
-    admin/covers/           # cover administration UI
+      auth/callback/          # OAuth callback
+    auth/reset-password/    # password reset UI
     how-it-works/ legal/ ui-kit/
   components/playfit/       # product UI and route-specific desktop/mobile shells
   lib/
