@@ -49,6 +49,9 @@ npm run build
 npm run check
 npm run quality
 npm run test:coverage -w apps/web
+
+# Optional: full source coverage, including presentational React components
+npm run test:coverage:full -w apps/web
 npm run check:ci
 npm audit --audit-level=moderate
 npm run validate:migrations
