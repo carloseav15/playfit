@@ -2,7 +2,8 @@
 # Validates Supabase migration files before applying
 set -euo pipefail
 
-MIGRATIONS_DIR="supabase/migrations"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MIGRATIONS_DIR="$PROJECT_ROOT/supabase/migrations"
 ERRORS=0
 
 echo "=== Migration Validation ==="
@@ -59,8 +60,11 @@ echo ""
 # 4. Check down migration references all up migrations
 echo "--- Down migration coverage ---"
 DOWN_FILE="$MIGRATIONS_DIR/20260612999999_down_migration.sql"
+if [ ! -f "$DOWN_FILE" ]; then
+  DOWN_FILE="$PROJECT_ROOT/supabase/scripts/20260612999999_down_migration.sql"
+fi
 if [ -f "$DOWN_FILE" ]; then
-  for f in "$MIGRATIONS_DIR"/20260612*.sql; do
+  for f in "$MIGRATIONS_DIR"/*.sql; do
     basename=$(basename "$f")
     if [ "$basename" = "20260612999999_down_migration.sql" ]; then
       continue
@@ -89,4 +93,3 @@ fi
 echo ""
 echo "=== Results: $ERRORS error(s) ==="
 exit $ERRORS
-

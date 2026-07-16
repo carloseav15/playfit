@@ -1,13 +1,14 @@
 import { scoreSeedGame } from "@playfit/core/domain";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
-import { jsonError } from "@/lib/api-errors";
-import { captureApiError } from "@/lib/monitoring";
+import { picksResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
+import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { buildStateForScoring, fetchFullGamesById, loadRecommendationState } from "../shared";
 
 const PICKS_CACHE_TTL = 300;
 
-export async function GET(request: Request) {
+async function getPicks(request: Request) {
   const loaded = await loadRecommendationState(request);
   if (!loaded.ok) {
     return jsonError(loaded.error, loaded.status);
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
 
   const cacheKey = `recs:picks:${loaded.userId}:${pickIds.join(",")}`;
   const cached = await getCache<RankedSeedGame[]>(cacheKey);
-  if (cached) return Response.json(cached);
+  if (cached) return jsonData(picksResponseSchema, cached);
 
   try {
     const gamesById = await fetchFullGamesById(pickIds);
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 
     void setCache(cacheKey, picks, PICKS_CACHE_TTL);
 
-    return Response.json(picks);
+    return jsonData(picksResponseSchema, picks);
   } catch (error) {
     captureApiError(error, {
       route: "/api/recommendations/picks",
@@ -60,4 +61,8 @@ export async function GET(request: Request) {
     });
     return jsonError("Failed to score picks", 500);
   }
+}
+
+export function GET(request: Request) {
+  return withApiTiming(request, "/api/recommendations/picks", () => getPicks(request));
 }

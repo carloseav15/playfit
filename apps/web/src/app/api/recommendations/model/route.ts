@@ -1,4 +1,5 @@
-import { jsonError } from "@/lib/api-errors";
+import { recommendationModelSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import { captureApiError } from "@/lib/monitoring";
 import { loadRecommendationState, scoreTodayModel } from "../shared";
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       userId: loaded.userId,
       cacheScope: "model",
     });
-    return Response.json(model);
+    return jsonData(recommendationModelSchema, model);
   } catch (error) {
     captureApiError(error, {
       route: "/api/recommendations/model",

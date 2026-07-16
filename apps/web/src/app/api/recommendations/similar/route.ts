@@ -1,4 +1,5 @@
-import { jsonError } from "@/lib/api-errors";
+import { similarResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import { resolveGameRedirect } from "@/lib/game-redirects";
 import { captureApiError } from "@/lib/monitoring";
 import { createAnonClient } from "@/lib/supabase/server";
@@ -10,9 +11,19 @@ const SERIES_LIMIT = 20;
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const { gameId } = (await request.json()) as { gameId: string };
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON payload", 400);
+  }
 
-  if (!gameId) {
+  const gameId =
+    typeof body === "object" && body !== null && "gameId" in body
+      ? (body as { gameId?: unknown }).gameId
+      : undefined;
+
+  if (typeof gameId !== "string" || gameId.length === 0) {
     return jsonError("gameId is required", 400);
   }
 
@@ -67,7 +78,7 @@ export async function POST(request: Request) {
     const similar = similarIds.map((id) => gamesById.get(id)).filter((game) => game !== undefined);
     const series = seriesIds.map((id) => gamesById.get(id)).filter((game) => game !== undefined);
 
-    return Response.json({ similar, series });
+    return jsonData(similarResponseSchema, { similar, series });
   } catch (error) {
     captureApiError(error, {
       route: "/api/recommendations/similar",

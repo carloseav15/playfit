@@ -43,6 +43,10 @@ interface SeriesRow {
   name: string;
 }
 
+interface CatalogBrowseRow {
+  game_id: string;
+}
+
 interface QueryState {
   table: string;
   orderColumn?: string;
@@ -166,12 +170,21 @@ function createQuery(table: string) {
 }
 
 interface QueryResult {
-  data: (GameRow | AliasRow | PlatformRow | SeriesRow)[] | null;
+  data: (GameRow | AliasRow | PlatformRow | SeriesRow | CatalogBrowseRow)[] | null;
   error: { message: string } | null;
   count?: number;
 }
 
 function resolveQuery(state: QueryState): QueryResult {
+  if (state.table === "game_catalog_browse") {
+    return {
+      data: [...mocks.games]
+        .sort((left, right) => catalogQualityScore(right) - catalogQualityScore(left))
+        .map((game) => ({ game_id: game.game_id })),
+      error: null,
+      count: mocks.games.length,
+    };
+  }
   if (state.table === "games") return resolveGamesQuery(state);
   if (state.table === "game_aliases") return resolveAliasQuery(state);
   if (state.table === "game_platforms") {
@@ -182,6 +195,17 @@ function resolveQuery(state: QueryState): QueryResult {
   }
   if (state.table === "series") return resolveSeriesQuery(state);
   return { data: [], error: null };
+}
+
+function catalogQualityScore(game: GameRow): number {
+  return (
+    (/^[a-z0-9]/i.test(game.title) ? 20 : 0) +
+    (game.cover_url ? 8 : 0) +
+    (game.genre_id && game.genre_id !== "unknown" ? 4 : 0) +
+    (game.tags?.length ? 4 : 0) +
+    (game.release_year != null ? 2 : 0) +
+    (game.source_ref ? 2 : 0)
+  );
 }
 
 function resolveGamesQuery(state: QueryState): QueryResult {
@@ -328,5 +352,29 @@ describe("games API route", () => {
     expect(json.total).toBe(1);
     expect(json.games[0].gameId).toBe("chrono_trigger");
     expect(json.games[0].game_id).toBeUndefined();
+  });
+
+  it("uses quality ordering for the unfiltered browse without hiding records", async () => {
+    mocks.games = [
+      gameRow("punctuation_title", ".placeholder", {
+        cover_url: "",
+        genre_id: null,
+        tags: [],
+        release_year: null,
+        source_ref: "",
+      }),
+      gameRow("complete_title", "Chrono Trigger"),
+    ];
+
+    const { GET } = await loadRoute();
+    const response = await GET(new Request("http://playfit.test/api/games?page=1&pageSize=20"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.total).toBe(2);
+    expect(json.games.map((game: { gameId: string }) => game.gameId)).toEqual([
+      "complete_title",
+      "punctuation_title",
+    ]);
   });
 });

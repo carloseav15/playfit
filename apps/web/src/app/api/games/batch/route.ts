@@ -1,4 +1,5 @@
-import { jsonError } from "@/lib/api-errors";
+import { batchGamesResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import { GAME_PLATFORM_SELECT, GAME_SELECT, mapGameRowToSeedGame } from "@/lib/game-mapper";
 import { resolveGameRedirects } from "@/lib/game-redirects";
 import { createAnonClient } from "@/lib/supabase/server";
@@ -35,11 +36,23 @@ interface AliasJoinRow {
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const { gameIds } = (await request.json()) as { gameIds: string[] };
-
-  if (!Array.isArray(gameIds) || gameIds.length === 0) {
-    return Response.json({ games: [] });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON payload", 400);
   }
+
+  const gameIds =
+    typeof body === "object" && body !== null && "gameIds" in body
+      ? (body as { gameIds?: unknown }).gameIds
+      : undefined;
+
+  if (!Array.isArray(gameIds) || !gameIds.every((id) => typeof id === "string" && id.length > 0)) {
+    return jsonError("gameIds must be an array of strings", 400);
+  }
+
+  if (gameIds.length === 0) return jsonData(batchGamesResponseSchema, { games: [] });
 
   if (gameIds.length > 500) {
     return jsonError("Too many game IDs (max 500)", 400);
@@ -64,7 +77,7 @@ export async function POST(request: Request) {
 
   const games = (rawGames as GameRow[]) ?? [];
   if (games.length === 0) {
-    return Response.json({ games: [] });
+    return jsonData(batchGamesResponseSchema, { games: [] });
   }
 
   const fetchedIds = games.map((g) => g.game_id);
@@ -104,5 +117,5 @@ export async function POST(request: Request) {
     ),
   );
 
-  return Response.json({ games: seedGames });
+  return jsonData(batchGamesResponseSchema, { games: seedGames });
 }

@@ -64,12 +64,34 @@ Run the cover check with:
 npm run check:covers
 ```
 
+## Automated browser quality
+
+Run the headless accessibility audit against the landing, search, and how-it-works pages:
+
+```bash
+npm run test:e2e -w apps/web -- e2e/accessibility.spec.ts
+```
+
+The Playwright suite runs Chromium and Mobile Safari locally. CI uses a production build with
+one retry to reduce development-server variability.
+
+For the complete local quality gate:
+
+```bash
+npm run quality
+```
+
 ## Backup, restore, and migration validation
 
 | Script | Purpose |
 |---|---|
 | `backup-schema.mjs` / `restore-schema.mjs` | Back up or restore one large local schema, including `games_library` and `igdb_raw` |
-| `backup-db.sh` / `restore-backup.sh` | Legacy whole-catalog dump/restore workflow |
+| `report-catalog-quality.mjs` | Read-only report of catalog rows with missing metadata or leading punctuation |
+
+To inspect `PlayfitProvider` render cost locally, run the app with
+`NEXT_PUBLIC_PROFILE_RENDERS=1`. Development logs will include `react_render`
+events with actual and base render duration; production builds keep this disabled.
+| `backup-all.sh` / `restore-all.sh` | Whole-catalog backup/restore across the managed schemas |
 | `restore-data.sql` | SQL restore helper; inspect before manual execution |
 | `validate-migrations.sh` | Validate migration naming and SQL safety conventions |
 

@@ -33,6 +33,20 @@ describe("similar recommendations API route", () => {
     expect(mocks.createAnonClient).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed JSON", async () => {
+    const { POST } = await loadRoute();
+
+    const response = await POST(
+      new Request("http://playfit.test/api/recommendations/similar", {
+        method: "POST",
+        body: "not-json",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid JSON payload" });
+  });
+
   it("returns not found when the base game is absent", async () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
     const eq = vi.fn(() => ({ maybeSingle }));

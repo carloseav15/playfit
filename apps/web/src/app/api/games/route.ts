@@ -1,15 +1,18 @@
 import { computeScore, searchQualityPenalty, searchTerms } from "@playfit/core";
 import type { SeedGame } from "@playfit/core/types";
-import { jsonError } from "@/lib/api-errors";
+import { gamesResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import { GAME_SELECT, resolveJoinedName } from "@/lib/game-mapper";
 import {
   fetchAliasCandidates,
+  fetchGamesByIds,
   fetchSeriesCandidates,
   fetchTitleCandidates,
   filterGameIdsByPlatform,
   type GameRow,
   mapRowsToSeedGames,
 } from "@/lib/games-db";
+import { withApiTiming } from "@/lib/monitoring";
 import { createAnonClient } from "@/lib/supabase/server";
 
 function parseCsvParam(value: string | null): string[] {
@@ -21,7 +24,7 @@ function parseCsvParam(value: string | null): string[] {
     : [];
 }
 
-export async function GET(request: Request) {
+async function getGames(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q") ?? "";
   const genreIds = parseCsvParam(searchParams.get("genre"));
@@ -43,6 +46,40 @@ export async function GET(request: Request) {
     const select =
       platformIds.length > 0 ? `${GAME_SELECT}, game_platforms!inner(platform_id)` : GAME_SELECT;
 
+    if (genreIds.length === 0 && platformIds.length === 0) {
+      const {
+        data: qualityRows,
+        error: qualityError,
+        count,
+      } = await supabase
+        .schema("games_library")
+        .from("game_catalog_browse")
+        .select("game_id", { count: "exact" })
+        .order("quality_score", { ascending: false })
+        .order("title")
+        .range(from, from + pageSize - 1);
+
+      if (!qualityError) {
+        const orderedIds = ((qualityRows as { game_id: string }[]) ?? []).map((row) => row.game_id);
+        const gamesResult = await fetchGamesByIds(supabase, orderedIds);
+        if (!gamesResult.ok)
+          return jsonError(gamesResult.errors[0] ?? "Unable to browse games", 500);
+
+        const rowsById = new Map(gamesResult.rows.map((game) => [game.game_id, game]));
+        const orderedRows = orderedIds
+          .map((gameId) => rowsById.get(gameId))
+          .filter((game): game is GameRow => Boolean(game));
+        const games = await mapRowsToSeedGames(supabase, orderedRows);
+
+        return jsonData(gamesResponseSchema, {
+          games,
+          total: count ?? 0,
+          page,
+          pageSize,
+        });
+      }
+    }
+
     let baseQuery = supabase
       .schema("games_library")
       .from("games")
@@ -63,7 +100,7 @@ export async function GET(request: Request) {
     // as the game_platforms embed elsewhere in this file.
     const games = await mapRowsToSeedGames(supabase, (data as unknown as GameRow[]) ?? []);
 
-    return Response.json({
+    return jsonData(gamesResponseSchema, {
       games,
       total: count ?? 0,
       page,
@@ -74,7 +111,7 @@ export async function GET(request: Request) {
   const sanitized = query.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   const terms = searchTerms(sanitized);
   if (terms.length === 0) {
-    return Response.json({ games: [], total: 0, page: 1, pageSize: 24 });
+    return jsonData(gamesResponseSchema, { games: [], total: 0, page: 1, pageSize: 24 });
   }
 
   const ftsPromise = supabase
@@ -179,10 +216,14 @@ export async function GET(request: Request) {
     pageItems.map(({ game }) => game),
   );
 
-  return Response.json({
+  return jsonData(gamesResponseSchema, {
     games,
     total: scored.length,
     page,
     pageSize,
   });
+}
+
+export function GET(request: Request) {
+  return withApiTiming(request, "/api/games", () => getGames(request));
 }

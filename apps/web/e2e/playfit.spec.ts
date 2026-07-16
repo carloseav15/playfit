@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 test.setTimeout(45_000);
@@ -520,6 +521,22 @@ async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
 }
 
+async function expectAccessible(page: Page) {
+  await expect(page.locator("body")).toBeVisible();
+  await expect(page.locator("h1")).toHaveCount(1, { timeout: 15_000 });
+  await page.evaluate(() => document.fonts?.ready);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.addStyleTag({
+    content: `
+      [style*="opacity"] { opacity: 1 !important; transform: none !important; }
+      *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
+    `,
+  });
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+}
+
 test("public home and health endpoint load", async ({ page, request }) => {
   await gotoApp(page, "/");
 
@@ -747,7 +764,7 @@ test("onboarding can be fully skipped and still reaches a recommendation", async
     .toBe(true);
 });
 
-test("play route loads locally without mandatory sign in", async ({ page }) => {
+test("root app route loads locally without mandatory sign in", async ({ page }) => {
   await mockSupabase(page);
 
   await gotoApp(page, "/");
@@ -828,6 +845,24 @@ test("taste route explains onboarding signals and lets users remove one", async 
   await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test("authenticated private routes pass automated accessibility checks", async ({ page }) => {
+  await mockSupabase(page);
+
+  await gotoApp(page, "/");
+  await advanceFromPlatformStep(page);
+  await selectLovedGame(page, "Chrono", /Chrono Trigger/);
+  await selectLovedGame(page, "Metroid", /Metroid Prime/);
+  await selectLovedGame(page, "Tears", /Tears of the Kingdom/);
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await selectMissedGame(page, "Resident Evil", /Resident Evil 4/);
+  await page.getByRole("button", { name: "Find Play Next" }).click();
+
+  for (const path of ["/picks", "/settings", "/game/chrono_trigger"]) {
+    await gotoApp(page, path);
+    await expectAccessible(page);
+  }
 });
 
 test("playfit picks saves a recommendation and removes it from queue", async ({ page }) => {

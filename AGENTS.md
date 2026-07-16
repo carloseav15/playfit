@@ -48,9 +48,10 @@ Each migration includes a `-- Down:` comment block at the bottom. The file
 
 ## Supabase Auth Architecture
 
-The API route (`/api/profile`) uses **SECURITY DEFINER functions** for profile CRUD —
-no `service_role` key in runtime code. The `SUPABASE_SERVICE_KEY` is only needed
-for local dev and migration scripts, never at app runtime.
+The API route (`/api/profile`) uses **SECURITY DEFINER functions** for profile CRUD.
+The `SUPABASE_SERVICE_KEY` is never exposed to the client. It may be used at runtime
+only by explicit server-side helpers such as the protected recommendations cache;
+it must never reach client components or `NEXT_PUBLIC_*` variables.
 
 Flow:
 1. Anonymous users → `rate_limits` table tracks IP → SECURITY DEFINER functions access profiles

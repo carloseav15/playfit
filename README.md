@@ -47,6 +47,8 @@ npm run lint
 npm test
 npm run build
 npm run check
+npm run quality
+npm run test:coverage -w apps/web
 npm run check:ci
 npm audit --audit-level=moderate
 npm run validate:migrations
@@ -62,6 +64,11 @@ Use Node 22 (`.nvmrc`) for local development and CI parity.
 - **Docker Desktop** — required for local Supabase
 - **Supabase CLI** — `npm install -g supabase` or `brew install supabase/tap/supabase`
 - **RAWG API key** — optional; only needed for scraping/enrichment scripts
+
+Environment variables are documented in `.env.example`. `NEXT_PUBLIC_*` values are safe for the
+browser; `SUPABASE_SERVICE_KEY`, `SENTRY_AUTH_TOKEN`, and other server-only secrets must remain
+outside source control. For local render profiling, use `NEXT_PUBLIC_PROFILE_RENDERS=1`; it is
+disabled automatically in production.
 
 ## Getting Started
 
@@ -179,8 +186,8 @@ secrets are configured.
 
 - Production uses Supabase cloud in `us-east-1`
 - Manual backup via GitHub Actions (`.github/workflows/backup.yml`) when `SUPABASE_DB_URL` is configured
-- Local backup: `bash scripts/backup-db.sh`
-- Restore: `bash scripts/restore-backup.sh <path-to-backup.dump>`
+- Local backup: `bash scripts/backup-all.sh`
+- Restore: `bash scripts/restore-all.sh`
 
 ## Licensing and Data
 
@@ -226,7 +233,7 @@ development and portfolio demonstration.
 Additional documentation is available in the `docs/` directory:
 
 - `ARCHITECTURE.md` — system architecture, data flow, component relationships
-- `PLAY-MVP.md` — product brief and UX contract for the `/play` MVP experience
+- `PLAY-MVP.md` — product brief and UX contract for the `/` MVP experience
 - `SCHEMA.md` — consolidated database schema (tables, columns, relationships)
 - `SCRIPTS.md` — reference for all scripts in `scripts/`
 - `ROADMAP.md` — live-demo status, known limitations, and future work
@@ -235,4 +242,6 @@ Additional documentation is available in the `docs/` directory:
 - `AGENTS.md` (root) — development guide, migration strategy, auth architecture, UI kit conventions
 - `PLAYFIT-CONTEXT.md` — PlayfitContext API reference (state shape, methods, boot sequence)
 - `API.md` — detailed request/response schemas for all API endpoints
+- `RELEASE_CHECKLIST.md` — pre-merge and deployment verification checklist
 - `DEPENDENCIES.md` — frontend dependency usage guide
+- `PERFORMANCE.md` — measured query plans and optimization decisions

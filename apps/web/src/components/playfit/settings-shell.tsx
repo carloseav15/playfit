@@ -69,7 +69,9 @@ export function SettingsShell() {
   const renderThemeCard = () => (
     <Card className="rounded-3xl border border-border bg-card shadow-lg">
       <CardHeader>
-        <CardTitle className="text-lg font-black text-foreground">App Appearance</CardTitle>
+        <CardTitle as="h2" className="text-lg font-black text-foreground">
+          App Appearance
+        </CardTitle>
         <CardDescription className="text-xs text-muted-foreground mt-0.5">
           Choose your preferred theme for the interface.
         </CardDescription>
@@ -109,7 +111,7 @@ export function SettingsShell() {
   const renderAccountCard = () => (
     <Card className="rounded-3xl border border-border bg-card shadow-lg">
       <CardHeader>
-        <CardTitle className="text-lg font-black text-foreground">
+        <CardTitle as="h2" className="text-lg font-black text-foreground">
           {authUser ? "Account" : "Cloud Synchronization"}
         </CardTitle>
         <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -224,7 +226,9 @@ export function SettingsShell() {
   const renderPrivacyCard = () => (
     <Card className="rounded-3xl border border-border bg-card shadow-lg">
       <CardHeader>
-        <CardTitle className="text-lg font-black text-foreground">Data & Privacy</CardTitle>
+        <CardTitle as="h2" className="text-lg font-black text-foreground">
+          Data & Privacy
+        </CardTitle>
         <CardDescription className="text-xs text-muted-foreground mt-0.5">
           Manage your personal data, local taste storage, and account settings.
         </CardDescription>
@@ -354,6 +358,14 @@ export function SettingsShell() {
 
       <div className="min-h-[calc(100vh-4rem)] text-foreground">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
+          <div>
+            <h1 className="font-display text-3xl font-black tracking-tight text-foreground">
+              Settings
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage your appearance, account, and privacy preferences.
+            </p>
+          </div>
           {/* Mobile sub-views */}
           <SettingsMobile
             subView={subView}

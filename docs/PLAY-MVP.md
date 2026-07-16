@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`/play` is the public MVP experience for Playfit. Its job is not to be a game
+`/` is the public MVP experience for Playfit. Its job is not to be a game
 library, tracker, wishlist, or catalog browser. Its job is to help a player
 answer one concrete question:
 
@@ -273,7 +273,7 @@ Use decision language:
 - `See why`
 - `Your Taste`
 
-Avoid tracker-first language in `/play`:
+Avoid tracker-first language in the main app:
 
 - `My Games`
 - `Library`
@@ -324,12 +324,12 @@ Do not add these until the decision loop is validated:
 - Hours played.
 - Achievements.
 - Release calendar as a primary surface.
-- Full collection management inside `/play`.
+- Full collection management inside the main app.
 - New database tables for taste history.
 
 ## Product Bar
 
-Before `/play` is considered public-ready, it should satisfy this standard:
+Before the `/` MVP is considered public-ready, it should satisfy this standard:
 
 ```text
 A new user can get a defensible recommendation in one short session,

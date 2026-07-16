@@ -31,10 +31,10 @@ export function SearchFilterBar({
 
   return (
     <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-      <div className="grid gap-2 min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      <fieldset className="grid min-w-0 gap-2">
+        <legend className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Platform
-        </p>
+        </legend>
         <ToggleGroup>
           {families.map((family) => (
             <ToggleButton
@@ -46,14 +46,18 @@ export function SearchFilterBar({
             </ToggleButton>
           ))}
         </ToggleGroup>
-      </div>
+      </fieldset>
 
       {genres.length > 0 && (
         <div className="grid gap-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <label
+            htmlFor="search-genre"
+            className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+          >
             Genre
-          </p>
+          </label>
           <Select
+            id="search-genre"
             value={selectedGenre ?? ""}
             onChange={(e) => onGenreChange(e.target.value || null)}
             className="w-full sm:w-48"
