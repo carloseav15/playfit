@@ -104,6 +104,22 @@ API recientes revisados. No es parte del contrato actual. Antes de eliminarla,
 mantener una ventana de observación o revocar su ejecución si se desea excluir
 clientes externos no documentados.
 
+## Advisors de seguridad revisados
+
+El advisor `security_definer_view` marcó `game_quality_score` porque las vistas
+de PostgreSQL son privilegiadas por defecto. La migración
+`20260716131832_set_game_quality_score_security_invoker.sql` la cambia a
+`security_invoker=true`, conservando las cinco columnas y dejando que el RPC
+privilegiado siga leyendo `game_scores`; el acceso directo anónimo a esa vista
+no forma parte del contrato porque `game_scores` no tiene lectura pública.
+
+Los warnings de RPC no implican que todas las funciones deban pasar a
+`SECURITY INVOKER`: los wrappers de perfil/estado y el rate limiter necesitan
+el contexto privilegiado, y `score_today_recommendations` es invocada por la
+API pública de recomendaciones. `score_today_recommendations_v2` no tiene uso
+estático ni tráfico observado; queda pendiente de una ventana de observación
+antes de revocar o eliminarla.
+
 ## Tablas que pueden ser solo locales
 
 Las siguientes familias no son leídas directamente por la web publicada y son

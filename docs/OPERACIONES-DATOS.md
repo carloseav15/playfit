@@ -28,6 +28,27 @@ npm run backup:verify
 Ejecutar esos tres comandos antes de cambios de datos masivos, de un reset o
 del mantenimiento de IGDB.
 
+## Automatización local en Expanse
+
+`npm run backup:scheduled` ejecuta los tres comandos anteriores y después rota
+solo dumps de más de 30 días. En cada grupo (`games_library`,
+`games_library_private`, `igdb_raw`, `runtime_catalog`) siempre conserva el
+dump más reciente; nunca rota el último backup aunque sea antiguo.
+
+Para ejecutarlo manualmente:
+
+```bash
+npm run backup:scheduled
+PLAYFIT_BACKUP_RETENTION_DAYS=60 npm run backup:scheduled
+```
+
+No hay actualmente un cron ni un LaunchAgent de Playfit instalado. Para
+automatizarlo en macOS, se puede crear un LaunchAgent que invoque
+`npm run backup:scheduled` cuando Expanse esté montado. Desactivarlo consiste
+en descargarlo con `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`
+y reactivarlo con `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`.
+La tarea no se instala ni se carga automáticamente desde el repositorio.
+
 ## Recuperar desarrollo enriquecido
 
 Este comando es destructivo **solo para la base local**. Reconstruye el esquema
