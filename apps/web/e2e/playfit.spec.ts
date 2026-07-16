@@ -859,7 +859,7 @@ test("authenticated private routes pass automated accessibility checks", async (
   await selectMissedGame(page, "Resident Evil", /Resident Evil 4/);
   await page.getByRole("button", { name: "Find Play Next" }).click();
 
-  for (const path of ["/picks", "/settings", "/game/chrono_trigger"]) {
+  for (const path of ["/picks", "/taste", "/settings", "/game/chrono_trigger"]) {
     await gotoApp(page, path);
     await expectAccessible(page);
   }
