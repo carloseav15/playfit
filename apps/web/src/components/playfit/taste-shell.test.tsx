@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  usePlayfit: vi.fn(),
+  usePlayfitState: vi.fn(),
   ensureGamesCached: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock("../playfit/status-toast", () => ({
 }));
 
 vi.mock("../playfit/playfit-context", () => ({
-  usePlayfit: mocks.usePlayfit,
+  usePlayfitState: mocks.usePlayfitState,
 }));
 
 vi.mock("../playfit/header-context", () => ({
@@ -69,8 +69,8 @@ describe("TasteShell", () => {
     vi.clearAllMocks();
   });
 
-  it("asks users without a profile to tune taste first", async () => {
-    mocks.usePlayfit.mockReturnValue({
+  it("renders no fallback screen before redirecting users without a profile", async () => {
+    mocks.usePlayfitState.mockReturnValue({
       state: createInitialState(),
       seedData: { platforms: [{ platformId: "ps5", displayName: "PS5" }] },
       getSeedGame: vi.fn(),
@@ -81,8 +81,7 @@ describe("TasteShell", () => {
 
     const html = renderToStaticMarkup(<TasteShell />);
 
-    expect(html).toContain("Set up your taste first");
-    expect(html).toContain("Start Play Next");
+    expect(html).toBe("");
   });
 
   it("renders the taste map and activity tab for a ready profile", async () => {
@@ -118,7 +117,7 @@ describe("TasteShell", () => {
       createdAt: "2026-01-02T00:00:00.000Z",
       updatedAt: "2026-01-02T00:00:00.000Z",
     };
-    mocks.usePlayfit.mockReturnValue({
+    mocks.usePlayfitState.mockReturnValue({
       state,
       seedData: { platforms: [{ platformId: "ps5", displayName: "PS5" }] },
       getSeedGame: (gameId: string) => games.get(gameId) ?? null,

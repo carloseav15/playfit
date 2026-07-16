@@ -3,6 +3,7 @@
 import type {
   ProductDecisionFeedback,
   ProductGameState,
+  ProductTasteModel,
   ProductTasteSignalSource,
   RankedSeedGame,
   SeedGame,
@@ -13,8 +14,7 @@ import { TasteMapVisualizer } from "../taste-map-visualizer";
 import type { HistoryOrActivityEntry } from "../taste-model";
 
 interface TasteDesktopProps {
-  // biome-ignore lint/suspicious/noExplicitAny: complex buildTasteModel return type
-  model: any;
+  model: ProductTasteModel;
   historyAndActivityEntries: HistoryOrActivityEntry[];
   gamesById: Map<string, SeedGame>;
   gameStates: Record<string, ProductGameState>;

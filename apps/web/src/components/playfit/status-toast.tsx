@@ -1,10 +1,10 @@
 "use client";
 
 import { Toast } from "@/components/ui/toast";
-import { usePlayfit } from "./playfit-context";
+import { usePlayfitUi } from "./playfit-context";
 
 export function StatusToast() {
-  const { ui, setUi, retrySave } = usePlayfit();
+  const { ui, setUi, retrySave } = usePlayfitUi();
   const isSaveError = ui.saveStatus === "error";
 
   return (

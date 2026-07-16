@@ -11,6 +11,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { PlatformsTabContent } from "../platforms-tab-content";
+import type { AuthUser } from "../use-playfit-auth";
 
 interface SettingsMobileProps {
   subView: "menu" | "appearance" | "platforms" | "account" | "privacy";
@@ -18,8 +19,7 @@ interface SettingsMobileProps {
   renderThemeCard: () => React.ReactNode;
   renderAccountCard: () => React.ReactNode;
   renderPrivacyCard: () => React.ReactNode;
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase User type
-  authUser: any;
+  authUser: AuthUser | null;
   theme: string | undefined;
   platformsCount: number;
   setUseLocalProfile: (local: boolean) => void;

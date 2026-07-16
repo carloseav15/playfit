@@ -5,6 +5,7 @@ set -euo pipefail
 
 SEED_DIR="data/seed"
 SEED_FILE="${SEED_DIR}/games_library_seed.sql"
+BACKUP_ROOT="${PLAYFIT_BACKUP_ROOT:-/Volumes/Elements/Playfit/Backups}"
 REQUIRE_DB=false
 [[ "${1:-}" == "--require-db" ]] && REQUIRE_DB=true
 
@@ -13,6 +14,14 @@ if [ -f "$SEED_FILE" ]; then
   echo "→ Seeding from local file: ${SEED_FILE}"
   psql "$(supabase db url)" -f "$SEED_FILE"
   echo "✓ Catalog seeded from local dump."
+  exit 0
+fi
+
+# Preferred path: a curated runtime-only catalog on the external drive.
+if [ -d "${BACKUP_ROOT}/runtime_catalog" ]; then
+  echo "→ Seeding runtime catalog from Expanse: ${BACKUP_ROOT}/runtime_catalog"
+  PLAYFIT_BACKUP_ROOT="$BACKUP_ROOT" node scripts/restore-runtime-catalog.mjs
+  echo "✓ Runtime catalog seeded from Expanse."
   exit 0
 fi
 

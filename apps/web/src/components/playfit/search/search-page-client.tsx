@@ -50,7 +50,7 @@ export function SearchPageClient({
 
   // Filter/query changes reset paging and reflect in the URL so a search is
   // shareable/bookmarkable; "Load more" (page increments) deliberately does not
-  // sync back, matching the admin/covers precedent of not persisting scroll/index.
+  // sync back so the current browsing position stays local to the page.
   useEffect(() => {
     setPage(1);
     setAccumulated([]);

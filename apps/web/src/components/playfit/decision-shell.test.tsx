@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type ChildrenProps = { children?: React.ReactNode };
 
 const mocks = vi.hoisted(() => ({
-  usePlayfit: vi.fn(),
+  usePlayfitState: vi.fn(),
+  usePlayfitUi: vi.fn(),
 }));
 
 vi.mock("@/components/ui/alert", () => ({
@@ -37,7 +38,8 @@ vi.mock("./play-next-card", () => ({
 }));
 
 vi.mock("../playfit/playfit-context", () => ({
-  usePlayfit: mocks.usePlayfit,
+  usePlayfitState: mocks.usePlayfitState,
+  usePlayfitUi: mocks.usePlayfitUi,
 }));
 
 vi.mock("../playfit/onboarding-section", () => ({
@@ -58,21 +60,18 @@ describe("DecisionShell", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the calibration launcher instead of a dead-end state for new users", async () => {
-    mocks.usePlayfit.mockReturnValue({
+  it("renders no legacy intro for new users before redirecting them to the landing", async () => {
+    mocks.usePlayfitState.mockReturnValue({
       state: createInitialState(),
-      ui: { saveStatus: "idle" },
       applyDecisionFeedback: vi.fn(),
       setPlayfitPick: vi.fn(),
-      setStatusMessage: vi.fn(),
     });
+    mocks.usePlayfitUi.mockReturnValue({ ui: { saveStatus: "idle" } });
     const { DecisionShell } = await loadDecisionShell();
 
     const html = renderToStaticMarkup(<DecisionShell />);
 
-    expect(html).toContain("Your next game");
-    expect(html).toContain("Find What to Play");
-    expect(html).not.toContain("Not ready yet");
+    expect(html).toBe("");
   });
 
   it("does not render the launcher for a ready local profile", async () => {
@@ -87,13 +86,12 @@ describe("DecisionShell", () => {
       ratedCount: 3,
       signals: [],
     };
-    mocks.usePlayfit.mockReturnValue({
+    mocks.usePlayfitState.mockReturnValue({
       state,
-      ui: { saveStatus: "idle" },
       applyDecisionFeedback: vi.fn(),
       setPlayfitPick: vi.fn(),
-      setStatusMessage: vi.fn(),
     });
+    mocks.usePlayfitUi.mockReturnValue({ ui: { saveStatus: "idle" } });
     const { DecisionShell } = await loadDecisionShell();
 
     const html = renderToStaticMarkup(<DecisionShell />);
