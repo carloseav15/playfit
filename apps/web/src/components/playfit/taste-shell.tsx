@@ -136,6 +136,9 @@ export function TasteShell() {
 
       <div className="w-full">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
+          <h1 className="sr-only md:not-sr-only md:font-display md:text-4xl md:font-black md:tracking-tight">
+            Your Taste
+          </h1>
           <div className="hidden md:flex items-center justify-end gap-2 shrink-0">
             <Badge
               variant="info"
@@ -154,9 +157,6 @@ export function TasteShell() {
                   Gaming profile
                 </span>
               </div>
-              <h1 className="font-display text-4xl font-black tracking-tight text-foreground mt-1">
-                Your Taste
-              </h1>
               <p className="max-w-2xl text-xs text-muted-foreground leading-relaxed mt-0.5">
                 What Playfit is learning from your active decisions. {model.confidenceLabel}.
               </p>
