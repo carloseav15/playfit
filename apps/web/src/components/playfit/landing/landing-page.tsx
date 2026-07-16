@@ -49,7 +49,8 @@ export function LandingPage({ platforms }: { platforms: ProductPlatformOption[] 
       window.location.pathname === "/" &&
       window.location.hash === "#onboarding" &&
       (redirectedFromApp ||
-        (referrer?.origin === window.location.origin && referrer.pathname === "/settings"))
+        (referrer?.origin === window.location.origin &&
+          ["/app", "/settings"].includes(referrer.pathname)))
     ) {
       window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
       window.history.replaceState(null, "", "/");
