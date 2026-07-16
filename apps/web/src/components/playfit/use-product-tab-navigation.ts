@@ -29,7 +29,11 @@ export function useProductTabNavigation({
       return;
     }
 
-    if (!["/", "/play"].includes(window.location.pathname)) return;
+    if (window.location.pathname === "/") {
+      if (window.location.hash) window.history.replaceState(null, "", "/");
+      return;
+    }
+    if (window.location.pathname !== "/play") return;
     const hash = activeTab === "today" ? "" : activeTab;
     if (hash) {
       window.location.hash = hash;
