@@ -80,7 +80,7 @@ export function TasteMapVisualizer({
       <CardHeader className="pb-3 border-b border-border/40">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-lg font-black text-foreground">
+            <CardTitle as="h2" className="text-lg font-black text-foreground">
               Interactive Affinity Map
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
@@ -316,25 +316,15 @@ export function TasteMapVisualizer({
               {nodes.map((node) => {
                 const isActive = activeNode?.game.gameId === node.game.gameId;
                 return (
-                  // biome-ignore lint/a11y/useSemanticElements: interactive panel list item
                   <div
                     id={`map-card-${node.game.gameId}`}
                     key={node.game.gameId}
-                    role="button"
-                    tabIndex={0}
                     className={cn(
-                      "w-72 shrink-0 snap-center rounded-2xl border p-3 text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none",
+                      "w-72 shrink-0 snap-center rounded-2xl border p-3 text-left transition-all duration-200 flex flex-col justify-between gap-3 select-none",
                       isActive
                         ? "border-accent bg-accent/5 ring-1 ring-accent/30 shadow-md"
                         : "border-border bg-card hover:bg-secondary/40",
                     )}
-                    onClick={() => setActiveNode(node)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setActiveNode(node);
-                      }
-                    }}
                   >
                     <div className="flex gap-3 min-w-0">
                       <CoverArt
@@ -362,9 +352,9 @@ export function TasteMapVisualizer({
                             </Badge>
                           )}
                         </div>
-                        <h4 className="text-sm font-black leading-tight text-foreground truncate mt-0.5">
+                        <h3 className="text-sm font-black leading-tight text-foreground truncate mt-0.5">
                           {node.game.title}
-                        </h4>
+                        </h3>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {node.game.tags.slice(0, 2).map((t) => (
                             <span
