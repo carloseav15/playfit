@@ -21,7 +21,8 @@ export function useProductTabNavigation({
     const referrer = document.referrer ? new URL(document.referrer) : null;
     const redirectedFromSettings =
       redirectedFromApp ||
-      (referrer?.origin === window.location.origin && referrer.pathname === "/settings");
+      (referrer?.origin === window.location.origin &&
+        ["/app", "/settings"].includes(referrer.pathname));
     if (window.location.pathname === "/" && redirectedFromSettings) {
       window.sessionStorage.removeItem(LANDING_REDIRECT_MARKER);
       if (window.location.hash) window.history.replaceState(null, "", "/");
