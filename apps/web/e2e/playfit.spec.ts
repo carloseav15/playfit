@@ -620,6 +620,7 @@ test.describe("auth and logout navigation inventory", () => {
   test("legacy app aliases redirect to their current routes", async ({ page }) => {
     await page.goto("/app", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/$/);
+    await expect(page).not.toHaveURL(/#onboarding$/);
 
     await page.goto("/app/settings", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/settings$/);
