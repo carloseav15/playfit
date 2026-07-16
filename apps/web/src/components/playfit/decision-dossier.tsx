@@ -27,6 +27,7 @@ import {
 } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
+import { buildAvailablePlatformList, getSafeSearchReturnTo } from "./decision-dossier-helpers";
 import { addRecommendationsToSessionCache, getCachedRecommendation } from "./recommendation-cache";
 import { RecommendationMetric } from "./recommendation-metric";
 import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
@@ -134,10 +135,6 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
       />
     </div>
   );
-}
-
-function getSafeSearchReturnTo(returnTo?: string) {
-  return returnTo === "/search" || returnTo?.startsWith("/search?") ? returnTo : null;
 }
 
 export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo?: string }) {
@@ -251,12 +248,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   }, [state.user.onboarding.platforms]);
 
   const platformsList = useMemo(() => {
-    const ids = game?.availablePlatformIds ?? [];
-    const names = game?.availablePlatformNames ?? [];
-    return ids.map((id, index) => ({
-      id,
-      name: names[index] || id,
-    }));
+    return buildAvailablePlatformList(game);
   }, [game]);
 
   if (!profileReady) return null;

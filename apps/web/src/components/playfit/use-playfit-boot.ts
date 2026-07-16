@@ -1,16 +1,11 @@
-import { buildAdaptiveProfile } from "@playfit/core/domain";
 import { loadProductState } from "@playfit/core/store";
-import type {
-  ProductPlatformOption,
-  ProductProfile,
-  ProductState,
-  SeedGame,
-} from "@playfit/core/types";
+import type { ProductPlatformOption, ProductProfile, ProductState } from "@playfit/core/types";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/api-errors";
-import { clearGameCache, ensureGamesCached, getCachedGame } from "@/lib/game-cache";
+import { clearGameCache, ensureGamesCached } from "@/lib/game-cache";
 import type { ProductUiState } from "./playfit-context-types";
 import { initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
+import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
 import type { AuthUser } from "./use-playfit-auth";
 
 type EnqueueSave = (snapshot: ProductState, options?: { successMessage?: string }) => void;
@@ -96,14 +91,8 @@ export function usePlayfitBoot({
             // Fall through to local build.
           }
 
-          const gamesById = new Map<string, SeedGame>();
-          for (const id of gameIds) {
-            const game = getCachedGame(id);
-            if (game) gamesById.set(id, game);
-          }
-          const profile = buildAdaptiveProfile(
+          const profile = buildAdaptiveProfileFromCache(
             loadedState.user.onboarding,
-            gamesById,
             loadedState.user.gameStates,
           );
           const restored: ProductState = {

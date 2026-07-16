@@ -1,10 +1,4 @@
-import type {
-  ProductGameState,
-  ProductPlatformOption,
-  ProductState,
-  SeedGame,
-} from "@playfit/core/types";
-import { nowIso } from "@playfit/core/utils";
+import type { ProductPlatformOption, ProductState } from "@playfit/core/types";
 import type { ProductTab, ProductUiState } from "./playfit-context-types";
 
 export function cloneState(state: ProductState): ProductState {
@@ -49,23 +43,5 @@ export function withDefaultPlatforms(
         platforms: allPlatformsSelection(platforms),
       },
     },
-  };
-}
-
-export function buildGameState(
-  game: SeedGame,
-  source: ProductGameState["source"],
-): ProductGameState {
-  const timestamp = nowIso();
-  return {
-    gameId: game.gameId,
-    title: game.title,
-    inBacklog: false,
-    inWishlist: false,
-    inPlayfitPicks: false,
-    excluded: false,
-    source,
-    createdAt: timestamp,
-    updatedAt: timestamp,
   };
 }
