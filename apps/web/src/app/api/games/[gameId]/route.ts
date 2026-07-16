@@ -1,4 +1,5 @@
-import { jsonError } from "@/lib/api-errors";
+import { gameResponseSchema } from "@/lib/api-contracts";
+import { jsonData, jsonError } from "@/lib/api-errors";
 import {
   GAME_PLATFORM_SELECT,
   GAME_SELECT,
@@ -64,7 +65,8 @@ export async function GET(request: Request, props: { params: Promise<{ gameId: s
     .select("alias")
     .eq("game_id", redirect.gameId);
 
-  return Response.json(
+  return jsonData(
+    gameResponseSchema,
     mapGameRowToSeedGame(
       game,
       (rawPlatforms ?? []) as GamePlatformRow[],

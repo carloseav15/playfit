@@ -105,17 +105,17 @@ The public product demo is deployed at https://playfit-gold.vercel.app.
 ```
 docs/                     # Documentation
   ARCHITECTURE.md         # System architecture + diagrams
-  PLAY-MVP.md             # Product brief for /play
+  PLAY-MVP.md             # Product brief for /
   ROADMAP.md              # Deferred rec-engine work
   SCHEMA.md               # Database schema
   SCRIPTS.md              # Script reference
   ONBOARDING.md           # This guide
   nextjs-16-canary.md     # Next.js 16 breaking changes
 AGENTS.md                 # Dev conventions, migrations, auth, UI kit
-supabase/migrations/      # 107 migration files (see SCHEMA.md for consolidated view)
+  supabase/migrations/      # Versioned migration files (see SCHEMA.md for consolidated view)
 apps/web/src/
   app/api/                # All API endpoints
-  app/(play)/             # Main app pages (root entry point, promoted from /play)
+  app/(play)/             # Main app pages (root entry point)
   components/ui/          # Reusable UI kit
 packages/core/src/
   domain/                 # Pure domain logic

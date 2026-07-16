@@ -104,6 +104,14 @@ export function PicksShell() {
 
       <div className="min-h-[calc(100vh-4rem)] text-foreground">
         <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
+          <div>
+            <h1 className="font-display text-3xl font-black tracking-tight text-foreground">
+              Playfit Picks
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your saved recommendations, ready when you are.
+            </p>
+          </div>
           {loadError ? (
             <Alert variant="warning" className="shrink-0">
               {loadError}
@@ -114,7 +122,9 @@ export function PicksShell() {
             {picks.length === 0 ? (
               <Card className="rounded-3xl border border-border bg-card p-6 text-center">
                 <CardHeader className="px-0 pt-0">
-                  <CardTitle className="text-xl font-bold">No saved picks yet</CardTitle>
+                  <CardTitle as="h2" className="text-xl font-bold">
+                    No saved picks yet
+                  </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1">
                     Save recommendations here when they match your gaming criteria.
                   </CardDescription>

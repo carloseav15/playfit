@@ -162,6 +162,21 @@ describe("games batch API route", () => {
     expect(json.games).toEqual([]);
   });
 
+  it("rejects malformed game id payloads", async () => {
+    const { POST } = await loadRoute();
+    const response = await POST(
+      new Request("http://playfit.test/api/games/batch", {
+        method: "POST",
+        body: JSON.stringify({ gameIds: ["valid", 42] }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "gameIds must be an array of strings",
+    });
+  });
+
   it("rejects more than 500 IDs", async () => {
     const { POST } = await loadRoute();
     const response = await POST(

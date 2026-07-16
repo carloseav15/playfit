@@ -13,5 +13,11 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     setupFiles: ["./vitest.setup.ts"],
+    exclude: ["e2e/**", "node_modules/**"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "./coverage",
+    },
   },
 });

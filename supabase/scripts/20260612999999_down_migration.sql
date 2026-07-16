@@ -5,6 +5,8 @@
 -- Phase 7: api_cache + cleanup functions + indexes
 -- ============================================================
 
+drop view if exists games_library.game_catalog_browse;
+
 -- 1. Drop api_cache functions and table
 drop function if exists games_library.get_cache(text);
 drop function if exists games_library.set_cache(text, jsonb, int);
