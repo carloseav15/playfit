@@ -6,7 +6,7 @@ import {
 import { z } from "zod";
 
 import { jsonError } from "@/lib/api-errors";
-import { captureApiError } from "@/lib/monitoring";
+import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { clearReturningVisitor, markReturningVisitor } from "@/lib/returning-visitor";
 import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function postProfile(request: Request) {
   try {
     const context = await createRequestSupabaseContext(request);
     if (!context) return jsonError("Authentication required", 401);
@@ -197,6 +197,10 @@ export async function POST(request: Request) {
     });
     return jsonError("Failed to save profile", 500);
   }
+}
+
+export function POST(request: Request) {
+  return withApiTiming(request, "/api/profile", () => postProfile(request));
 }
 
 export async function DELETE(request: Request) {

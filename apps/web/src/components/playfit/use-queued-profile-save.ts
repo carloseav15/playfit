@@ -1,6 +1,7 @@
-import { saveProductState } from "@playfit/core/store";
+import { type SaveStateResult, saveProductState } from "@playfit/core/store";
 import type { ProductState } from "@playfit/core/types";
 import { useCallback, useRef } from "react";
+import { getOnboardingFlowHeaders, markOnboardingPhase } from "./onboarding-flow-tracing";
 import type { ProductUiState } from "./playfit-context-types";
 import type { AuthUser } from "./use-playfit-auth";
 
@@ -22,25 +23,33 @@ export function useQueuedProfileSave({
   const pendingOptionsRef = useRef<{ successMessage?: string }>({});
 
   const doSave = useCallback(
-    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
+    (
+      snapshot: ProductState,
+      options: { successMessage?: string } = {},
+    ): Promise<SaveStateResult> => {
       const sequence = ++saveSequenceRef.current;
       setIsSaving(true);
       setUi((currentUi) => (currentUi ? { ...currentUi, saveStatus: "saving" } : currentUi));
 
       const task = saveQueueRef.current
         .catch(() => undefined)
-        .then(async () => {
+        .then(async (): Promise<SaveStateResult> => {
           try {
-            const result = await saveProductState(snapshot);
+            markOnboardingPhase("profile_save_start");
+            const result = await saveProductState(snapshot, {
+              headers: getOnboardingFlowHeaders("profile_save"),
+            });
             if (!result.ok && result.reason === "auth_expired") {
+              markOnboardingPhase("profile_save_auth_expired");
               setAuthUser(null);
               setUseLocalProfile(false);
-              return;
+              return result;
             }
 
-            if (sequence !== saveSequenceRef.current) return;
+            if (sequence !== saveSequenceRef.current) return result;
 
             if (!result.ok) {
+              markOnboardingPhase("profile_save_error");
               setUi((currentUi) =>
                 currentUi
                   ? {
@@ -51,6 +60,7 @@ export function useQueuedProfileSave({
                   : currentUi,
               );
             } else {
+              markOnboardingPhase("profile_save_success");
               setUi((currentUi) =>
                 currentUi
                   ? {
@@ -61,8 +71,12 @@ export function useQueuedProfileSave({
                   : currentUi,
               );
             }
+            return result;
           } catch {
-            if (sequence !== saveSequenceRef.current) return;
+            markOnboardingPhase("profile_save_exception");
+            if (sequence !== saveSequenceRef.current) {
+              return { ok: false, reason: "error", error: "Save superseded" };
+            }
             setUi((currentUi) =>
               currentUi
                 ? {
@@ -72,6 +86,7 @@ export function useQueuedProfileSave({
                   }
                 : currentUi,
             );
+            return { ok: false, reason: "error", error: "Failed to save profile" };
           } finally {
             if (sequence === saveSequenceRef.current) {
               setIsSaving(false);
@@ -79,7 +94,10 @@ export function useQueuedProfileSave({
           }
         });
 
-      saveQueueRef.current = task;
+      saveQueueRef.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
       return task;
     },
     [setAuthUser, setUseLocalProfile, setUi, setIsSaving],
@@ -110,6 +128,19 @@ export function useQueuedProfileSave({
     [doSave, setIsSaving, setUi],
   );
 
+  const saveNow = useCallback(
+    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      pendingSnapshotRef.current = null;
+      pendingOptionsRef.current = {};
+      return doSave(snapshot, options);
+    },
+    [doSave],
+  );
+
   const flushSave = useCallback(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -120,9 +151,10 @@ export function useQueuedProfileSave({
       const latestOptions = pendingOptionsRef.current;
       pendingSnapshotRef.current = null;
       pendingOptionsRef.current = {};
-      doSave(latest, latestOptions);
+      return doSave(latest, latestOptions);
     }
+    return saveQueueRef.current.then(() => undefined);
   }, [doSave]);
 
-  return { enqueueSave, flushSave };
+  return { enqueueSave, flushSave, saveNow };
 }

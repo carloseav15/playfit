@@ -78,13 +78,15 @@ export function MissedGameStep({
   getSeedGame,
   onBack,
   onFinalize,
+  isFinalizing,
   onRemoveDislikedAnchor,
   onOpenSearch,
 }: {
   draft: ProductOnboardingDraft;
   getSeedGame: (gameId: string) => SeedGame | null;
   onBack: () => void;
-  onFinalize: () => void;
+  onFinalize: () => void | Promise<void>;
+  isFinalizing: boolean;
   onRemoveDislikedAnchor: (gameId: string) => void;
   onOpenSearch: (slot: SearchSlot, replaceGameId: string | null) => void;
 }) {
@@ -129,9 +131,14 @@ export function MissedGameStep({
         <Button
           type="button"
           onClick={onFinalize}
+          disabled={isFinalizing}
           className="ml-auto bg-gradient-to-r from-accent to-indigo-600 font-extrabold text-white shadow-[0_0_15px_rgba(255,106,61,0.25)] hover:shadow-[0_0_20px_rgba(255,106,61,0.35)]"
         >
-          {game ? "Find Play Next" : "Skip & Find Play Next"}
+          {isFinalizing
+            ? "Saving your profile…"
+            : game
+              ? "Find Play Next"
+              : "Skip & Find Play Next"}
         </Button>
       </div>
     </motion.div>

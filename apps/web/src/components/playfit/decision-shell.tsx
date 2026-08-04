@@ -3,7 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,20 @@ import {
 } from "./use-decision-recommendations";
 
 export {
+  shouldRefreshRecommendationPool,
   shouldRefreshRecommendationsAfterSave,
   shouldShowNoRecommendations,
 } from "./use-decision-recommendations";
+
+export function shouldLoadDecisionRecommendations({
+  profileReady,
+  activeTab,
+}: {
+  profileReady: boolean;
+  activeTab: "today" | "onboarding";
+}) {
+  return profileReady && activeTab === "today";
+}
 
 export function DecisionShell({
   startInCalibration = false,
@@ -36,8 +47,9 @@ export function DecisionShell({
   /** When set by the marketing landing page, open the onboarding wizard directly. */
   onExitToLanding?: () => void;
 }) {
-  const { state, applyDecisionFeedback, setPlayfitPick, resetLocalState } = usePlayfitState();
-  const { ui } = usePlayfitUi();
+  const { state, applyDecisionFeedback, getSeedGame, setPlayfitPick, resetLocalState } =
+    usePlayfitState();
+  const { ui, setUi } = usePlayfitUi();
   // Resume the onboarding wizard directly when the account has in-progress onboarding
   // data saved server-side. The marketing landing also sets this flag when its CTA opens
   // the wizard, so there is only one onboarding entry experience.
@@ -52,11 +64,16 @@ export function DecisionShell({
     );
   });
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
+  const recommendationsEnabled = shouldLoadDecisionRecommendations({
+    profileReady,
+    activeTab: ui.activeTab,
+  });
   const {
     alternatives,
     handleAddPick,
     handleFeedback,
     handleShowAnother,
+    isInitialLoading,
     isTransient,
     isWaitingForCandidates,
     loadError,
@@ -69,12 +86,26 @@ export function DecisionShell({
     slowLoading,
     visiblePool,
   } = useDecisionRecommendations({
-    profileReady,
+    profileReady: recommendationsEnabled,
     saveStatus: ui.saveStatus,
     applyDecisionFeedback,
     setPlayfitPick,
     resetLocalState,
   });
+
+  const selectedAnchorGames = useMemo(
+    () =>
+      state.user.onboarding.likedGameIds
+        .map((gameId) => getSeedGame(gameId))
+        .filter((game): game is NonNullable<typeof game> => game !== null),
+    [getSeedGame, state.user.onboarding.likedGameIds],
+  );
+  const isFindingFirstMatch = ui.onboardingCompletionPhase === "finding";
+
+  useEffect(() => {
+    if (!isFindingFirstMatch || isInitialLoading) return;
+    setUi((current) => ({ ...current, onboardingCompletionPhase: "idle" }));
+  }, [isFindingFirstMatch, isInitialLoading, setUi]);
 
   useEffect(() => {
     if (!profileReady && !startInCalibration) redirectToMarketingLanding();
@@ -118,7 +149,7 @@ export function DecisionShell({
 
   if (isTransient) {
     return (
-      <div className="relative text-foreground animate-pulse">
+      <div className="relative text-foreground motion-reduce:animate-none">
         <div className="pointer-events-none absolute left-1/4 top-1/4 size-[500px] rounded-full bg-accent/5 blur-[120px]" />
         <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[400px] rounded-full bg-indigo-500/5 blur-[100px]" />
 
@@ -164,12 +195,20 @@ export function DecisionShell({
           </div>
 
           <div className="flex flex-col gap-6 min-w-0">
-            <section className="grid gap-4 bg-secondary border border-border rounded-3xl p-5 shadow-sm">
+            <section
+              className="grid gap-4 bg-secondary border border-border rounded-3xl p-5 shadow-sm"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-busy="true"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="grid gap-1">
                   <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-                    <span className="inline-block size-2 rounded-full bg-accent animate-ping" />
-                    Finding recommendations...
+                    <span className="inline-block size-2 rounded-full bg-accent animate-ping motion-reduce:animate-none" />
+                    {isFindingFirstMatch
+                      ? "Finding your first match..."
+                      : "Finding recommendations..."}
                   </h2>
                 </div>
                 <div className="flex gap-1.5 bg-secondary/80 p-1 rounded-2xl border border-border/60">
@@ -180,13 +219,28 @@ export function DecisionShell({
 
               <div className="grid gap-2">
                 <CardDescription className="text-xs text-muted-foreground leading-relaxed">
-                  Checking your platforms, liked games, and preferences.
+                  {isFindingFirstMatch
+                    ? "Your taste profile is saved. We are matching it with games available on your platforms."
+                    : "Checking your platforms, liked games, and preferences."}
                 </CardDescription>
               </div>
 
+              {isFindingFirstMatch && selectedAnchorGames.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedAnchorGames.map((game) => (
+                    <Badge key={game.gameId} variant="secondary" className="max-w-full truncate">
+                      {game.title}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
               {slowLoading ? (
-                <div className="rounded-xl border border-warning/20 bg-warning/5 p-3.5 text-xs text-warning leading-relaxed animate-pulse">
-                  Analyzing the catalog. Your preferences are saved.
+                <div className="grid gap-3 rounded-xl border border-warning/20 bg-warning/5 p-3.5 text-xs text-warning leading-relaxed">
+                  <p>Still analyzing the catalog. Your preferences are saved.</p>
+                  <Button asChild type="button" variant="secondary" size="sm" className="w-fit">
+                    <Link href="/taste">Continue to My Taste</Link>
+                  </Button>
                 </div>
               ) : (
                 <Skeleton className="h-10 w-full rounded-xl" />

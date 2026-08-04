@@ -34,6 +34,7 @@ import { useProductTabNavigation } from "./use-product-tab-navigation";
 import { useQueuedProfileSave } from "./use-queued-profile-save";
 
 export type {
+  OnboardingCompletionPhase,
   PlayfitStateContextValue,
   PlayfitUiContextValue,
   ProductTab,
@@ -66,7 +67,7 @@ export function PlayfitProvider({
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { enqueueSave, flushSave } = useQueuedProfileSave({
+  const { enqueueSave, flushSave, saveNow } = useQueuedProfileSave({
     setAuthUser,
     setUseLocalProfile,
     setUi,
@@ -103,6 +104,24 @@ export function PlayfitProvider({
     [enqueueSave],
   );
 
+  const updateStateAndSave = useCallback(
+    (updater: (draft: ProductState) => void) => {
+      if (!state) {
+        return Promise.resolve({
+          ok: false as const,
+          reason: "error" as const,
+          error: "Profile unavailable",
+        });
+      }
+      const next = cloneState(state);
+      updater(next);
+      next.user.lastUpdatedAt = nowIso();
+      setState(next);
+      return saveNow(next);
+    },
+    [saveNow, state],
+  );
+
   const updateUi: React.Dispatch<React.SetStateAction<ProductUiState>> = useCallback((action) => {
     setUi((current) => {
       if (!current) return current;
@@ -132,6 +151,7 @@ export function PlayfitProvider({
       useLocalProfile,
       setUseLocalProfile,
       updateState,
+      updateStateAndSave,
       getSeedGame(gameId: string) {
         return getCachedGame(gameId) ?? null;
       },
@@ -256,6 +276,7 @@ export function PlayfitProvider({
     isSaving,
     platforms,
     updateState,
+    updateStateAndSave,
     updateUi,
     enqueueSave,
     flushSave,

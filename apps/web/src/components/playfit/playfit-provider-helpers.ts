@@ -17,6 +17,7 @@ export function initialUi(state: ProductState): ProductUiState {
     onboardingQuery: "",
     statusMessage: null,
     saveStatus: "idle",
+    onboardingCompletionPhase: "idle",
     undoAction: null,
   };
 }

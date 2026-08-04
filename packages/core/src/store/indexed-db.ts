@@ -98,8 +98,15 @@ async function apiGet(path: string): Promise<Response> {
   return authenticatedFetch(path);
 }
 
-async function apiPost(path: string, body: unknown): Promise<Response> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+async function apiPost(
+  path: string,
+  body: unknown,
+  options: { headers?: Record<string, string> } = {},
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...options.headers,
+    "content-type": "application/json",
+  };
   return authenticatedFetch(path, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
@@ -150,7 +157,10 @@ export type SaveStateResult =
   | { ok: false; reason: "auth_expired" }
   | { ok: false; reason: "error"; error: string };
 
-export async function saveProductState(state: ProductState): Promise<SaveStateResult> {
+export async function saveProductState(
+  state: ProductState,
+  options: { headers?: Record<string, string> } = {},
+): Promise<SaveStateResult> {
   const parsedState = productStateSchema.safeParse(state);
   if (!parsedState.success) {
     return { ok: false, reason: "error", error: "Invalid local profile state" };
@@ -172,7 +182,7 @@ export async function saveProductState(state: ProductState): Promise<SaveStateRe
     deviceId,
   };
 
-  const res = await apiPost("/api/profile", body);
+  const res = await apiPost("/api/profile", body, options);
 
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));

@@ -1,3 +1,4 @@
+import type { SaveStateResult } from "@playfit/core/store";
 import type {
   ProductDecisionFeedback,
   ProductGameState,
@@ -13,12 +14,15 @@ import type { AuthUser } from "./use-playfit-auth";
 
 export type ProductTab = "today" | "onboarding";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
+export type OnboardingCompletionPhase = "idle" | "finding";
 
 export interface ProductUiState {
   activeTab: ProductTab;
   onboardingQuery: string;
   statusMessage: string | null;
   saveStatus: SaveStatus;
+  /** A short-lived handoff state between saving onboarding and the first Play Next result. */
+  onboardingCompletionPhase: OnboardingCompletionPhase;
   /** When set, the status toast shows an "Undo" action that runs this and clears itself. */
   undoAction: (() => void) | null;
 }
@@ -31,6 +35,7 @@ export interface PlayfitStateContextValue {
   useLocalProfile: boolean;
   setUseLocalProfile: (val: boolean) => void;
   updateState: (updater: (draft: ProductState) => void) => void;
+  updateStateAndSave: (updater: (draft: ProductState) => void) => Promise<SaveStateResult>;
   getSeedGame: (gameId: string) => SeedGame | null;
   buildProfileFromCurrentData: () => ProductProfile;
   refreshAdaptiveProfile: () => void;
