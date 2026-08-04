@@ -14,6 +14,14 @@ vi.mock("@/components/ui/alert", () => ({
   Alert: ({ children }: ChildrenProps) => children,
 }));
 
+vi.mock("@/components/ui/badge", () => ({
+  Badge: ({ children }: ChildrenProps) => children,
+}));
+
+vi.mock("@/components/ui/button", () => ({
+  Button: ({ children }: ChildrenProps) => children,
+}));
+
 vi.mock("@/components/ui/card", () => ({
   Card: ({ children }: ChildrenProps) => children,
   CardDescription: ({ children }: ChildrenProps) => children,
@@ -64,6 +72,7 @@ describe("DecisionShell", () => {
     mocks.usePlayfitState.mockReturnValue({
       state: createInitialState(),
       applyDecisionFeedback: vi.fn(),
+      getSeedGame: vi.fn(() => null),
       setPlayfitPick: vi.fn(),
     });
     mocks.usePlayfitUi.mockReturnValue({ ui: { saveStatus: "idle" } });
@@ -89,6 +98,7 @@ describe("DecisionShell", () => {
     mocks.usePlayfitState.mockReturnValue({
       state,
       applyDecisionFeedback: vi.fn(),
+      getSeedGame: vi.fn(() => null),
       setPlayfitPick: vi.fn(),
     });
     mocks.usePlayfitUi.mockReturnValue({ ui: { saveStatus: "idle" } });
@@ -133,6 +143,42 @@ describe("DecisionShell", () => {
     ).toBe(false);
   });
 
+  it("waits to load recommendations until onboarding switches to Play Next", async () => {
+    const { shouldLoadDecisionRecommendations } = await loadDecisionShell();
+
+    expect(shouldLoadDecisionRecommendations({ profileReady: true, activeTab: "onboarding" })).toBe(
+      false,
+    );
+    expect(shouldLoadDecisionRecommendations({ profileReady: true, activeTab: "today" })).toBe(
+      true,
+    );
+  });
+
+  it("does not refresh the pool before the initial recommendations are available", async () => {
+    const { shouldRefreshRecommendationPool } = await loadDecisionShell();
+
+    expect(
+      shouldRefreshRecommendationPool({
+        poolSize: 0,
+        visiblePoolSize: 0,
+        exhausted: false,
+        refreshing: false,
+        refreshPending: false,
+        profileReady: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshRecommendationPool({
+        poolSize: 2,
+        visiblePoolSize: 2,
+        exhausted: false,
+        refreshing: false,
+        refreshPending: false,
+        profileReady: true,
+      }),
+    ).toBe(true);
+  });
+
   it("does not show the terminal empty state while recommendations are refreshing", async () => {
     const { shouldShowNoRecommendations } = await loadDecisionShell();
 
@@ -168,5 +214,37 @@ describe("DecisionShell", () => {
         refreshPending: false,
       }),
     ).toBe(false);
+  });
+
+  it("keeps the first-match handoff copy available for the initial recommendation request", async () => {
+    const state = createInitialState();
+    state.user.onboardingCompletedAt = "2026-01-01T00:00:00.000Z";
+    state.user.profile = {
+      summary: "Ready profile",
+      likedGenres: [],
+      avoidedGenres: [],
+      likedTags: {},
+      dislikedTags: {},
+      ratedCount: 0,
+      signals: [],
+    };
+    mocks.usePlayfitState.mockReturnValue({
+      state,
+      applyDecisionFeedback: vi.fn(),
+      getSeedGame: vi.fn(() => null),
+      setPlayfitPick: vi.fn(),
+      resetLocalState: vi.fn(),
+    });
+    mocks.usePlayfitUi.mockReturnValue({
+      ui: { activeTab: "today", saveStatus: "idle", onboardingCompletionPhase: "finding" },
+      setUi: vi.fn(),
+    });
+    const { DecisionShell } = await loadDecisionShell();
+
+    const html = renderToStaticMarkup(<DecisionShell />);
+
+    expect(html).toContain("Finding your first match");
+    expect(html).toContain("Your taste profile is saved");
+    expect(html).toContain('role="status"');
   });
 });

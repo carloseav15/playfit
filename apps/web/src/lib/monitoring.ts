@@ -11,6 +11,8 @@ interface CaptureApiErrorOptions {
 export function captureApiError(error: unknown, options: CaptureApiErrorOptions) {
   const message = getErrorMessage(error, "Unknown error");
   const requestId = options.request?.headers.get("x-vercel-id") ?? undefined;
+  const flowId = options.request?.headers.get("x-playfit-flow-id") ?? undefined;
+  const flowPhase = options.request?.headers.get("x-playfit-flow-phase") ?? undefined;
 
   console.error(
     JSON.stringify({
@@ -21,6 +23,8 @@ export function captureApiError(error: unknown, options: CaptureApiErrorOptions)
       operation: options.operation,
       statusCode: options.statusCode,
       requestId,
+      flowId,
+      flowPhase,
       error: message,
     }),
   );
@@ -34,6 +38,8 @@ export function captureApiError(error: unknown, options: CaptureApiErrorOptions)
     },
     extra: {
       requestId,
+      flowId,
+      flowPhase,
     },
   });
 }
@@ -51,6 +57,8 @@ export async function withApiTiming(
 ) {
   const startedAt = performance.now();
   const id = requestId(request);
+  const flowId = request.headers.get("x-playfit-flow-id") ?? undefined;
+  const flowPhase = request.headers.get("x-playfit-flow-phase") ?? undefined;
 
   try {
     const response = await handler();
@@ -61,6 +69,8 @@ export async function withApiTiming(
         route,
         method: request.method,
         requestId: id,
+        flowId,
+        flowPhase,
         statusCode: response.status,
         durationMs: Math.round(performance.now() - startedAt),
       }),

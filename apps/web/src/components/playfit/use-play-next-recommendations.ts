@@ -2,8 +2,9 @@
 
 import { authenticatedFetch } from "@playfit/core/store";
 import type { ProductPlayNextModel, RankedSeedGame } from "@playfit/core/types";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
+import { getOnboardingFlowHeaders, markOnboardingPhase } from "./onboarding-flow-tracing";
 import { addRecommendationsToSessionCache } from "./recommendation-cache";
 import { useRecommendationFetch } from "./use-recommendation-fetch";
 
@@ -24,6 +25,12 @@ export function usePlayNextRecommendations({
   errorMessage: string;
   onNeedsResync?: () => void;
 }) {
+  const onNeedsResyncRef = useRef(onNeedsResync);
+
+  useEffect(() => {
+    onNeedsResyncRef.current = onNeedsResync;
+  }, [onNeedsResync]);
+
   const {
     data: model,
     refreshing,
@@ -38,30 +45,37 @@ export function usePlayNextRecommendations({
 
       return execute(
         async () => {
+          markOnboardingPhase("recommendation_request_start");
           const res = await authenticatedFetch("/api/recommendations/today", {
             method: "POST",
             headers: {
               "content-type": "application/json",
+              ...getOnboardingFlowHeaders("recommendation_fetch"),
             },
           });
+          markOnboardingPhase("recommendation_response", { status: res.status });
 
           const body = (await res.json()) as ProductPlayNextModel & { needsResync?: boolean };
 
           if (body.needsResync) {
-            onNeedsResync?.();
+            markOnboardingPhase("recommendation_needs_resync");
+            onNeedsResyncRef.current?.();
             return null;
           }
 
           if (!res.ok) {
+            markOnboardingPhase("recommendation_error", { status: res.status });
             throw new Error(errorMessage);
           }
+
+          markOnboardingPhase("recommendation_success");
 
           return body;
         },
         { background, keepStaleOnError: true, onSuccess: cacheModel },
       );
     },
-    [enabled, errorMessage, onNeedsResync, execute],
+    [enabled, errorMessage, execute],
   );
 
   useEffect(() => {

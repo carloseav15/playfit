@@ -19,18 +19,19 @@ import {
 import { OnboardingProgress } from "./onboarding/onboarding-progress";
 import { OnboardingSearchDialog } from "./onboarding/onboarding-search-dialog";
 import { PlatformsStep } from "./onboarding/platforms-step";
+import { beginOnboardingFlow, markOnboardingPhase } from "./onboarding-flow-tracing";
 import { usePlayfitState, usePlayfitUi } from "./playfit-context";
 import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
 import { SectionHead } from "./section-head";
 
 export function OnboardingSection({ onExit }: { onExit?: () => void }) {
-  const { seedData, state, updateState, getSeedGame } = usePlayfitState();
-  const { ui, setUi, flushSave, searchGames, onboardingSearchError, onboardingSearchPending } =
-    usePlayfitUi();
+  const { seedData, state, updateState, updateStateAndSave, getSeedGame } = usePlayfitState();
+  const { ui, setUi, searchGames, onboardingSearchError, onboardingSearchPending } = usePlayfitUi();
   const draft = state.user.onboarding;
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
   const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);
   const [replaceGameId, setReplaceGameId] = useState<string | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const platformFamilies = useMemo(() => {
     const availableFamilies = [
       ...new Set(seedData.platforms.map((platform) => platform.family || "other")),
@@ -207,17 +208,30 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
     });
   }
 
-  function finalize() {
-    updateState((next) => {
+  async function finalize() {
+    if (isFinalizing) return;
+    setIsFinalizing(true);
+    beginOnboardingFlow();
+    const saveTask = updateStateAndSave((next) => {
       next.user.profile = buildAdaptiveProfileFromCache(next.user.onboarding, next.user.gameStates);
       next.user.onboardingCompletedAt = nowIso();
     });
-    flushSave();
+    markOnboardingPhase("state_update_requested");
+    const result = await saveTask;
+    if (!result.ok) {
+      markOnboardingPhase("finalize_save_error");
+      setIsFinalizing(false);
+      return;
+    }
+    markOnboardingPhase("profile_save_confirmed");
     setUi((current) => ({
       ...current,
       activeTab: "today",
-      statusMessage: "Profile ready. Your Play Next pick is ready.",
+      onboardingCompletionPhase: "finding",
+      statusMessage: "Your taste profile is saved. Finding your first match.",
     }));
+    markOnboardingPhase("navigation_ready");
+    setIsFinalizing(false);
   }
 
   const step = draft.step === "platforms" ? 1 : draft.step === "anchors" ? 2 : 3;
@@ -301,6 +315,7 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
                   setUi((current) => ({ ...current, onboardingQuery: "" }));
                 }}
                 onFinalize={finalize}
+                isFinalizing={isFinalizing}
                 onOpenSearch={openSearch}
                 onRemoveDislikedAnchor={removeDislikedAnchor}
               />

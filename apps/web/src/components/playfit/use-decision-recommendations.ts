@@ -2,6 +2,7 @@
 
 import type { ProductDecisionFeedback, RankedSeedGame } from "@playfit/core/types";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { markOnboardingPhase } from "./onboarding-flow-tracing";
 import type { SaveStatus } from "./playfit-context";
 import { usePlayNextRecommendations } from "./use-play-next-recommendations";
 
@@ -29,6 +30,31 @@ export function shouldShowNoRecommendations({
   refreshPending: boolean;
 }) {
   return !primary && !loading && !refreshing && !refreshPending;
+}
+
+export function shouldRefreshRecommendationPool({
+  poolSize,
+  visiblePoolSize,
+  exhausted,
+  refreshing,
+  refreshPending,
+  profileReady,
+}: {
+  poolSize: number;
+  visiblePoolSize: number;
+  exhausted: boolean;
+  refreshing: boolean;
+  refreshPending: boolean;
+  profileReady: boolean;
+}) {
+  return (
+    poolSize > 0 &&
+    visiblePoolSize <= 2 &&
+    !exhausted &&
+    !refreshing &&
+    !refreshPending &&
+    profileReady
+  );
 }
 
 export function useDecisionRecommendations({
@@ -101,7 +127,10 @@ export function useDecisionRecommendations({
       return;
     }
 
-    const timeoutId = window.setTimeout(() => setSlowLoading(true), 3000);
+    const timeoutId = window.setTimeout(() => {
+      markOnboardingPhase("recommendation_wait_slow", { thresholdMs: 3000 });
+      setSlowLoading(true);
+    }, 3000);
     return () => window.clearTimeout(timeoutId);
   }, [isInitialLoading]);
 
@@ -153,15 +182,19 @@ export function useDecisionRecommendations({
 
   useEffect(() => {
     if (
-      visiblePool.length <= 2 &&
-      !exhaustedRef.current &&
-      !refreshing &&
-      !recommendationRefreshPending &&
-      profileReady
+      shouldRefreshRecommendationPool({
+        poolSize: pool.length,
+        visiblePoolSize: visiblePool.length,
+        exhausted: exhaustedRef.current,
+        refreshing,
+        refreshPending: recommendationRefreshPending,
+        profileReady,
+      })
     ) {
       refreshRecommendations();
     }
   }, [
+    pool.length,
     visiblePool.length,
     refreshing,
     recommendationRefreshPending,
@@ -229,5 +262,6 @@ export function useDecisionRecommendations({
     setExcludedIds,
     slowLoading,
     visiblePool,
+    isInitialLoading,
   };
 }

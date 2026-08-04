@@ -10,6 +10,7 @@ export function useRecommendationFetch<T>(errorMessage: string) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const dataRef = useRef<T | null>(null);
   const requestIdRef = useRef(0);
+  const inFlightRef = useRef<Promise<void> | null>(null);
 
   const execute = useCallback(
     async (
@@ -20,6 +21,8 @@ export function useRecommendationFetch<T>(errorMessage: string) {
         onSuccess?: (data: T) => void;
       } = {},
     ) => {
+      if (inFlightRef.current) return inFlightRef.current;
+
       const requestId = ++requestIdRef.current;
       const hasExisting = dataRef.current !== null;
       if (options.background && hasExisting) {
@@ -29,34 +32,45 @@ export function useRecommendationFetch<T>(errorMessage: string) {
       }
       setLoadError(null);
 
-      try {
-        const result = await fetcher();
-        if (requestId !== requestIdRef.current) return;
-        if (result === null) return;
-        dataRef.current = result;
-        setData(result);
-        options.onSuccess?.(result);
-      } catch (error) {
-        if (requestId !== requestIdRef.current) return;
-        if (options.keepStaleOnError && dataRef.current) {
-          setLoadError(null);
-        } else {
-          dataRef.current = null;
-          setData(null);
-          setLoadError(getErrorMessage(error, errorMessage));
+      const task = (async () => {
+        try {
+          const result = await fetcher();
+          if (requestId !== requestIdRef.current) return;
+          if (result === null) return;
+          dataRef.current = result;
+          setData(result);
+          options.onSuccess?.(result);
+        } catch (error) {
+          if (requestId !== requestIdRef.current) return;
+          if (options.keepStaleOnError && dataRef.current) {
+            setLoadError(null);
+          } else {
+            dataRef.current = null;
+            setData(null);
+            setLoadError(getErrorMessage(error, errorMessage));
+          }
+        } finally {
+          if (requestId === requestIdRef.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false);
-          setRefreshing(false);
+      })();
+
+      inFlightRef.current = task;
+      void task.finally(() => {
+        if (inFlightRef.current === task) {
+          inFlightRef.current = null;
         }
-      }
+      });
+      return task;
     },
     [errorMessage],
   );
 
   const reset = useCallback(() => {
     requestIdRef.current += 1;
+    inFlightRef.current = null;
     dataRef.current = null;
     setData(null);
     setLoadError(null);
@@ -66,6 +80,7 @@ export function useRecommendationFetch<T>(errorMessage: string) {
 
   const abandonInFlight = useCallback(() => {
     requestIdRef.current += 1;
+    inFlightRef.current = null;
   }, []);
 
   return { data, loading, refreshing, loadError, execute, reset, abandonInFlight };

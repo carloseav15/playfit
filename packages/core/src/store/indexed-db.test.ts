@@ -72,6 +72,24 @@ describe("product indexeddb store", () => {
     expect(restored.user.onboarding.platforms).toHaveLength(1);
   });
 
+  it("forwards optional diagnostic headers when saving state", async () => {
+    const { saveProductState } = await import("./indexed-db");
+    const fetchMock = mockFetch({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await saveProductState(createInitialState(), {
+      headers: {
+        "x-playfit-flow-id": "flow-123",
+        "x-playfit-flow-phase": "profile_save",
+      },
+    });
+
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const headers = new Headers(requestInit.headers);
+    expect(headers.get("x-playfit-flow-id")).toBe("flow-123");
+    expect(headers.get("x-playfit-flow-phase")).toBe("profile_save");
+  });
+
   it("merges legacy v1 state into the v2 schema gracefully", async () => {
     const { loadProductState, saveProductState } = await import("./indexed-db");
     const legacyState = {
