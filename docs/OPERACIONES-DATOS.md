@@ -1,23 +1,25 @@
-# Operaciones de datos y recuperación
+# Data Operations and Recovery
 
-El disco externo **Expanse** está montado como `/Volumes/Elements`. Los datos
-pesados y recuperables de Playfit viven en `/Volumes/Elements/Playfit/Backups`;
-no se guardan en Git ni se despliegan a producción.
+The **Expanse** external drive is mounted at `/Volumes/Elements`. Playfit's large,
+recoverable data lives in `/Volumes/Elements/Playfit/Backups`; it is not stored in Git
+or deployed to production.
 
-## Qué va en cada lugar
+## What Belongs Where
 
 | Lugar | Contenido |
 | --- | --- |
-| Git | migraciones livianas, código y scripts de recuperación |
-| Expanse | backups completos, mirror IGDB y seed runtime de catálogo |
-| Producción | 17 tablas runtime y el catálogo necesario para la web |
-| Base local activa | entorno enriquecido para desarrollo e importación |
+| Location | Contents |
+| --- | --- |
+| Git | Lightweight migrations, code, and recovery scripts |
+| Expanse | Full backups, IGDB mirror, and runtime catalog seed |
+| Production | 17 runtime tables and the catalog required by the web app |
+| Active local database | Enriched environment for development and imports |
 
-Los backups completos son `games_library`, `games_library_private` e `igdb_raw`.
-El seed `runtime_catalog` contiene solo catálogo público: nunca perfiles,
-estados de juego, rate limits, auditoría ni caché.
+Full backups are `games_library`, `games_library_private`, and `igdb_raw`.
+The `runtime_catalog` seed contains public catalog data only: never profiles, game
+states, rate limits, audit data, or cache data.
 
-## Operación normal
+## Normal Operation
 
 ```bash
 npm run backup:all
@@ -25,59 +27,55 @@ npm run backup:runtime-catalog
 npm run backup:verify
 ```
 
-Ejecutar esos tres comandos antes de cambios de datos masivos, de un reset o
-del mantenimiento de IGDB.
+Run these three commands before bulk data changes, a reset, or IGDB maintenance.
 
-## Automatización local en Expanse
+## Local Automation on Expanse
 
-`npm run backup:scheduled` ejecuta los tres comandos anteriores y después rota
-solo dumps de más de 30 días. En cada grupo (`games_library`,
-`games_library_private`, `igdb_raw`, `runtime_catalog`) siempre conserva el
-dump más reciente; nunca rota el último backup aunque sea antiguo.
+`npm run backup:scheduled` runs the three commands above and then rotates only dumps
+older than 30 days. In each group (`games_library`, `games_library_private`, `igdb_raw`,
+`runtime_catalog`) it always keeps the newest dump; it never rotates the last backup,
+even when it is old.
 
-Para ejecutarlo manualmente:
+To run it manually:
 
 ```bash
 npm run backup:scheduled
 PLAYFIT_BACKUP_RETENTION_DAYS=60 npm run backup:scheduled
 ```
 
-No hay actualmente un cron ni un LaunchAgent de Playfit instalado. Para
-automatizarlo en macOS, se puede crear un LaunchAgent que invoque
-`npm run backup:scheduled` cuando Expanse esté montado. Desactivarlo consiste
-en descargarlo con `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`
-y reactivarlo con `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`.
-La tarea no se instala ni se carga automáticamente desde el repositorio.
+There is currently no Playfit cron job or LaunchAgent installed. To automate this on
+macOS, create a LaunchAgent that invokes `npm run backup:scheduled` when Expanse is
+mounted. Disable it with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`
+and re-enable it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.playfit.backup.plist`.
+The job is not installed or loaded automatically from the repository.
 
-## Recuperar desarrollo enriquecido
+## Recover the Enriched Development Environment
 
-Este comando es destructivo **solo para la base local**. Reconstruye el esquema
-y restaura el catálogo completo, tablas privadas y mirror IGDB desde Expanse:
+This command is destructive **only to the local database**. It rebuilds the schema
+and restores the full catalog, private tables, and IGDB mirror from Expanse:
 
 ```bash
 npm run recover:local
 ```
 
-No apuntar este flujo a producción. El script exige que Expanse esté montado y
-que los dumps existan.
+Do not point this flow at production. The script requires Expanse to be mounted and
+the dumps to exist.
 
-## Reconstruir el contrato reducido
+## Rebuild the Reduced Contract
 
-En una base local desechable, aplicar las migraciones y cargar el catálogo
-runtime externo:
+On a disposable local database, apply the migrations and load the external runtime catalog:
 
 ```bash
 supabase db reset --local
 npm run seed:catalog
 ```
 
-El resultado esperado es el contrato de producción: 17 tablas runtime, 65,118
-juegos, 36 plataformas y recomendaciones válidas con plataformas vacías.
+The expected result is the production contract: 17 runtime tables, 65,118 games,
+36 platforms, and valid recommendations with empty platform selections.
 
-## Límite deliberado
+## Deliberate Boundary
 
-La base local activa conserva datos pesados para que desarrollo siga operativo
-sin una restauración de horas. Expanse es la copia recuperable y canónica de
-esos datos; no se debe borrar una tabla pesada local hasta que se acepte perder
-esa disponibilidad inmediata o se migre explícitamente el almacenamiento de
-Docker al disco externo.
+The active local database keeps large data so development remains operational without
+an hours-long restore. Expanse is the canonical recoverable copy of that data; do not
+delete a large local table until losing immediate availability is accepted or Docker
+storage is explicitly migrated to the external drive.

@@ -1,9 +1,9 @@
-# Migration squash — propuesta histórica (reemplazada)
+# Migration squash — historical proposal (superseded)
 
-Generada y validada el 2026-07-07. Fue reemplazada el 2026-07-16 por el historial
-canónico reducido que sí vive en `supabase/migrations/`. Conservamos este directorio
-como evidencia del análisis original, no como instrucciones operativas. Para recuperar
-el sistema actual, usar `docs/OPERACIONES-DATOS.md` y
+Generated and validated on 2026-07-07. It was superseded on 2026-07-16 by the reduced
+canonical history in `supabase/migrations/`. This directory is preserved as evidence
+of the original analysis, not as operational instructions. To recover the current
+system, use `docs/OPERACIONES-DATOS.md` and
 `docs/MIGRATIONS_SQUASH_GUIDE.md`.
 
 ## The numbers
@@ -23,7 +23,7 @@ not schema evolution. Replaying 107 files to reconstruct "how the schema got her
 a future reader (or an interviewer skimming the repo) wade through 43K lines of ETL to
 find the 2,162+11,244 lines that actually shaped the schema.
 
-## La propuesta original
+## The original proposal
 
 `baseline_schema.sql` in this directory is `pg_dump --schema-only` of the **current
 real local schema** (all 3 schemas: `games_library`, `games_library_private`,
@@ -47,7 +47,7 @@ token pg_dump embeds (not schema content). Zero structural drift.
   of `supabase/migrations/` (so a fresh `supabase db reset` only runs the one baseline)
   but nothing is proposed to be deleted from git history.
 
-## Estado actual
+## Current status
 
-La consolidación ya fue aplicada y validada por contrato, con datos runtime fuera de
-Git. Este archivo no debe usarse para reemplazar las migraciones actuales.
+The consolidation has already been applied and contract-validated, with runtime data
+outside Git. This file must not be used to replace the current migrations.

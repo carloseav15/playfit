@@ -3,7 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { PlayNextCard } from "./play-next-card";
+import { recordRecommendationClientEvent } from "./core-loop-analytics";
 import {
   shouldShowNoRecommendations,
   useDecisionRecommendations,
@@ -101,6 +102,22 @@ export function DecisionShell({
     [getSeedGame, state.user.onboarding.likedGameIds],
   );
   const isFindingFirstMatch = ui.onboardingCompletionPhase === "finding";
+  const shownRecommendationKeys = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!primary) return;
+    const rank = pool.findIndex((entry) => entry.game.gameId === primary.game.gameId) + 1;
+    if (rank < 1) return;
+    const key = `${state.stateVersion}:${primary.game.gameId}`;
+    if (shownRecommendationKeys.current.has(key)) return;
+    shownRecommendationKeys.current.add(key);
+    recordRecommendationClientEvent({
+      eventName: "recommendation_shown",
+      stateVersion: state.stateVersion,
+      gameId: primary.game.gameId,
+      rank,
+    });
+  }, [pool, primary, state.stateVersion]);
 
   useEffect(() => {
     if (!isFindingFirstMatch || isInitialLoading) return;
@@ -115,6 +132,21 @@ export function DecisionShell({
   const negativeSignalCount = state.user.onboarding.dislikedGameIds.length;
   const tasteSignalCount = positiveSignalCount + negativeSignalCount;
   const ratedCount = state.user.profile?.ratedCount ?? 0;
+
+  const recordPrimaryInteraction = (
+    eventName: "recommendation_skipped" | "recommendation_saved",
+  ) => {
+    if (!primary) return;
+    const rank = pool.findIndex((entry) => entry.game.gameId === primary.game.gameId) + 1;
+    if (rank > 0) {
+      recordRecommendationClientEvent({
+        eventName,
+        stateVersion: state.stateVersion,
+        gameId: primary.game.gameId,
+        rank,
+      });
+    }
+  };
 
   if (!profileReady) {
     if (!startInCalibration) return null;
@@ -369,10 +401,16 @@ export function DecisionShell({
                 entry={primary}
                 primary
                 inPlayfitPicks={primary.inPlayfitPicks}
-                onAddPick={() => handleAddPick(primary)}
+                onAddPick={() => {
+                  recordPrimaryInteraction("recommendation_saved");
+                  handleAddPick(primary);
+                }}
                 onNotForMe={() => handleFeedback(primary, "not_for_me")}
                 onAlreadyPlayed={(feedback) => handleFeedback(primary, feedback)}
-                onShowAnother={() => handleShowAnother(primary)}
+                onShowAnother={() => {
+                  recordPrimaryInteraction("recommendation_skipped");
+                  handleShowAnother(primary);
+                }}
               />
             </motion.div>
           </div>

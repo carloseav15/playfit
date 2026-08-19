@@ -15,9 +15,9 @@ import { SectionHeader } from "./helpers";
 export function AccessibilitySection() {
   return (
     <>
-      <SectionHeader title="Accesibilidad" id="accesibilidad" />
+      <SectionHeader title="Accessibility" id="accessibility" />
       <p className="mb-5 text-sm text-muted-foreground">
-        Patrones de accesibilidad aplicados en todos los componentes del sistema de diseño.
+        Accessibility patterns applied across all design-system components.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-md border border-border bg-card p-4">
@@ -26,21 +26,21 @@ export function AccessibilitySection() {
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
           </code>
           <p className="mt-2 text-xs text-muted-foreground">
-            Todos los componentes interactivos usan <code className="font-mono">focus-visible</code>{" "}
-            para mostrar el anillo de foco solo cuando se navega por teclado, no al hacer clic.
+            All interactive components use <code className="font-mono">focus-visible</code> to show
+            the focus ring only during keyboard navigation, not on click.
           </p>
         </div>
         <div className="rounded-md border border-border bg-card p-4">
           <h4 className="mb-2 text-sm font-bold">Screen Reader Utilities</h4>
           <code className="font-mono text-xs text-muted-foreground">sr-only</code>
           <p className="mt-2 text-xs text-muted-foreground">
-            La clase <code className="font-mono">sr-only</code> oculta visualmente contenido
-            manteniéndolo accesible para lectores de pantalla. Usado en labels de iconos, legend de
-            fieldset, y descripciones adicionales.
+            The <code className="font-mono">sr-only</code> class visually hides content while
+            keeping it accessible to screen readers. Used for icon labels, fieldset legends, and
+            additional descriptions.
           </p>
         </div>
         <div className="rounded-md border border-border bg-card p-4">
-          <h4 className="mb-2 text-sm font-bold">Roles y ARIA</h4>
+          <h4 className="mb-2 text-sm font-bold">Roles and ARIA</h4>
           <table className="mt-2 w-full text-xs">
             <thead>
               <tr className="text-muted-foreground">
@@ -75,9 +75,9 @@ export function AccessibilitySection() {
             @media (prefers-reduced-motion)
           </code>
           <p className="mt-2 text-xs text-muted-foreground">
-            Las animaciones de <code className="font-mono">{"<dialog>"}</code> y transiciones se
-            desactivan cuando el usuario prefiere movimiento reducido. También se usa en carruseles
-            y StatusDot animado.
+            <code className="font-mono">{"<dialog>"}</code> animations and transitions are disabled
+            when the user prefers reduced motion. The same rule applies to carousels and the
+            animated StatusDot.
           </p>
         </div>
       </div>
@@ -88,9 +88,9 @@ export function AccessibilitySection() {
 export function ComponentStatesSection() {
   return (
     <>
-      <SectionHeader title="Estados de Componentes" id="estados" />
+      <SectionHeader title="Component States" id="states" />
       <p className="mb-5 text-sm text-muted-foreground">
-        Matriz de estados implementados por cada componente del sistema.
+        Matrix of states implemented by each system component.
       </p>
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-xs">

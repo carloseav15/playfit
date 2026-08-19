@@ -75,8 +75,8 @@ export default function UiKitPage() {
     { id: "tooltip", label: "Tooltip" },
     { id: "sheet", label: "Sheet" },
     { id: "dropdown-menu", label: "DropdownMenu" },
-    { id: "accesibilidad", label: "Accesibilidad" },
-    { id: "estados", label: "Estados" },
+    { id: "accessibility", label: "Accessibility" },
+    { id: "states", label: "States" },
     { id: "context", label: "Context Examples" },
     { id: "icons", label: "Icons" },
   ];

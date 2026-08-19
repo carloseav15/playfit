@@ -1,6 +1,8 @@
 import { playNextModelSchema } from "@/lib/api-contracts";
 import { jsonData, jsonError } from "@/lib/api-errors";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
+import { createRequestSupabaseContext } from "@/lib/supabase/server";
+import { recordRecommendationGenerated } from "@/lib/record-recommendation-generated";
 import { buildPlayNextModel, loadRecommendationState } from "../shared";
 
 export const maxDuration = 30;
@@ -45,6 +47,16 @@ async function postRecommendations(request: Request) {
       stateVersion: loaded.stateVersion,
       userId: loaded.userId,
     });
+    void createRequestSupabaseContext(request)
+      .then((context) => context && recordRecommendationGenerated({ context, model }))
+      .catch((error) =>
+        captureApiError(error, {
+          route: "/api/recommendations/today",
+          request,
+          operation: "record_recommendation_generated",
+          statusCode: 500,
+        }),
+      );
     return jsonData(playNextModelSchema, model);
   } catch (error) {
     captureApiError(error, {

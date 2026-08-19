@@ -156,7 +156,7 @@ on conflict (game_id, alias) do nothing;
 
 -- ============================================================
 -- Phase 9: Update release_year = 0 to NULL (optional cleanup)
--- Comentado: 0 indica "año desconocido", mantiene NOT NULL constraint
+-- Commented out: 0 means "unknown year"; keep the NOT NULL constraint
 -- ============================================================
 
 commit;
