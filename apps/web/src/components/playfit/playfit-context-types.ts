@@ -6,6 +6,7 @@ import type {
   ProductRating,
   ProductSeedData,
   ProductState,
+  ProductTasteActionClientResult,
   ProductTasteSignalSource,
   SeedGame,
 } from "@playfit/core/types";
@@ -49,8 +50,8 @@ export interface PlayfitStateContextValue {
   applyDecisionFeedback: (
     gameId: string,
     feedback: ProductDecisionFeedback,
-    onUndo?: () => void,
-  ) => void;
+    onUndo?: (result: ProductTasteActionClientResult) => void,
+  ) => Promise<ProductTasteActionClientResult>;
   setPlayfitPick: (gameId: string, picked: boolean) => void;
   startPlayfitPick: (gameId: string) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;

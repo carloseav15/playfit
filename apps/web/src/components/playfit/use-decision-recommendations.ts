@@ -1,6 +1,11 @@
 "use client";
 
-import type { ProductDecisionFeedback, RankedSeedGame } from "@playfit/core/types";
+import type {
+  ProductDecisionFeedback,
+  ProductPlayNextModel,
+  ProductTasteActionClientResult,
+  RankedSeedGame,
+} from "@playfit/core/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { markOnboardingPhase } from "./onboarding-flow-tracing";
 import type { SaveStatus } from "./playfit-context";
@@ -57,6 +62,46 @@ export function shouldRefreshRecommendationPool({
   );
 }
 
+export function recommendationEntries(model: ProductPlayNextModel): RankedSeedGame[] {
+  return [model.primary, ...model.alternatives].filter(
+    (entry): entry is RankedSeedGame => entry !== null,
+  );
+}
+
+export function updateRecommendationPool({
+  previousPool,
+  previousStateVersion,
+  model,
+}: {
+  previousPool: RankedSeedGame[];
+  previousStateVersion: string | null;
+  model: ProductPlayNextModel;
+}): RankedSeedGame[] {
+  const entries = recommendationEntries(model);
+  if (previousStateVersion !== model.stateVersion) return entries;
+
+  const existingIds = new Set(previousPool.map((entry) => entry.game.gameId));
+  return [...previousPool, ...entries.filter((entry) => !existingIds.has(entry.game.gameId))];
+}
+
+function isOlderStateVersion(candidate: string, current: string | null) {
+  if (!current || !/^\d+$/.test(candidate) || !/^\d+$/.test(current)) return false;
+  return BigInt(candidate) < BigInt(current);
+}
+
+export function visibleRecommendationPool({
+  pool,
+  excludedIds,
+  decisionPending,
+}: {
+  pool: RankedSeedGame[];
+  excludedIds: Set<string>;
+  decisionPending: boolean;
+}) {
+  if (decisionPending) return [];
+  return pool.filter((entry) => !excludedIds.has(entry.game.gameId));
+}
+
 export function useDecisionRecommendations({
   profileReady,
   saveStatus,
@@ -69,8 +114,8 @@ export function useDecisionRecommendations({
   applyDecisionFeedback: (
     gameId: string,
     feedback: ProductDecisionFeedback,
-    onUndo?: () => void,
-  ) => void;
+    onUndo?: (result: ProductTasteActionClientResult) => void,
+  ) => Promise<ProductTasteActionClientResult>;
   setPlayfitPick: (gameId: string, picked: boolean) => void;
   resetLocalState: () => void;
 }) {
@@ -79,6 +124,9 @@ export function useDecisionRecommendations({
   const recommendationRefreshPendingRef = useRef(false);
   const previousSaveStatusRef = useRef<SaveStatus>(saveStatus);
   const [pool, setPool] = useState<RankedSeedGame[]>([]);
+  const poolStateVersionRef = useRef<string | null>(null);
+  const [decisionPending, setDecisionPending] = useState(false);
+  const [decisionRefreshError, setDecisionRefreshError] = useState<string | null>(null);
   const [stablePrimaryId, setStablePrimaryId] = useState<string | null>(null);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(() => new Set());
   const initialPrimarySetRef = useRef(false);
@@ -91,7 +139,7 @@ export function useDecisionRecommendations({
     });
 
   const isInitialLoading = loading && !model;
-  const isWaitingForCandidates = recommendationRefreshPending || refreshing;
+  const isWaitingForCandidates = decisionPending || recommendationRefreshPending || refreshing;
 
   useEffect(() => {
     if (
@@ -135,8 +183,8 @@ export function useDecisionRecommendations({
   }, [isInitialLoading]);
 
   const visiblePool = useMemo(
-    () => pool.filter((entry) => !excludedIds.has(entry.game.gameId)),
-    [pool, excludedIds],
+    () => visibleRecommendationPool({ pool, excludedIds, decisionPending }),
+    [pool, excludedIds, decisionPending],
   );
 
   const primary = useMemo(
@@ -164,19 +212,19 @@ export function useDecisionRecommendations({
 
   useEffect(() => {
     if (!model) return;
-    const modelEntries = [model.primary, ...model.alternatives].filter(
-      (entry): entry is RankedSeedGame => entry !== null,
-    );
-
-    if (modelEntries.length === 0) return;
+    if (isOlderStateVersion(model.stateVersion, poolStateVersionRef.current)) return;
 
     setPool((previousPool) => {
-      const existingIds = new Set(previousPool.map((entry) => entry.game.gameId));
-      const newEntries = modelEntries.filter((entry) => !existingIds.has(entry.game.gameId));
-      if (newEntries.length === 0 && previousPool.length > 0) {
+      const nextPool = updateRecommendationPool({
+        previousPool,
+        previousStateVersion: poolStateVersionRef.current,
+        model,
+      });
+      if (nextPool.length === previousPool.length && previousPool.length > 0) {
         exhaustedRef.current = true;
       }
-      return newEntries.length > 0 ? [...previousPool, ...newEntries] : previousPool;
+      poolStateVersionRef.current = model.stateVersion;
+      return nextPool;
     });
   }, [model]);
 
@@ -215,22 +263,69 @@ export function useDecisionRecommendations({
     setStablePrimaryId(next?.game.gameId ?? null);
   }
 
-  function handleFeedback(entry: RankedSeedGame, feedback: ProductDecisionFeedback) {
+  async function handleFeedback(entry: RankedSeedGame, feedback: ProductDecisionFeedback) {
     const gameId = entry.game.gameId;
-    setExcludedIds((previousIds) => new Set([...previousIds, gameId]));
-    advancePrimaryPast(gameId);
-    recommendationRefreshPendingRef.current = true;
-    setRecommendationRefreshPending(true);
-    applyDecisionFeedback(gameId, feedback, () => {
-      setExcludedIds((previousIds) => {
-        const nextIds = new Set(previousIds);
-        nextIds.delete(gameId);
-        return nextIds;
+    const isCanonicalFeedback =
+      feedback === "not_for_me" ||
+      feedback === "loved" ||
+      feedback === "liked" ||
+      feedback === "played_loved" ||
+      feedback === "played_liked";
+
+    if (!isCanonicalFeedback) {
+      setExcludedIds((previousIds) => new Set([...previousIds, gameId]));
+      advancePrimaryPast(gameId);
+      recommendationRefreshPendingRef.current = true;
+      setRecommendationRefreshPending(true);
+      void applyDecisionFeedback(gameId, feedback, () => {
+        setExcludedIds((previousIds) => {
+          const nextIds = new Set(previousIds);
+          nextIds.delete(gameId);
+          return nextIds;
+        });
+        setStablePrimaryId(gameId);
+        recommendationRefreshPendingRef.current = false;
+        setRecommendationRefreshPending(false);
       });
-      setStablePrimaryId(gameId);
-      recommendationRefreshPendingRef.current = false;
-      setRecommendationRefreshPending(false);
-    });
+      return;
+    }
+
+    setDecisionPending(true);
+    setDecisionRefreshError(null);
+    try {
+      const result = await applyDecisionFeedback(gameId, feedback, (undoResult) => {
+        if (undoResult.ok && undoResult.canonical) {
+          const undoModel = undoResult.response.recommendationModel;
+          const undoPool = recommendationEntries(undoModel);
+          poolStateVersionRef.current = undoModel.stateVersion;
+          exhaustedRef.current = undoPool.length === 0;
+          setPool(undoPool);
+          setStablePrimaryId(undoModel.primary?.game.gameId ?? null);
+          setDecisionRefreshError(null);
+          return;
+        }
+        refreshRecommendations();
+      });
+
+      if (result.ok && result.canonical) {
+        const authoritativeModel = result.response.recommendationModel;
+        const nextPool = recommendationEntries(authoritativeModel);
+        poolStateVersionRef.current = authoritativeModel.stateVersion;
+        exhaustedRef.current = nextPool.length === 0;
+        setPool(nextPool);
+        setStablePrimaryId(authoritativeModel.primary?.game.gameId ?? null);
+      } else if (!result.ok && result.canonical && result.decisionSaved) {
+        poolStateVersionRef.current = result.stateVersion ?? poolStateVersionRef.current;
+        exhaustedRef.current = true;
+        setPool([]);
+        setStablePrimaryId(null);
+        setDecisionRefreshError(
+          "Your decision was saved, but the updated Play Next ranking is temporarily unavailable.",
+        );
+      }
+    } finally {
+      setDecisionPending(false);
+    }
   }
 
   function handleAddPick(entry: RankedSeedGame) {
@@ -253,7 +348,7 @@ export function useDecisionRecommendations({
     handleShowAnother,
     isTransient: isInitialLoading,
     isWaitingForCandidates,
-    loadError,
+    loadError: decisionRefreshError ?? loadError,
     loading,
     pool,
     primary,

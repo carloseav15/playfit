@@ -48,7 +48,7 @@ const changeOptions: {
 
 function formatDate(value?: string) {
   if (!value) return "Setup signal";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

@@ -137,7 +137,7 @@ applyDecisionFeedback(gameId, feedback)
   ├── "not_for_me"    → set rating=2, set excluded=true, rebuild profile
   ├── "played_loved"  → set status="completed", set rating=5, rebuild profile
   ├── "played_liked"  → set status="completed", set rating=4, rebuild profile
-  ├── "played_mixed"  → set status="completed", set rating=3, rebuild profile
+  ├── "played_mixed"  → set status="completed", set rating=3, no taste evidence or maturity change
   └── "played_dropped" → set status="abandoned", set rating=2, set excluded=true, rebuild profile
 ```
 

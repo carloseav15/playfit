@@ -24,6 +24,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w apps/web",
     "validate:migrations": "bash scripts/validate-migrations.sh",
+    "validate:undo:local": "tsx scripts/validate-canonical-undo-local.ts",
     "backup:all": "bash scripts/backup-all.sh",
     "backup:runtime-catalog": "node scripts/backup-runtime-catalog.mjs",
     "backup:verify": "node scripts/verify-playfit-backups.mjs",

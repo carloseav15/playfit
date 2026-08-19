@@ -54,7 +54,9 @@ vi.mock("@playfit/core/store", () => ({
       profile: { nintendo: 0.8 },
     },
   })),
-  saveProductState: vi.fn(async () => {}),
+  loadProductStateOrNull: vi.fn(async () => null),
+  authenticatedFetch: vi.fn(),
+  saveProductState: vi.fn(async () => ({ ok: true, stateVersion: "1" })),
   resetProductState: vi.fn(),
   setCachedAuth: vi.fn(),
 }));
@@ -121,7 +123,7 @@ function TestConsumer() {
       </button>
       <button
         type="button"
-        onClick={() => applyDecisionFeedback("game2", "played_loved")}
+        onClick={() => applyDecisionFeedback("game2", "played_mixed")}
         data-testid="love-btn"
       >
         Love Game 2
@@ -217,6 +219,53 @@ describe("PlayfitProvider and usePlayfit Context", () => {
     });
 
     expect(screen.getByTestId("game2-status").textContent).toBe("none");
+
+    const { authenticatedFetch } = await import("@playfit/core/store");
+    vi.mocked(authenticatedFetch).mockResolvedValueOnce(
+      Response.json({
+        operationId: "660e8400-e29b-41d4-a716-446655440000",
+        stateVersion: "1",
+        state: {
+          version: 1,
+          stateVersion: "1",
+          user: {
+            onboarding: {
+              step: "dislikes",
+              likedGameIds: ["game1"],
+              dislikedGameIds: [],
+              platforms: [],
+            },
+            onboardingCompletedAt: "2026-07-06T00:00:00Z",
+            profile: null,
+            gameStates: {
+              game2: {
+                gameId: "game2",
+                title: "Game game2",
+                status: "completed",
+                rating: 3,
+                inBacklog: false,
+                inWishlist: false,
+                inPlayfitPicks: false,
+                excluded: false,
+                source: "manual",
+                createdAt: "2026-07-06T00:00:00Z",
+                updatedAt: "2026-07-06T00:00:00Z",
+              },
+            },
+            lastUpdatedAt: "2026-07-06T00:00:00Z",
+          },
+        },
+        gameState: { gameId: "game2" },
+        profile: { stateVersion: "1" },
+        recommendationModel: {
+          primary: null,
+          alternatives: [],
+          savedPickIds: [],
+          stateVersion: "1",
+          rankingMetadata: { profileStateVersion: "1", candidates: [] },
+        },
+      }),
+    );
 
     await act(async () => {
       screen.getByTestId("love-btn").click();

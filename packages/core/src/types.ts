@@ -22,6 +22,17 @@ export type ProductDecisionFeedback =
   | "played_liked"
   | "played_mixed"
   | "played_dropped";
+/**
+ * Server-authoritative decisions which may change both the game state and the
+ * taste profile. `mixed` and `dropped` are used only with `played: true`.
+ */
+export type ProductTasteActionType = "not_for_me" | "loved" | "liked" | "mixed" | "dropped";
+/** A confirmed recommendation acceptance. It changes eligibility, never taste evidence. */
+export type ProductStartedActionType = "started";
+export type ProductCanonicalActionType =
+  | ProductTasteActionType
+  | ProductStartedActionType
+  | "undo_decision";
 export type ProductTasteDecision =
   | "setup_favorite"
   | "setup_miss"
@@ -124,6 +135,8 @@ export interface ProductUserState {
 
 export interface ProductState {
   version: number;
+  /** Monotonic server-owned profile revision. The app schema version remains `version`. */
+  stateVersion: string;
   user: ProductUserState;
 }
 
@@ -161,7 +174,81 @@ export interface ProductPlayNextModel {
   alternatives: RankedSeedGame[];
   savedPickIds: string[];
   stateVersion: string;
+  rankingMetadata: {
+    profileStateVersion: string;
+    candidates: Array<{ gameId: string; rank: number }>;
+  };
 }
+
+export interface ProductTasteActionRequest {
+  operationId: string;
+  expectedStateVersion: string;
+  actionType: ProductTasteActionType;
+  gameId: string;
+  /** True when this was submitted from the Already Played outcome flow. */
+  played?: boolean;
+}
+
+export interface ProductStartedActionRequest {
+  operationId: string;
+  expectedStateVersion: string;
+  actionType: "started";
+  gameId: string;
+}
+
+export interface ProductUndoDecisionRequest {
+  operationId: string;
+  expectedStateVersion: string;
+  actionType: "undo_decision";
+  targetOperationId: string;
+}
+
+export type ProductCanonicalDecisionRequest =
+  | ProductTasteActionRequest
+  | ProductStartedActionRequest
+  | ProductUndoDecisionRequest;
+
+export interface ProductTasteActionResponse {
+  operationId: string;
+  stateVersion: string;
+  state: ProductState;
+  gameState: ProductGameState;
+  profile: ProductProfile & { stateVersion: string };
+  recommendationModel: ProductPlayNextModel;
+}
+
+export interface ProductUndoDecisionResponse {
+  operationId: string;
+  stateVersion: string;
+  state: ProductState;
+  gameState: ProductGameState | null;
+  profile: ProductProfile & { stateVersion: string };
+  recommendationModel: ProductPlayNextModel;
+  undo: {
+    targetOperationId: string;
+    gameId: string;
+    restoredPreviousState: boolean;
+  };
+}
+
+export type ProductCanonicalDecisionResponse =
+  | ProductTasteActionResponse
+  | ProductUndoDecisionResponse;
+
+export type ProductTasteActionClientResult =
+  | { ok: true; canonical: true; response: ProductCanonicalDecisionResponse }
+  | {
+      ok: false;
+      canonical: true;
+      decisionSaved: boolean;
+      stateVersion?: string;
+      state?: ProductState;
+      gameState?: ProductGameState;
+      profile?: ProductProfile & { stateVersion: string };
+      error: string;
+      conflict?: boolean;
+    }
+  | { ok: true; canonical: false };
 
 export interface ProductTasteHistoryEntry {
   gameId: string;

@@ -69,6 +69,7 @@ export const productProfileSchema = z.object({
 
 export const productStateSchema = z.object({
   version: z.number(),
+  stateVersion: z.string().regex(/^\d+$/).default("0"),
   user: z.object({
     onboarding: z.object({
       step: z.enum(["platforms", "anchors", "dislikes"]),
@@ -87,5 +88,55 @@ export const productStateSchema = z.object({
     lastUpdatedAt: z.string().nullable(),
   }),
 });
+
+export const productTasteActionRequestSchema = z
+  .object({
+    operationId: z.uuid(),
+    expectedStateVersion: z.string().regex(/^\d+$/),
+    actionType: z.enum(["not_for_me", "loved", "liked", "mixed", "dropped"]),
+    gameId: z.string().min(1),
+    played: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.played && value.actionType === "not_for_me") {
+      context.addIssue({
+        code: "custom",
+        path: ["played"],
+        message: "played is only valid for loved or liked actions",
+      });
+    }
+    if ((value.actionType === "mixed" || value.actionType === "dropped") && !value.played) {
+      context.addIssue({
+        code: "custom",
+        path: ["played"],
+        message: "mixed and dropped are only valid from the Already Played flow",
+      });
+    }
+  });
+
+export const productUndoDecisionRequestSchema = z
+  .object({
+    operationId: z.uuid(),
+    expectedStateVersion: z.string().regex(/^\d+$/),
+    actionType: z.literal("undo_decision"),
+    targetOperationId: z.uuid(),
+  })
+  .strict();
+
+export const productStartedActionRequestSchema = z
+  .object({
+    operationId: z.uuid(),
+    expectedStateVersion: z.string().regex(/^\d+$/),
+    actionType: z.literal("started"),
+    gameId: z.string().min(1),
+  })
+  .strict();
+
+export const productCanonicalDecisionRequestSchema = z.union([
+  productTasteActionRequestSchema,
+  productStartedActionRequestSchema,
+  productUndoDecisionRequestSchema,
+]);
 
 export type ProductStateInput = z.input<typeof productStateSchema>;

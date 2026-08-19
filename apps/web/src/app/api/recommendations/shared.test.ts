@@ -74,6 +74,7 @@ describe("loadRecommendationState", () => {
         },
         created_at: "2026-01-01T00:00:00.000Z",
         updated_at: "2026-01-02T00:00:00.000Z",
+        state_version: 7,
       },
       error: null,
     });
@@ -91,7 +92,7 @@ describe("loadRecommendationState", () => {
     expect(result).toMatchObject({
       ok: true,
       userId: authenticatedUserId,
-      stateVersion: "2026-01-02T00:00:00.000Z",
+      stateVersion: "7",
     });
   });
 
@@ -279,6 +280,14 @@ describe("recommendation scoring helpers", () => {
     expect(result.primary?.game).toBe(game);
     expect(result.alternatives).toHaveLength(1);
     expect(result.savedPickIds).toEqual(["saved"]);
+    expect(result.stateVersion).toBe("v1");
+    expect(result.rankingMetadata).toEqual({
+      profileStateVersion: "v1",
+      candidates: [
+        { gameId: "hades", rank: 1 },
+        { gameId: "other", rank: 2 },
+      ],
+    });
   });
 
   it("returns empty play-next model when scoring has no next-up entries", async () => {

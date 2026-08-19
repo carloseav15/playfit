@@ -106,6 +106,15 @@ export const playNextModelSchema = z.object({
   alternatives: z.array(rankedSeedGameSchema),
   savedPickIds: z.array(z.string()),
   stateVersion: z.string(),
+  rankingMetadata: z.object({
+    profileStateVersion: z.string(),
+    candidates: z.array(
+      z.object({
+        gameId: z.string(),
+        rank: z.number().int().positive(),
+      }),
+    ),
+  }),
 });
 
 export const picksResponseSchema = z.array(rankedSeedGameSchema);

@@ -10,17 +10,20 @@ export function useQueuedProfileSave({
   setUseLocalProfile,
   setUi,
   setIsSaving,
+  onSavedStateVersion,
 }: {
   setAuthUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
   setUseLocalProfile: React.Dispatch<React.SetStateAction<boolean>>;
   setUi: React.Dispatch<React.SetStateAction<ProductUiState | null>>;
   setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
+  onSavedStateVersion?: (stateVersion: string) => void;
 }) {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveSequenceRef = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSnapshotRef = useRef<ProductState | null>(null);
   const pendingOptionsRef = useRef<{ successMessage?: string }>({});
+  const latestSavedVersionRef = useRef<string | null>(null);
 
   const doSave = useCallback(
     (
@@ -36,7 +39,10 @@ export function useQueuedProfileSave({
         .then(async (): Promise<SaveStateResult> => {
           try {
             markOnboardingPhase("profile_save_start");
-            const result = await saveProductState(snapshot, {
+            const snapshotForSave = latestSavedVersionRef.current
+              ? { ...snapshot, stateVersion: latestSavedVersionRef.current }
+              : snapshot;
+            const result = await saveProductState(snapshotForSave, {
               headers: getOnboardingFlowHeaders("profile_save"),
             });
             if (!result.ok && result.reason === "auth_expired") {
@@ -44,6 +50,11 @@ export function useQueuedProfileSave({
               setAuthUser(null);
               setUseLocalProfile(false);
               return result;
+            }
+
+            if (result.ok) {
+              latestSavedVersionRef.current = result.stateVersion;
+              onSavedStateVersion?.(result.stateVersion);
             }
 
             if (sequence !== saveSequenceRef.current) return result;
@@ -100,7 +111,7 @@ export function useQueuedProfileSave({
       );
       return task;
     },
-    [setAuthUser, setUseLocalProfile, setUi, setIsSaving],
+    [setAuthUser, setUseLocalProfile, setUi, setIsSaving, onSavedStateVersion],
   );
 
   const enqueueSave = useCallback(
