@@ -1,28 +1,25 @@
-# Contrato mínimo de base de datos de producción
+# Minimum Production Database Contract
 
-Fecha de verificación: 2026-07-15.
+Verification date: 2026-07-15.
 
-Este documento define el mínimo que necesita la aplicación web publicada. No
-pretende que producción replique todas las tablas de enriquecimiento que existen
-en local: producción fue reducida deliberadamente para el plan gratuito.
+This document defines the minimum required by the published web app. Production is not expected
+to replicate every enrichment table available locally; it was deliberately reduced for the free tier.
 
-## Regla de paridad
+## Parity Rule
 
-La paridad requerida es de **contrato de ejecución**, no de cantidad de tablas:
+Required parity is **runtime contract parity**, not table-count parity:
 
-- Las tablas, vistas, políticas y funciones que consume `apps/web` deben existir
-  y conservar sus columnas, tipos y permisos esperados.
-- Las tablas de ingestión, scraping, auditoría masiva y taxonomía auxiliar pueden
-  existir solo en local mientras ningún endpoint ni RPC de producción las lea.
-- Una migración de producción debe modificar un contrato de ejecución de forma
-  explícita y verificable; no se debe usar `supabase db push` desde un árbol con
-  historial de migraciones pendiente de squash.
+- Tables, views, policies, and functions consumed by `apps/web` must exist and retain their expected
+  columns, types, and permissions.
+- Ingestion, scraping, bulk-audit, and auxiliary-taxonomy tables may remain local while no production
+  endpoint or RPC reads them.
+- A production migration must modify the runtime contract explicitly and verifiably; do not run
+  `supabase db push` from a tree with migration history pending squash.
 
-## Historial canónico de producción
+## Canonical Production History
 
-El 2026-07-15 se reconcilió el ledger remoto con los efectos de esquema ya
-verificados. Las migraciones vigentes, y en el mismo orden tanto local como en
-producción, son:
+On 2026-07-15 the remote ledger was reconciled with verified schema effects. Current migrations,
+in the same order locally and in production:
 
 1. `20260707115959_drop_legacy_schemas_for_squash`
 2. `20260707120000_baseline_schema`
@@ -31,117 +28,103 @@ producción, son:
 5. `20260709000000_trim_to_production_essentials`
 6. `20260710093000_fix_cold_start_recommendations`
 
-El snapshot local de datos `20260708180011_remaining_tables.sql` fue retirado
-del directorio de migraciones: contenía 90 MB de `INSERT` y no debe ejecutarse
-en producción. Su copia histórica y los backups recuperables viven en Expanse;
-no se reproducen datos locales mediante el historial de esquema.
+The local data snapshot `20260708180011_remaining_tables.sql` was removed from the migration
+directory: it contained 90 MB of `INSERT` statements and must not run in production. Its historical
+copy and recoverable backups live on Expanse; local data is not reproduced through schema history.
 
-### Estado de reproducibilidad
+### Reproducibility Status
 
-El ledger está alineado entre local y producción. Un `db reset` reconstruye el
-contrato reducido; después se carga el seed externo `runtime_catalog` para tener
-el catálogo público. Una prueba en una base temporal confirmó esa secuencia: 17
-tablas runtime, 65,118 juegos, 36 plataformas y recomendaciones de cold start
-válidas.
+The local and production ledgers are aligned. A `db reset` rebuilds the reduced contract; the
+external `runtime_catalog` seed is then loaded for the public catalog. A temporary-database test
+confirmed the sequence: 17 runtime tables, 65,118 games, 36 platforms, and valid cold-start
+recommendations.
 
-El seed runtime de catálogo, sin perfiles ni datos de usuario, vive fuera de
-Git en Expanse y se carga después de aplicar el contrato reducido. El entorno
-local enriquecido se recupera desde los tres backups completos de Expanse. El
-procedimiento y sus límites están en `docs/OPERACIONES-DATOS.md`.
+The runtime catalog seed, without profiles or user data, lives outside Git on Expanse and is loaded
+after applying the reduced contract. The enriched local environment is recovered from Expanse's
+three full backups. See `docs/OPERACIONES-DATOS.md` for the procedure and limits.
 
-## Tablas consultadas directamente por la web
+## Tables Queried Directly by the Web App
 
-Estas tablas aparecen en consultas `from(...)` de `apps/web` o de `packages/core`:
+These tables appear in `from(...)` queries in `apps/web` or `packages/core`:
 
-| Tabla | Uso |
+| Table | Usage |
 | --- | --- |
-| `games` | catálogo, detalle, búsqueda, salud y recomendaciones de perfil |
-| `platforms` | selector de plataformas |
-| `game_platforms` | disponibilidad y detalle de un juego |
-| `game_tags` | datos de catálogo semilla |
-| `game_aliases` | resolución de identificadores y catálogo |
-| `game_redirects` | redirecciones de IDs canónicos |
-| `game_similar_games` | recomendaciones similares |
-| `series` | metadatos de serie |
-| `audit_log` | auditoría de los endpoints de perfil |
+| `games` | catalog, detail, search, health, and profile recommendations |
+| `platforms` | platform selector |
+| `game_platforms` | availability and game detail |
+| `game_tags` | seed catalog data |
+| `game_aliases` | identifier resolution and catalog |
+| `game_redirects` | canonical ID redirects |
+| `game_similar_games` | similar recommendations |
+| `series` | series metadata |
+| `audit_log` | profile-endpoint auditing |
 
-## Estado de usuario y RPC obligatorias
+## Required User State and RPCs
 
-El navegador no escribe directamente el estado de usuario. Ese contrato es el
-conjunto de RPC siguientes, junto con sus tablas internas `profiles`,
-`user_game_states`, `rate_limits` y `api_cache`:
+The browser does not write user state directly. The contract consists of these RPCs and their
+internal tables: `profiles`, `user_game_states`, `rate_limits`, and `api_cache`.
 
-| Función | Responsabilidad |
+| Function | Responsibility |
 | --- | --- |
-| `check_rate_limit` | proteger escrituras de perfil y biblioteca |
-| `get_profile`, `upsert_profile`, `delete_profile` | perfil y onboarding |
-| `upsert_game_state`, `delete_game_state` | estado local/sincronizado de cada juego |
-| `get_cache`, `set_cache` | caché del servidor |
+| `check_rate_limit` | protect profile and library writes |
+| `get_profile`, `upsert_profile`, `delete_profile` | profile and onboarding |
+| `upsert_game_state`, `delete_game_state` | local/synchronized state for each game |
+| `get_cache`, `set_cache` | server cache |
 
-Las firmas públicas de estas funciones forman parte del contrato. Cualquier
-cambio debe probar los endpoints `/api/profile` y `/api/profile/games/:gameId`.
+The public signatures of these functions are part of the contract. Any change must test
+`/api/profile` and `/api/profile/games/:gameId`.
 
-## Recomendaciones: contrato de producción
+## Recommendations: Production Contract
 
-`score_today_recommendations` es invocada desde
-`apps/web/src/app/api/recommendations/shared.ts`. Además de las tablas de
-catálogo anteriores, depende de:
+`score_today_recommendations` is called from `apps/web/src/app/api/recommendations/shared.ts`.
+In addition to the catalog tables above, it depends on:
 
-- `game_scores` y la vista `game_quality_score` para priorizar calidad;
-- `tag_weights` para similitud por etiquetas;
-- `series`, `games` y `game_platforms` para construir los buckets.
+- `game_scores` and `game_quality_score` for quality prioritization;
+- `tag_weights` for tag similarity;
+- `series`, `games`, and `game_platforms` to build recommendation buckets.
 
-El caso de plataformas vacías es válido: un usuario puede saltar el paso de
-plataformas durante onboarding. En ese caso la función debe interpretar el
-arreglo vacío como «sin filtro de plataforma», no como «no hay juegos». La
-migración `fix_cold_start_recommendations` se aplicó en producción el
-2026-07-15 y se verificó con un arreglo vacío: devolvió 20 elementos en
-`nextUp`.
+Empty platform selection is valid: a user may skip the platform step during onboarding. The
+function must interpret an empty array as "no platform filter," not "no games." The
+`fix_cold_start_recommendations` migration was applied in production on 2026-07-15 and verified
+with an empty array: it returned 20 items in `nextUp`.
 
-La función heredada `score_today_recommendations_v2` no tiene referencias en el
-repositorio, no tiene dependencias en la base y no recibió llamadas en los logs
-API recientes revisados. No es parte del contrato actual. Antes de eliminarla,
-mantener una ventana de observación o revocar su ejecución si se desea excluir
-clientes externos no documentados.
+The inherited `score_today_recommendations_v2` function has no repository references, database
+dependencies, or calls in the recent API logs reviewed. It is not part of the current contract.
+Before removing it, keep an observation window or revoke execution if undocumented external clients
+should be excluded.
 
-## Advisors de seguridad revisados
+## Reviewed Security Advisors
 
-El advisor `security_definer_view` marcó `game_quality_score` porque las vistas
-de PostgreSQL son privilegiadas por defecto. La migración
-`20260716131832_set_game_quality_score_security_invoker.sql` la cambia a
-`security_invoker=true`, conservando las cinco columnas y dejando que el RPC
-privilegiado siga leyendo `game_scores`; el acceso directo anónimo a esa vista
-no forma parte del contrato porque `game_scores` no tiene lectura pública.
+The `security_definer_view` advisor flagged `game_quality_score` because PostgreSQL views are
+privileged by default. Migration `20260716131832_set_game_quality_score_security_invoker.sql`
+changes it to `security_invoker=true`, preserves its five columns, and lets the privileged RPC
+continue reading `game_scores`; direct anonymous access to this view is not part of the contract
+because `game_scores` is not publicly readable.
 
-Los warnings de RPC no implican que todas las funciones deban pasar a
-`SECURITY INVOKER`: los wrappers de perfil/estado y el rate limiter necesitan
-el contexto privilegiado, y `score_today_recommendations` es invocada por la
-API pública de recomendaciones. `score_today_recommendations_v2` no tiene uso
-estático ni tráfico observado; queda pendiente de una ventana de observación
-antes de revocar o eliminarla.
+RPC warnings do not mean every function should become `SECURITY INVOKER`: profile/state wrappers
+and the rate limiter need privileged context, and `score_today_recommendations` is called by the
+public recommendation API. `score_today_recommendations_v2` has no static use or observed traffic;
+keep an observation window before revoking or deleting it.
 
-## Tablas que pueden ser solo locales
+## Tables That May Remain Local
 
-Las siguientes familias no son leídas directamente por la web publicada y son
-aptas para permanecer en el entorno local de ingestión/enriquecimiento:
+These families are not read directly by the published web app and may remain in the local
+ingestion/enrichment environment:
 
-- taxonomía y relaciones IGDB: `game_genres`, `game_themes`, `game_modes`,
-  `game_perspectives`, `game_engines` y sus tablas de relación;
-- snapshots y fuentes externas: `game_releases`, `game_sales_snapshots`,
+- IGDB taxonomy and relationships: `game_genres`, `game_themes`, `game_modes`, `game_perspectives`,
+  `game_engines`, and their relationship tables;
+- snapshots and external sources: `game_releases`, `game_sales_snapshots`,
   `game_review_sentiment_snapshots`, `game_summaries`, `game_external_ids`;
-- colas de limpieza y conciliación: `game_duplicate_candidates`,
-  `game_duplicate_groups`, `game_external_match_candidates`,
-  `series_cleanup_candidates` y `series_cleanup_applied`.
+- cleanup and reconciliation queues: `game_duplicate_candidates`, `game_duplicate_groups`,
+  `game_external_match_candidates`, `series_cleanup_candidates`, and `series_cleanup_applied`.
 
-Que una tabla sea local no autoriza a borrar una tabla productiva: primero se
-debe buscar su uso estático, dependencias SQL y tráfico de la API.
+A table being local does not authorize deleting a production table. First search static usage, SQL
+dependencies, and API traffic.
 
-## Verificación mínima después de cada cambio
+## Minimum Verification After Each Change
 
-1. Confirmar que `/api/health` responde y que catálogo/plataformas siguen
-   leyendo datos.
-2. Invocar `score_today_recommendations` con plataformas disponibles y con
-   `[]`; ambos casos deben devolver un modelo JSON válido.
-3. Comparar firmas de RPC y dependencias de vistas/funciones alteradas.
-4. Revisar el historial remoto de migraciones antes de cualquier squash o
-   sincronización masiva.
+1. Confirm `/api/health` responds and catalog/platform reads still work.
+2. Call `score_today_recommendations` with available platforms and with `[]`; both must return a
+   valid JSON model.
+3. Compare RPC signatures and dependencies of altered views/functions.
+4. Review remote migration history before any squash or bulk synchronization.

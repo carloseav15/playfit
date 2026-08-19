@@ -14,6 +14,8 @@ import type {
   ProductState,
 } from "@playfit/core/types";
 import { jsonError } from "@/lib/api-errors";
+import { playNextRecommendationId } from "@/lib/core-loop-analytics";
+import { recordRecommendationGenerated } from "@/lib/record-recommendation-generated";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
 import {
@@ -374,6 +376,56 @@ async function postDecision(request: Request) {
       { status: 503 },
     );
   }
+
+  // Snapshot the pre-transition model only after the canonical response has
+  // passed its normal consistency checks, so instrumentation never changes a
+  // conflict or saved-but-not-ranked product response.
+  let recommendationProvenance: { recommendationId: string; rank: number } | null = null;
+  if (action.actionType !== "undo_decision") {
+    try {
+      const beforeModel = await buildPlayNextModel({
+        state: loaded.state,
+        stateVersion: loaded.stateVersion,
+        userId: loaded.userId,
+      });
+      const candidate = beforeModel.rankingMetadata.candidates.find(
+        (entry) => entry.gameId === action.gameId,
+      );
+      if (candidate) {
+        recommendationProvenance = {
+          recommendationId: playNextRecommendationId(loaded.stateVersion),
+          rank: candidate.rank,
+        };
+      }
+    } catch {
+      // Analytics enrichment must never turn an accepted canonical decision
+      // into a failed product action.
+    }
+  }
+  if (recommendationProvenance) {
+    const { error } = await context.client.rpc("attach_recommendation_provenance", {
+      p_user_id: context.userId,
+      p_operation_id: action.operationId,
+      p_recommendation_id: recommendationProvenance.recommendationId,
+      p_rank: recommendationProvenance.rank,
+    });
+    if (error) {
+      captureApiError(error, {
+        route: "/api/decisions",
+        request,
+        operation: "attach_recommendation_provenance",
+        statusCode: 500,
+      });
+    }
+  }
+  void recordRecommendationGenerated({ context, model: recommendationModel }).catch((error) =>
+    captureApiError(error, {
+      route: "/api/decisions",
+      request,
+      operation: "record_recommendation_generated",
+      statusCode: 500,
+    }),
+  );
 
   const response: ProductCanonicalDecisionResponse = {
     operationId: action.operationId,

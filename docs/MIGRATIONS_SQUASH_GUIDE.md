@@ -1,75 +1,76 @@
-# Guía de Backup/Restore y Squash de Migraciones
+# Migration Backup/Restore and Squash Guide
 
-> **Actualizado 2026-07-16.** La versión anterior de esta guía (Pasos 3-4 con el
-> restore legacy) quedó **confirmada como insegura** y fue eliminada: ese flujo solo cubría 9 de
-> las 67 tablas reales (`games_library` + `games_library_private` + `igdb_raw`), y esas 9
-> usaban una forma vieja del esquema (pre-claves-surrogadas) que ya no coincide con las
-> columnas actuales. Usá `scripts/backup-all.sh` y `scripts/restore-all.sh` para el flujo vigente.
-> Este documento ahora describe el flujo real de backup/restore, validado contra un
-> proyecto Supabase descartable (contenedores y puertos separados del proyecto local
-> principal) el 2026-07-07: conteos de filas y checksums de datos idénticos en las 67
-> tablas de las 3 schemas, más un bug real encontrado y corregido en el camino (ver
-> abajo). El 2026-07-16 se separaron definitivamente el contrato de esquema y los
-> datos: las migraciones quedan ligeras en Git y los dumps recuperables viven en
-> Expanse. La reconstrucción de producción con el catálogo runtime externo fue
-> validada en una instancia temporal.
-
----
-
-## Alcance real
-
-Tres schemas importan para poder recuperar la base ante una pérdida total, no solo uno:
-
-- `games_library`: 39 tablas base + 15 vistas (catálogo, perfiles, tags, etc.)
-- `games_library_private`: 24 tablas base (logs de auditoría de merges de duplicados,
-  limpiezas, y algunas tablas `tmp_*` de un análisis de cobertura pasado)
-- `igdb_raw`: 4 tablas, dominadas por `igdb_raw.entities` (mirror crudo de la API de
-  IGDB, ~8.3M filas, ~4.5GB — la mayor parte del tamaño total de la base)
-
-Fuera de alcance (decisión explícita, 2026-07-07): el schema `auth` de Supabase — las
-~51 cuentas locales son de prueba, aceptable recrearlas si se pierden.
+> **Updated 2026-07-16.** The previous version of this guide (Steps 3–4 using the
+> legacy restore flow) was **confirmed unsafe** and removed: it covered only 9 of the
+> 67 real tables (`games_library` + `games_library_private` + `igdb_raw`), and those 9
+> used an old schema shape (before surrogate keys) that no longer matches the current
+> columns. Use `scripts/backup-all.sh` and `scripts/restore-all.sh` for the current flow.
+> This document now describes the real backup/restore flow, validated against a disposable
+> Supabase project (containers and ports separate from the primary local project) on
+> 2026-07-07: identical row counts and data checksums across all 67 tables in the three
+> schemas, plus one real bug found and fixed along the way (see below). On 2026-07-16,
+> the schema contract and data were permanently separated: migrations remain lightweight
+> in Git and recoverable dumps live on Expanse. Rebuilding production with the external
+> runtime catalog was validated on a temporary instance.
 
 ---
 
-## Prerrequisitos
-- Docker en funcionamiento.
-- Supabase CLI instalado.
-- El disco duro externo `/Volumes/Elements` conectado (destino por defecto de los
-  backups — hay ~3TB libres ahí; el disco principal suele andar con poco margen).
+## Actual Scope
+
+Three schemas matter for full-database recovery:
+
+- `games_library`: 39 base tables + 15 views (catalog, profiles, tags, etc.)
+- `games_library_private`: 24 base tables (duplicate-merge audit logs, cleanup tables,
+  and some `tmp_*` tables from a previous coverage analysis)
+- `igdb_raw`: 4 tables, dominated by `igdb_raw.entities` (raw IGDB API mirror, ~8.3M
+  rows, ~4.5GB — most of the database size)
+
+Out of scope (explicit decision, 2026-07-07): the Supabase `auth` schema — the ~51 local
+accounts are test accounts and can be recreated if lost.
 
 ---
 
-## Paso 1: Backup
+## Prerequisites
 
-Desde el directorio raíz de `product`:
+- Docker running.
+- Supabase CLI installed.
+- External drive `/Volumes/Elements` connected (default backup destination; it has ~3TB
+  free while the primary drive usually has limited space).
+
+---
+
+## Step 1: Backup
+
+From the `product` repository root:
+
 ```bash
 ./scripts/backup-all.sh
 ```
 
-Esto corre `scripts/backup-schema.mjs` para cada uno de los 3 schemas
-(`games_library`, `games_library_private`, `igdb_raw`), dejando un `.dump` con formato
-custom de `pg_dump` por schema en `/Volumes/Elements/Playfit/Backups/<schema>/`. Podés apuntar a
-otro destino con `./scripts/backup-all.sh --out <dir>` o la variable de entorno
-`PLAYFIT_BACKUP_ROOT`.
+This runs `scripts/backup-schema.mjs` for each of the three schemas
+(`games_library`, `games_library_private`, `igdb_raw`), writing one custom-format
+`pg_dump` file per schema to `/Volumes/Elements/Playfit/Backups/<schema>/`. Point it to
+another destination with `./scripts/backup-all.sh --out <dir>` or the
+`PLAYFIT_BACKUP_ROOT` environment variable.
 
 ---
 
-## Paso 2: Estructura, catálogo y squash
+## Step 2: Structure, Catalog, and Squash
 
-Las migraciones ahora representan únicamente estructura y contrato de producción. El
-catálogo runtime se guarda fuera de Git en Expanse y se carga después mediante
-`npm run seed:catalog`; los datos completos de desarrollo se recuperan con los backups
-de este documento. No corras `npx supabase db squash` otra vez: el historial vigente ya
-fue consolidado. La operación y sus límites están en `docs/OPERACIONES-DATOS.md`.
+Migrations now represent only the production structure and contract. The runtime catalog
+is stored outside Git on Expanse and loaded afterward with `npm run seed:catalog`; full
+development data is recovered with the backups described here. Do not run
+`npx supabase db squash` again: the current history has already been consolidated.
+The operation and its limits are documented in `docs/OPERACIONES-DATOS.md`.
 
 ---
 
-## Paso 3: Reiniciar la base local
+## Step 3: Reset the Local Database
 
 > [!WARNING]
-> Este paso elimina **todo** el contenido de `games_library`, `games_library_private` e
-> `igdb_raw` en el contenedor local (los 67 tablas de las 3 schemas). Asegurate de haber
-> completado el Paso 1 con éxito antes de seguir.
+> This step deletes **all** content from `games_library`, `games_library_private`, and
+> `igdb_raw` in the local container (all 67 tables across the three schemas). Make sure
+> Step 1 completed successfully before continuing.
 
 ```bash
 npx supabase db reset
@@ -77,43 +78,43 @@ npx supabase db reset
 
 ---
 
-## Paso 4: Restaurar
+## Step 4: Restore
 
 ```bash
 ./scripts/restore-all.sh
 ```
 
-Corre `scripts/restore-schema.mjs` para cada uno de los 3 schemas, restaurando el dump
-más reciente de cada uno (`pg_restore --clean --if-exists`, seguro de re-correr). Para
-`games_library` específicamente, el script fuerza además un recálculo de
-`games.search_document` después del restore — ver la nota de bug abajo.
+This runs `scripts/restore-schema.mjs` for each schema, restoring the newest dump from
+each one (`pg_restore --clean --if-exists`, safe to rerun). For `games_library`, the
+script also forces a recalculation of `games.search_document` after restore; see the bug
+note below.
 
 ---
 
-## Paso 5: Verificación
+## Step 5: Verification
 
 ```bash
-./scripts/backup-all.sh --out /tmp/verify   # o cualquier chequeo manual de conteos
+./scripts/backup-all.sh --out /tmp/verify   # or perform any manual count check
 ```
 
-O manualmente, comparar conteos por tabla en las 3 schemas contra los del backup. El
-detalle completo de qué se validó (conteos + checksums de datos en las 67 tablas) está
-en la sesión de trabajo del 2026-07-07, no en un script fijo — no hay una lista corta de
-"tablas esperadas" como en la versión vieja de esta guía, porque son 67 tablas y crecen.
+Alternatively, compare per-table counts in all three schemas with the backup counts.
+The complete detail of what was validated (counts and data checksums across all 67 tables)
+is in the 2026-07-07 work session, not in a fixed script. There is no short list of
+"expected tables" like in the old version of this guide because the set contains 67 tables
+and continues to grow.
 
 ---
 
-## Bug encontrado y corregido durante la validación (2026-07-07)
+## Bug Found and Fixed During Validation (2026-07-07)
 
-`games_library.games.search_document` es una columna `generated always as (...) stored`
-que llama a `get_series_name()`/`get_genre_name()` — funciones marcadas `immutable` que
-en realidad consultan otras tablas (`series`, `genres`). `pg_restore` no garantiza que
-esas tablas estén cargadas antes que `games` (las FKs se agregan recién al final del
-restore, así que el orden de carga de datos no respeta dependencias), así que el valor
-generado puede quedar incompleto justo después de un restore — le faltan los lexemas de
-género/serie si esas tablas todavía no tenían datos en el momento en que Postgres
-recalculó la columna. `scripts/restore-schema.mjs` ahora corre un `UPDATE` sin efecto
-(`SET game_id = game_id`) sobre `games_library.games` al final del restore de ese schema
-específicamente para forzar el recálculo una vez que todo está cargado. Confirmado con
-antes/después: sin el fix, el checksum de `games` no coincidía con el original a pesar de
-que los conteos de filas sí coincidían; con el fix, coincide exactamente.
+`games_library.games.search_document` is a `generated always as (...) stored` column that
+calls `get_series_name()`/`get_genre_name()` — functions marked `immutable` that actually
+query other tables (`series`, `genres`). `pg_restore` does not guarantee that those tables
+are loaded before `games` (foreign keys are added only at the end of the restore, so data
+load order does not respect dependencies). The generated value can therefore be incomplete
+immediately after a restore, missing genre/series lexemes when those tables were empty while
+Postgres recalculated the column. `scripts/restore-schema.mjs` now runs a no-op
+`UPDATE` (`SET game_id = game_id`) on `games_library.games` at the end of that schema's
+restore to force recalculation after everything is loaded. Before and after validation
+confirmed that without the fix the `games` checksum differed despite matching row counts;
+with the fix, it matches exactly.
