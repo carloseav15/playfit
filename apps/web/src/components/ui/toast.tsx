@@ -28,6 +28,7 @@ export interface ToastProps extends VariantProps<typeof toastVariants> {
   onRetry?: () => void;
   onAction?: () => void;
   actionLabel?: string;
+  dismissOnAction?: boolean;
   duration?: number;
 }
 
@@ -38,6 +39,7 @@ export function Toast({
   onRetry,
   onAction,
   actionLabel = "Undo",
+  dismissOnAction = true,
   variant = "default",
   duration = 3000,
 }: ToastProps) {
@@ -93,7 +95,7 @@ export function Toast({
                 variant="secondary"
                 onClick={() => {
                   onAction();
-                  onDismiss();
+                  if (dismissOnAction) onDismiss();
                 }}
               >
                 {actionLabel}

@@ -1,7 +1,7 @@
 import { productStateSchema } from "@playfit/core/schemas";
 import type { ProductProfile, ProductState } from "@playfit/core/types";
 import { captureApiError } from "@/lib/monitoring";
-import { createRequestSupabaseContext } from "@/lib/supabase/server";
+import { createRequestSupabaseContext, type RequestSupabaseContext } from "@/lib/supabase/server";
 
 export const PRODUCT_STATE_VERSION = 2;
 
@@ -17,6 +17,7 @@ export interface PersistedProfilePayload {
   };
   created_at?: string | null;
   updated_at?: string | null;
+  state_version?: number | string | null;
 }
 
 export type LoadedRecommendationState =
@@ -32,18 +33,10 @@ export type LoadedRecommendationState =
       error: string;
     };
 
-function simpleHash(data: unknown): string {
-  const json = JSON.stringify(data);
-  let hash = 5381;
-  for (let i = 0; i < json.length; i++) {
-    hash = (hash << 5) + hash + json.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(36);
-}
-
 export function mapPersistedState(data: PersistedProfilePayload): ProductState {
   const mapped: ProductState = {
     version: PRODUCT_STATE_VERSION,
+    stateVersion: String(data.state_version ?? 0),
     user: {
       onboarding: {
         step:
@@ -75,27 +68,14 @@ export function mapPersistedState(data: PersistedProfilePayload): ProductState {
   return parsed.data;
 }
 
-export function computeStateVersion(data: PersistedProfilePayload, state: ProductState) {
-  return (
-    data.updated_at ??
-    data.created_at ??
-    simpleHash({
-      onboarding: state.user.onboarding,
-      onboardingCompletedAt: state.user.onboardingCompletedAt,
-      profile: state.user.profile,
-      gameStates: state.user.gameStates,
-    })
-  );
+export function computeStateVersion(data: PersistedProfilePayload, _state: ProductState) {
+  return String(data.state_version ?? 0);
 }
 
-export async function loadRecommendationState(
+export async function loadRecommendationStateFromContext(
   request: Request,
+  context: RequestSupabaseContext,
 ): Promise<LoadedRecommendationState> {
-  const context = await createRequestSupabaseContext(request);
-  if (!context) {
-    return { ok: false, status: 401, error: "Recommendation session required" };
-  }
-
   const { data, error } = await context.client.rpc("get_profile", {
     p_user_id: context.userId,
   });
@@ -131,4 +111,14 @@ export async function loadRecommendationState(
     });
     return { ok: false, status: 500, error: "Invalid recommendation state" };
   }
+}
+
+export async function loadRecommendationState(
+  request: Request,
+): Promise<LoadedRecommendationState> {
+  const context = await createRequestSupabaseContext(request);
+  if (!context) {
+    return { ok: false, status: 401, error: "Recommendation session required" };
+  }
+  return loadRecommendationStateFromContext(request, context);
 }

@@ -18,6 +18,7 @@ const profileSaveRequestSchema = z
   .object({
     deviceId: z.string().min(1).optional(),
     gameStates: z.record(z.string(), productGameStateSchema),
+    stateVersion: z.string().regex(/^\d+$/),
     profile: productProfileSchema.nullable(),
     onboarding: persistedOnboardingSchema,
   })
@@ -158,8 +159,9 @@ async function postProfile(request: Request) {
       }
     }
 
-    const { error } = await context.client.rpc("upsert_profile", {
+    const { data: saveResult, error } = await context.client.rpc("save_profile", {
       p_user_id: context.userId,
+      p_expected_state_version: body.stateVersion,
       p_game_states: body.gameStates,
       p_profile: body.profile,
       p_onboarding: body.onboarding,
@@ -169,10 +171,25 @@ async function postProfile(request: Request) {
       captureApiError(error, {
         route: "/api/profile",
         request,
-        operation: "upsert_profile",
+        operation: "save_profile",
         statusCode: 500,
       });
       return jsonError(error.message, 500);
+    }
+
+    const persisted = saveResult as {
+      status?: "saved" | "conflict" | "not_found";
+      state_version?: number | string;
+    } | null;
+    if (persisted?.status === "conflict" || persisted?.status === "not_found") {
+      return Response.json(
+        {
+          error: "Profile changed before this save completed",
+          conflict: true,
+          currentStateVersion: String(persisted.state_version ?? "0"),
+        },
+        { status: 409 },
+      );
     }
 
     await context.client
@@ -187,7 +204,10 @@ async function postProfile(request: Request) {
 
     await markReturningVisitor();
 
-    return Response.json({ ok: true }, { status: 200 });
+    return Response.json(
+      { ok: true, stateVersion: String(persisted?.state_version ?? "0") },
+      { status: 200 },
+    );
   } catch (e) {
     captureApiError(e, {
       route: "/api/profile",

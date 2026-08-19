@@ -17,7 +17,7 @@ import { fetchGamesByIds, mapRowsToSeedGames } from "@/lib/games-db";
 import { createAnonClient } from "@/lib/supabase/server";
 
 export type { LoadedRecommendationState, PersistedProfilePayload } from "./state-loader";
-export { loadRecommendationState } from "./state-loader";
+export { loadRecommendationState, loadRecommendationStateFromContext } from "./state-loader";
 
 const CATALOG_VERSION = "20260705030000";
 const RECS_CACHE_TTL = 3600;
@@ -223,6 +223,10 @@ export async function buildPlayNextModel({
       alternatives: [],
       savedPickIds: activeSavedPickIds(state),
       stateVersion,
+      rankingMetadata: {
+        profileStateVersion: stateVersion,
+        candidates: [],
+      },
     };
     void setCache(cacheKey, empty, RECS_CACHE_TTL);
     return empty;
@@ -249,6 +253,13 @@ export async function buildPlayNextModel({
     alternatives: hydrated.slice(1),
     savedPickIds: activeSavedPickIds(state),
     stateVersion,
+    rankingMetadata: {
+      profileStateVersion: stateVersion,
+      candidates: hydrated.map((entry, index) => ({
+        gameId: entry.game.gameId,
+        rank: index + 1,
+      })),
+    },
   };
 
   void setCache(cacheKey, playNextModel, RECS_CACHE_TTL);

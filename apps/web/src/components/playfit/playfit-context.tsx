@@ -9,7 +9,15 @@ import type {
 } from "@playfit/core/types";
 import { nowIso } from "@playfit/core/utils";
 import type React from "react";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { clearGameCache, getCachedGame } from "@/lib/game-cache";
 import { buildSiteUrl } from "@/lib/site-url";
@@ -64,14 +72,28 @@ export function PlayfitProvider({
     handleLocalProfile,
   } = usePlayfitAuth(localFirst);
   const [state, setState] = useState<ProductState | null>(null);
+  const stateRef = useRef<ProductState | null>(null);
   const [ui, setUi] = useState<ProductUiState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const handleSavedStateVersion = useCallback((stateVersion: string) => {
+    const current = stateRef.current;
+    if (!current || current.stateVersion === stateVersion) return;
+    const versioned = { ...current, stateVersion };
+    stateRef.current = versioned;
+    setState(versioned);
+  }, []);
 
   const { enqueueSave, flushSave, saveNow } = useQueuedProfileSave({
     setAuthUser,
     setUseLocalProfile,
     setUi,
     setIsSaving,
+    onSavedStateVersion: handleSavedStateVersion,
   });
 
   const { onboardingSearchResults, onboardingSearchError, onboardingSearchPending } =
@@ -98,6 +120,7 @@ export function PlayfitProvider({
         updater(next);
         next.user.lastUpdatedAt = nowIso();
         void enqueueSave(next);
+        stateRef.current = next;
         return next;
       });
     },
@@ -117,6 +140,7 @@ export function PlayfitProvider({
       updater(next);
       next.user.lastUpdatedAt = nowIso();
       setState(next);
+      stateRef.current = next;
       return saveNow(next);
     },
     [saveNow, state],
@@ -133,6 +157,12 @@ export function PlayfitProvider({
     state,
     updateState,
     updateUi,
+    flushSave,
+    getCurrentState: () => stateRef.current ?? state,
+    replaceAuthoritativeState(next) {
+      stateRef.current = next;
+      setState(next);
+    },
   });
 
   const stateValue = useMemo(() => {

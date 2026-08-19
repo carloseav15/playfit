@@ -5,6 +5,7 @@ const DB_VERSION = 2;
 
 export const DEFAULT_PRODUCT_STATE: ProductState = {
   version: DB_VERSION,
+  stateVersion: "0",
   user: {
     onboarding: {
       step: "platforms",
@@ -114,7 +115,7 @@ async function apiDelete(path: string): Promise<Response> {
   return authenticatedFetch(path, { method: "DELETE" });
 }
 
-export async function loadProductState(): Promise<ProductState> {
+export async function loadProductStateOrNull(): Promise<ProductState | null> {
   const deviceId = getDeviceId();
 
   const url = `/api/profile?device_id=${encodeURIComponent(deviceId)}`;
@@ -122,18 +123,22 @@ export async function loadProductState(): Promise<ProductState> {
   const res = await apiGet(url);
 
   if (!res.ok) {
-    return createInitialState();
+    return null;
   }
 
   const json = await res.json();
   const data = json.state;
 
   if (!data) {
-    return createInitialState();
+    return null;
   }
 
   const mapped: ProductState = {
     version: DB_VERSION,
+    stateVersion:
+      typeof data.state_version === "number" || typeof data.state_version === "string"
+        ? String(data.state_version)
+        : "0",
     user: {
       onboarding: {
         step: data.onboarding?.step ?? "platforms",
@@ -149,11 +154,15 @@ export async function loadProductState(): Promise<ProductState> {
   };
 
   const parsed = productStateSchema.safeParse(mapped);
-  return parsed.success ? parsed.data : createInitialState();
+  return parsed.success ? parsed.data : null;
+}
+
+export async function loadProductState(): Promise<ProductState> {
+  return (await loadProductStateOrNull()) ?? createInitialState();
 }
 
 export type SaveStateResult =
-  | { ok: true }
+  | { ok: true; stateVersion: string }
   | { ok: false; reason: "auth_expired" }
   | { ok: false; reason: "error"; error: string };
 
@@ -170,6 +179,7 @@ export async function saveProductState(
   const deviceId = getDeviceId();
 
   const body: Record<string, unknown> = {
+    stateVersion: safeState.stateVersion,
     gameStates: safeState.user.gameStates,
     profile: safeState.user.profile,
     onboarding: {
@@ -189,7 +199,14 @@ export async function saveProductState(
     return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
   }
 
-  return { ok: true };
+  const json = (await res.json().catch(() => ({}))) as { stateVersion?: unknown };
+  return {
+    ok: true,
+    stateVersion:
+      typeof json.stateVersion === "number" || typeof json.stateVersion === "string"
+        ? String(json.stateVersion)
+        : safeState.stateVersion,
+  };
 }
 
 export type ResetProductStateErrorReason = "auth_expired" | "server_error" | "network_error";

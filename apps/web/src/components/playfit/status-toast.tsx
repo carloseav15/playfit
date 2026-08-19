@@ -15,6 +15,7 @@ export function StatusToast() {
       duration={isSaveError ? 6000 : ui.undoAction ? 5000 : 3000}
       onRetry={isSaveError ? retrySave : undefined}
       onAction={ui.undoAction ?? undefined}
+      dismissOnAction={false}
       onDismiss={() => setUi((current) => ({ ...current, statusMessage: null, undoAction: null }))}
     />
   );

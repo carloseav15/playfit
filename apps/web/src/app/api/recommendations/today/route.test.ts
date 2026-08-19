@@ -39,6 +39,10 @@ const playNextModel = {
   alternatives: [],
   savedPickIds: [],
   stateVersion: "2026-01-01T00:00:00.000Z",
+  rankingMetadata: {
+    profileStateVersion: "2026-01-01T00:00:00.000Z",
+    candidates: [],
+  },
 };
 
 async function loadRoute() {

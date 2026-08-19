@@ -24,6 +24,7 @@ function validPayload() {
   const now = "2026-01-01T00:00:00.000Z";
   return {
     deviceId: "660e8400-e29b-41d4-a716-446655440000",
+    stateVersion: "5",
     gameStates: {
       chrono_trigger: {
         gameId: "chrono_trigger",
@@ -52,6 +53,7 @@ function validPayload() {
 function emptyPayload() {
   return {
     deviceId: "660e8400-e29b-41d4-a716-446655440000",
+    stateVersion: "0",
     gameStates: {},
     profile: null,
     onboarding: {
@@ -113,8 +115,9 @@ describe("profile API route", () => {
       p_window_seconds: 60,
       p_user_id: authenticatedUserId,
     });
-    expect(mocks.rpc).toHaveBeenCalledWith("upsert_profile", {
+    expect(mocks.rpc).toHaveBeenCalledWith("save_profile", {
       p_user_id: authenticatedUserId,
+      p_expected_state_version: "5",
       p_game_states: expect.objectContaining({
         chrono_trigger: expect.objectContaining({ title: "Chrono Trigger" }),
       }),
@@ -122,7 +125,7 @@ describe("profile API route", () => {
       p_onboarding: expect.objectContaining({ step: "anchors" }),
     });
     expect(mocks.rpc).not.toHaveBeenCalledWith(
-      "upsert_profile",
+      "save_profile",
       expect.objectContaining({ p_user_id: validPayload().deviceId }),
     );
   });
@@ -247,9 +250,39 @@ describe("profile API route", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "upsert_profile",
+      "save_profile",
       expect.objectContaining({ p_user_id: authenticatedUserId }),
     );
+  });
+
+  it("rejects a debounced save whose profile revision is stale", async () => {
+    mocks.rpc.mockImplementation((functionName: string) => {
+      if (functionName === "check_rate_limit") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (functionName === "save_profile") {
+        return Promise.resolve({
+          data: { status: "conflict", state_version: 6 },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    const { POST } = await loadRoute();
+
+    const response = await POST(
+      new Request("http://playfit.test/api/profile", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(validPayload()),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      conflict: true,
+      currentStateVersion: "6",
+    });
   });
 
   it("deletes only the authenticated user's profile", async () => {

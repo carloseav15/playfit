@@ -59,6 +59,26 @@ describe("Toast", () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it("can remain open while an asynchronous action is pending", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    const onDismiss = vi.fn();
+    render(
+      <Toast
+        dismissOnAction={false}
+        message="Saved"
+        onAction={onAction}
+        onDismiss={onDismiss}
+        open
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(onAction).toHaveBeenCalledOnce();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it("shows Retry only for an error toast", () => {
     const onRetry = vi.fn();
     render(

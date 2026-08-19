@@ -29,6 +29,7 @@ function createGame(overrides: Partial<SeedGame> = {}): SeedGame {
 function createState(): ProductState {
   return {
     version: 1,
+    stateVersion: "0",
     user: {
       onboardingCompletedAt: "2026-07-15T00:00:00Z",
       onboarding: {
