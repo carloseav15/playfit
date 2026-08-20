@@ -212,4 +212,26 @@ describe("usePlayNextRecommendations: stateVersion/user identity invariant", () 
     expect(mocks.authenticatedFetch).toHaveBeenCalledTimes(2);
     expect(result.current.model).toBeNull();
   });
+
+  it("has no channel to mutate profile-save UI state -- a refresh failure cannot touch it", async () => {
+    // usePlayNextRecommendations takes no setUi (or any UI-mutation callback) at all, so a
+    // recommendation-refresh failure is structurally incapable of writing to
+    // ui.saveStatus/statusMessage -- those belong exclusively to useQueuedProfileSave's own
+    // doSave. This locks in that surface: if a future change ever threads a UI setter into
+    // this hook, this test starts failing and calls out the coupling explicitly.
+    mocks.authenticatedFetch
+      .mockResolvedValueOnce(failResponse(500))
+      .mockResolvedValueOnce(failResponse(500));
+
+    const { result } = renderPlayNext({ stateVersion: "7" });
+    await waitFor(() => expect(result.current.loadError).not.toBeNull());
+
+    const returnedKeys = Object.keys(result.current);
+    expect(returnedKeys).not.toContain("setUi");
+    expect(returnedKeys).not.toContain("saveStatus");
+    expect(returnedKeys).not.toContain("statusMessage");
+    expect(returnedKeys.sort()).toEqual(
+      ["loadError", "loading", "model", "refreshRecommendations", "refreshing"].sort(),
+    );
+  });
 });

@@ -132,7 +132,7 @@ export function PlayfitProvider({
       if (!state) {
         return Promise.resolve({
           ok: false as const,
-          reason: "error" as const,
+          reason: "invalid_state" as const,
           error: "Profile unavailable",
         });
       }

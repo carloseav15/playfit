@@ -5,6 +5,31 @@ import { getOnboardingFlowHeaders, markOnboardingPhase } from "./onboarding-flow
 import type { ProductUiState } from "./playfit-context-types";
 import type { AuthUser } from "./use-playfit-auth";
 
+// Connectivity language ("check your connection", "back online") is reserved strictly for
+// network_error -- the one case where the request never definitively reached the server, so
+// whether it persisted is genuinely unknown. Every other reason means the server was reached
+// and responded, so the outcome is known and the copy says so honestly instead of blaming the
+// network. There is no reconnect-triggered retry queue, so no message may claim one exists.
+export function describeSaveFailure(result: Extract<SaveStateResult, { ok: false }>): string {
+  switch (result.reason) {
+    case "network_error":
+      return "Couldn't save. Check your connection and try again.";
+    case "auth_expired":
+      return "Your session expired. Sign in again to save changes.";
+    case "conflict":
+      // Matches the existing canonical-decision conflict copy (use-playfit-game-actions.ts)
+      // for a consistent voice -- no new reconciliation behavior is introduced here.
+      return "Your profile changed in another session. Reload before trying again.";
+    case "rate_limited":
+      return "Too many changes at once. Try again in a moment.";
+    case "invalid_state":
+      return "PlayFit couldn't save this change.";
+    case "server_error":
+    default:
+      return "PlayFit couldn't save this right now. Please try again.";
+  }
+}
+
 export function useQueuedProfileSave({
   setAuthUser,
   setUseLocalProfile,
@@ -49,6 +74,13 @@ export function useQueuedProfileSave({
               markOnboardingPhase("profile_save_auth_expired");
               setAuthUser(null);
               setUseLocalProfile(false);
+              if (sequence === saveSequenceRef.current) {
+                setUi((currentUi) =>
+                  currentUi
+                    ? { ...currentUi, saveStatus: "error", statusMessage: describeSaveFailure(result) }
+                    : currentUi,
+                );
+              }
               return result;
             }
 
@@ -60,13 +92,16 @@ export function useQueuedProfileSave({
             if (sequence !== saveSequenceRef.current) return result;
 
             if (!result.ok) {
-              markOnboardingPhase("profile_save_error");
+              markOnboardingPhase("profile_save_error", {
+                reason: result.reason,
+                ...(result.status ? { status: result.status } : {}),
+              });
               setUi((currentUi) =>
                 currentUi
                   ? {
                       ...currentUi,
                       saveStatus: "error",
-                      statusMessage: "Couldn't save. We'll retry when you're back online.",
+                      statusMessage: describeSaveFailure(result),
                     }
                   : currentUi,
               );
@@ -84,20 +119,29 @@ export function useQueuedProfileSave({
             }
             return result;
           } catch {
+            // saveProductState no longer throws for network failures -- it classifies them
+            // as network_error internally. Reaching this block means something genuinely
+            // unexpected happened before/around that call (e.g. localStorage unavailable in
+            // getDeviceId). Not proven to be a connectivity issue, so it gets the same honest,
+            // non-committal fallback as an unclassified server error rather than blaming the
+            // network for something that isn't demonstrated to be a network problem.
             markOnboardingPhase("profile_save_exception");
-            if (sequence !== saveSequenceRef.current) {
-              return { ok: false, reason: "error", error: "Save superseded" };
-            }
+            const fallback = {
+              ok: false as const,
+              reason: "server_error" as const,
+              error: "Unexpected error while saving profile",
+            };
+            if (sequence !== saveSequenceRef.current) return fallback;
             setUi((currentUi) =>
               currentUi
                 ? {
                     ...currentUi,
                     saveStatus: "error",
-                    statusMessage: "Couldn't save. We'll retry when you're back online.",
+                    statusMessage: describeSaveFailure(fallback),
                   }
                 : currentUi,
             );
-            return { ok: false, reason: "error", error: "Failed to save profile" };
+            return fallback;
           } finally {
             if (sequence === saveSequenceRef.current) {
               setIsSaving(false);
