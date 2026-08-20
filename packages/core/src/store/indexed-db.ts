@@ -63,6 +63,10 @@ function getUserId(): string | null {
   return cachedUserId;
 }
 
+export function getCachedAuthUserId(): string | null {
+  return cachedUserId;
+}
+
 export function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   const token = getCachedAuthToken();

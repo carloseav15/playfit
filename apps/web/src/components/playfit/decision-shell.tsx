@@ -88,6 +88,7 @@ export function DecisionShell({
     visiblePool,
   } = useDecisionRecommendations({
     profileReady: recommendationsEnabled,
+    stateVersion: state.stateVersion,
     saveStatus: ui.saveStatus,
     applyDecisionFeedback,
     setPlayfitPick,
