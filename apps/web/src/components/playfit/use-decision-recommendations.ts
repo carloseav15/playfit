@@ -104,12 +104,14 @@ export function visibleRecommendationPool({
 
 export function useDecisionRecommendations({
   profileReady,
+  stateVersion,
   saveStatus,
   applyDecisionFeedback,
   setPlayfitPick,
   resetLocalState,
 }: {
   profileReady: boolean;
+  stateVersion: string;
   saveStatus: SaveStatus;
   applyDecisionFeedback: (
     gameId: string,
@@ -134,6 +136,7 @@ export function useDecisionRecommendations({
   const { model, loading, refreshing, loadError, refreshRecommendations } =
     usePlayNextRecommendations({
       enabled: profileReady,
+      stateVersion,
       errorMessage: "Play Next could not be refreshed.",
       onNeedsResync: resetLocalState,
     });

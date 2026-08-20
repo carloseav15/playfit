@@ -3,12 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { getErrorMessage } from "@/lib/api-errors";
 
-export function useRecommendationFetch<T>(errorMessage: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+export function useRecommendationFetch<T>(errorMessage: string, initialData: T | null = null) {
+  const [data, setData] = useState<T | null>(initialData);
+  const [loading, setLoading] = useState(initialData === null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const dataRef = useRef<T | null>(null);
+  const dataRef = useRef<T | null>(initialData);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef<Promise<void> | null>(null);
 
