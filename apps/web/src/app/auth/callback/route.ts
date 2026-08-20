@@ -29,13 +29,27 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
 
   const code = searchParams.get("code");
-  const next = sanitizeNextPath(searchParams.get("next"));
+  const rawNext = searchParams.get("next");
   const redirectOrigin = getRedirectOrigin(request, origin);
 
   if (code) {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // A brand-new user (Google or email) has no games_library.profiles row yet -- that's
+      // expected, profile creation is lazy and only happens once onboarding is saved. But
+      // landing on "/" with no profile makes DecisionShell treat this as a stale/broken
+      // session and bounce back to the marketing page (clearing this very cookie), which
+      // strands a first-time signer-in in a silent redirect loop. Route them straight into
+      // onboarding instead, unless the caller already asked for a specific destination.
+      let next = sanitizeNextPath(rawNext);
+      if (!rawNext) {
+        const userId = data?.session?.user.id ?? data?.user?.id;
+        if (userId) {
+          const { data: profile } = await supabase.rpc("get_profile", { p_user_id: userId });
+          if (!profile) next = "/?onboarding=1";
+        }
+      }
       const response = NextResponse.redirect(`${redirectOrigin}${next}`);
       response.cookies.set(RETURNING_VISITOR_COOKIE, "1", {
         httpOnly: true,
