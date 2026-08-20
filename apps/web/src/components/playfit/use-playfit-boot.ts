@@ -6,9 +6,10 @@ import { clearGameCache, ensureGamesCached } from "@/lib/game-cache";
 import type { ProductUiState } from "./playfit-context-types";
 import { initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
 import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
+import type { ProfileMutationPatch } from "./use-queued-profile-save";
 import type { AuthUser } from "./use-playfit-auth";
 
-type EnqueueSave = (snapshot: ProductState, options?: { successMessage?: string }) => void;
+type EnqueueSave = (patch: ProfileMutationPatch, options?: { successMessage?: string }) => void;
 
 export function usePlayfitBoot({
   authUser,
@@ -84,7 +85,7 @@ export function usePlayfitBoot({
                 setState(restored);
                 setUi(initialUi(restored));
               }
-              enqueueSave(restored);
+              enqueueSave({ profile });
               return;
             }
           } catch {
@@ -103,7 +104,7 @@ export function usePlayfitBoot({
             setState(restored);
             setUi(initialUi(restored));
           }
-          enqueueSave(restored);
+          enqueueSave({ profile });
         } else {
           if (!cancelled) {
             setState(loadedState);
