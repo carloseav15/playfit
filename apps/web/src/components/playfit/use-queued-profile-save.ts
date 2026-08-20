@@ -1,9 +1,14 @@
 import { type SaveStateResult, saveProductState } from "@playfit/core/store";
 import type { ProductState } from "@playfit/core/types";
+import { nowIso } from "@playfit/core/utils";
 import { useCallback, useRef } from "react";
 import { getOnboardingFlowHeaders, markOnboardingPhase } from "./onboarding-flow-tracing";
 import type { ProductUiState } from "./playfit-context-types";
+import { cloneState } from "./playfit-provider-helpers";
+import { applyProfileMutationPatch, type ProfileMutationPatch } from "./profile-mutation-patch";
 import type { AuthUser } from "./use-playfit-auth";
+
+export type { ProfileMutationPatch } from "./profile-mutation-patch";
 
 // Connectivity language ("check your connection", "back online") is reserved strictly for
 // network_error -- the one case where the request never definitively reached the server, so
@@ -31,12 +36,20 @@ export function describeSaveFailure(result: Extract<SaveStateResult, { ok: false
 }
 
 export function useQueuedProfileSave({
+  getCurrentState,
   setAuthUser,
   setUseLocalProfile,
   setUi,
   setIsSaving,
   onSavedStateVersion,
 }: {
+  // The single authoritative source of truth (PlayfitProvider's stateRef), read fresh at the
+  // moment a save actually goes out -- not whatever was current when the user acted. This is
+  // what lets a queued Pick edit see a canonical decision that landed during the debounce.
+  // Critically, this state already reflects every prior optimistic local edit too -- nothing
+  // is rolled back on a failed save (see doSave) -- so a failed patch's data is never lost, it
+  // just rides along in whatever state the *next* successful save happens to submit.
+  getCurrentState: () => ProductState | null;
   setAuthUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
   setUseLocalProfile: React.Dispatch<React.SetStateAction<boolean>>;
   setUi: React.Dispatch<React.SetStateAction<ProductUiState | null>>;
@@ -46,28 +59,62 @@ export function useQueuedProfileSave({
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveSequenceRef = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSnapshotRef = useRef<ProductState | null>(null);
+  const pendingPatchesRef = useRef<ProfileMutationPatch[]>([]);
   const pendingOptionsRef = useRef<{ successMessage?: string }>({});
-  const latestSavedVersionRef = useRef<string | null>(null);
 
   const doSave = useCallback(
     (
-      snapshot: ProductState,
+      patches: ProfileMutationPatch[],
       options: { successMessage?: string } = {},
     ): Promise<SaveStateResult> => {
       const sequence = ++saveSequenceRef.current;
       setIsSaving(true);
       setUi((currentUi) => (currentUi ? { ...currentUi, saveStatus: "saving" } : currentUi));
 
+      // Calls are chained through saveQueueRef, so this work only starts once any prior
+      // in-flight save has fully resolved -- a save enqueued while another is in flight is
+      // never dropped or reordered ahead of it, and it naturally rebuilds from whatever
+      // authoritative state the prior save's own result (success or failure) left behind.
       const task = saveQueueRef.current
         .catch(() => undefined)
         .then(async (): Promise<SaveStateResult> => {
           try {
             markOnboardingPhase("profile_save_start");
-            const snapshotForSave = latestSavedVersionRef.current
-              ? { ...snapshot, stateVersion: latestSavedVersionRef.current }
-              : snapshot;
-            const result = await saveProductState(snapshotForSave, {
+
+            // Reconstructed here, not earlier: this is the one moment that matters. Every
+            // patch is a plain value assignment applied onto whatever is authoritative
+            // *right now* -- including any canonical decision that landed during the
+            // debounce -- so the outgoing stateVersion and payload are never older than what
+            // this client already knows, and nothing canonical gets clobbered by a stale
+            // replay. Because patches carry only already-decided values (never re-executed
+            // logic), applying them here can never double-apply a relative mutation, however
+            // many times a patch is (re)applied.
+            const current = getCurrentState();
+            if (!current) {
+              const fallback = {
+                ok: false as const,
+                reason: "invalid_state" as const,
+                error: "Profile unavailable",
+              };
+              if (sequence === saveSequenceRef.current) {
+                setUi((currentUi) =>
+                  currentUi
+                    ? {
+                        ...currentUi,
+                        saveStatus: "error",
+                        statusMessage: describeSaveFailure(fallback),
+                      }
+                    : currentUi,
+                );
+              }
+              return fallback;
+            }
+
+            const next = cloneState(current);
+            for (const patch of patches) applyProfileMutationPatch(next, patch);
+            next.user.lastUpdatedAt = nowIso();
+
+            const result = await saveProductState(next, {
               headers: getOnboardingFlowHeaders("profile_save"),
             });
             if (!result.ok && result.reason === "auth_expired") {
@@ -85,13 +132,20 @@ export function useQueuedProfileSave({
             }
 
             if (result.ok) {
-              latestSavedVersionRef.current = result.stateVersion;
               onSavedStateVersion?.(result.stateVersion);
             }
 
             if (sequence !== saveSequenceRef.current) return result;
 
             if (!result.ok) {
+              // A conflict here means canonical state advanced beyond what getCurrentState()
+              // returned *at send time* -- i.e. a genuine concurrent write this client hasn't
+              // observed yet (another session/device). It is intentionally not retried: the
+              // payload above was already built from the freshest state this client had, so
+              // retrying blind risks the same overwrite risk this design exists to prevent.
+              // Note the drained patches are not lost even so: stateRef/PlayfitProvider was
+              // never rolled back, so this save's intended changes are still present locally
+              // and will ride along in whatever save succeeds next.
               markOnboardingPhase("profile_save_error", {
                 reason: result.reason,
                 ...(result.status ? { status: result.status } : {}),
@@ -155,12 +209,16 @@ export function useQueuedProfileSave({
       );
       return task;
     },
-    [setAuthUser, setUseLocalProfile, setUi, setIsSaving, onSavedStateVersion],
+    [getCurrentState, setAuthUser, setUseLocalProfile, setUi, setIsSaving, onSavedStateVersion],
   );
 
   const enqueueSave = useCallback(
-    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
-      pendingSnapshotRef.current = snapshot;
+    (patch: ProfileMutationPatch, options: { successMessage?: string } = {}) => {
+      // Patches accumulate rather than replace each other, so several edits made within one
+      // debounce window (e.g. add pick, remove pick, add a different pick) all apply in order
+      // onto the fresh state at send time -- last-write-wins per field, the same end result as
+      // if each had been applied immediately, just deferred.
+      pendingPatchesRef.current.push(patch);
       pendingOptionsRef.current = options;
 
       setIsSaving(true);
@@ -171,12 +229,12 @@ export function useQueuedProfileSave({
       }
 
       debounceTimerRef.current = setTimeout(() => {
-        const latest = pendingSnapshotRef.current;
-        const latestOptions = pendingOptionsRef.current;
-        pendingSnapshotRef.current = null;
+        const queued = pendingPatchesRef.current;
+        const queuedOptions = pendingOptionsRef.current;
+        pendingPatchesRef.current = [];
         pendingOptionsRef.current = {};
-        if (latest) {
-          doSave(latest, latestOptions);
+        if (queued.length > 0) {
+          doSave(queued, queuedOptions);
         }
       }, 1000);
     },
@@ -184,14 +242,15 @@ export function useQueuedProfileSave({
   );
 
   const saveNow = useCallback(
-    (snapshot: ProductState, options: { successMessage?: string } = {}) => {
+    (patch: ProfileMutationPatch, options: { successMessage?: string } = {}) => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
-      pendingSnapshotRef.current = null;
+      const queued = pendingPatchesRef.current;
+      pendingPatchesRef.current = [];
       pendingOptionsRef.current = {};
-      return doSave(snapshot, options);
+      return doSave([...queued, patch], options);
     },
     [doSave],
   );
@@ -201,12 +260,12 @@ export function useQueuedProfileSave({
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    const latest = pendingSnapshotRef.current;
-    if (latest) {
-      const latestOptions = pendingOptionsRef.current;
-      pendingSnapshotRef.current = null;
+    const queued = pendingPatchesRef.current;
+    if (queued.length > 0) {
+      const queuedOptions = pendingOptionsRef.current;
+      pendingPatchesRef.current = [];
       pendingOptionsRef.current = {};
-      return doSave(latest, latestOptions);
+      return doSave(queued, queuedOptions);
     }
     return saveQueueRef.current.then(() => undefined);
   }, [doSave]);

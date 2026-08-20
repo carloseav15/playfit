@@ -30,6 +30,7 @@ import type {
   ProductUiState,
 } from "./playfit-context-types";
 import { cloneState, initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
+import { diffUserPatch } from "./profile-mutation-patch";
 import {
   buildAdaptiveProfileFromCache,
   rebuildAdaptiveProfileFromCache,
@@ -88,7 +89,15 @@ export function PlayfitProvider({
     setState(versioned);
   }, []);
 
+  // Stable identity is required, not just nice-to-have: usePlayfitBoot's effect depends on
+  // enqueueSave (which depends on this), so an unmemoized closure here would give enqueueSave
+  // a new identity every render, re-firing that effect on every commit -- an infinite loop.
+  // stateRef.current is always fresh regardless of when this particular closure was created
+  // (it's a ref), so the empty dependency array is intentional, not a missed dependency.
+  const getCurrentState = useCallback(() => stateRef.current ?? state, []);
+
   const { enqueueSave, flushSave, saveNow } = useQueuedProfileSave({
+    getCurrentState,
     setAuthUser,
     setUseLocalProfile,
     setUi,
@@ -119,7 +128,13 @@ export function PlayfitProvider({
         const next = cloneState(current);
         updater(next);
         next.user.lastUpdatedAt = nowIso();
-        void enqueueSave(next);
+        // The queued save gets a diffed *patch* (the already-decided resulting values), not
+        // `updater` itself. `updater` may read draft state to compute a relative result (a
+        // toggle, for example) -- replaying that logic a second time at send time, against
+        // state that already reflects this application, would produce a different result.
+        // The patch captures only what changed and its final value, which is safe to apply
+        // any number of times. See profile-mutation-patch.ts.
+        void enqueueSave(diffUserPatch(current, next));
         stateRef.current = next;
         return next;
       });
@@ -139,9 +154,10 @@ export function PlayfitProvider({
       const next = cloneState(state);
       updater(next);
       next.user.lastUpdatedAt = nowIso();
+      const patch = diffUserPatch(state, next);
       setState(next);
       stateRef.current = next;
-      return saveNow(next);
+      return saveNow(patch);
     },
     [saveNow, state],
   );
@@ -213,7 +229,10 @@ export function PlayfitProvider({
       },
       resetLocalState() {
         const clean = withDefaultPlatforms(createInitialState(), platforms);
-        void enqueueSave(clean);
+        // Replaces user data wholesale but deliberately leaves stateVersion untouched -- doSave
+        // sets it from the authoritative state it reads at send time, exactly like any other
+        // patch. Reusing clean.stateVersion here would reintroduce a frozen version.
+        void enqueueSave({ replaceUser: clean.user });
         flushSave();
         setState(clean);
         updateUi(initialUi(clean));
@@ -341,7 +360,9 @@ export function PlayfitProvider({
       flushSave,
       async retrySave() {
         if (state) {
-          await enqueueSave(state, { successMessage: "Saved." });
+          // Empty patch: doSave already rebuilds the payload from the current authoritative
+          // state at send time, so "retry with what's current" needs nothing more than that.
+          await enqueueSave({}, { successMessage: "Saved." });
         }
       },
     } satisfies PlayfitUiContextValue;
