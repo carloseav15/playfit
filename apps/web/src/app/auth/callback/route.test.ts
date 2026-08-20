@@ -64,4 +64,63 @@ describe("Supabase auth callback", () => {
 
     expect(response.headers.get("location")).toBe("https://playfit.example/?error=auth_failed");
   });
+
+  it("sends a brand-new user with no profile yet straight into onboarding", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null });
+    mocks.createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: "new-user-id" } } },
+          error: null,
+        }),
+      },
+      rpc,
+    });
+    const { GET } = await loadRoute();
+
+    const response = await GET(new Request("https://playfit.example/auth/callback?code=abc"));
+
+    expect(rpc).toHaveBeenCalledWith("get_profile", { p_user_id: "new-user-id" });
+    expect(response.headers.get("location")).toBe("https://playfit.example/?onboarding=1");
+    expect(response.headers.get("set-cookie")).toContain("pf_returning=1");
+  });
+
+  it("sends a returning user with an existing profile to the default destination", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { state_version: 3 } });
+    mocks.createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: "existing-user-id" } } },
+          error: null,
+        }),
+      },
+      rpc,
+    });
+    const { GET } = await loadRoute();
+
+    const response = await GET(new Request("https://playfit.example/auth/callback?code=abc"));
+
+    expect(response.headers.get("location")).toBe("https://playfit.example/");
+  });
+
+  it("does not check for a profile when an explicit next path was requested", async () => {
+    const rpc = vi.fn();
+    mocks.createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: "new-user-id" } } },
+          error: null,
+        }),
+      },
+      rpc,
+    });
+    const { GET } = await loadRoute();
+
+    const response = await GET(
+      new Request("https://playfit.example/auth/callback?code=abc&next=/auth/reset-password"),
+    );
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("https://playfit.example/auth/reset-password");
+  });
 });
