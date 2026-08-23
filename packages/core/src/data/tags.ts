@@ -151,6 +151,36 @@ export function isValidTag(value: string): value is Tag {
   return ALL_TAG_SET.has(value);
 }
 
+// Tags that describe how a game was made or how it looks -- production
+// budget/scale and rendering/art style -- rather than what kind of
+// experience it is. They stay fully valid tags: they still carry a real
+// IDF weight (see getTagWeight in domain/recommendations.ts) and
+// contribute to tag-similarity scoring exactly like any other tag. This
+// set only controls eligibility for the *human-facing* explanation pool
+// (fitReasons/cautionReasons) -- e.g. "Early signal around aaa" is not a
+// legible reason for a person deciding what to play, even though "aaa"
+// can be a real, rare, discriminating signal internally.
+const PRESENTATION_METADATA_TAGS: ReadonlySet<Tag> = new Set([
+  "aaa",
+  "aa",
+  "aaa_adjacent",
+  "indie",
+  "pixel_art",
+  "cel_shaded",
+  "hand_drawn",
+  "low_poly",
+  "voxel",
+  "vector_art",
+  "3d_cg",
+  "photorealistic",
+  "minimalist_art",
+  "realism",
+]);
+
+export function isExplanationEligibleTag(value: string): boolean {
+  return isValidTag(value) && !PRESENTATION_METADATA_TAGS.has(value);
+}
+
 export function normalizeTags(tags: string[]): Tag[] {
   return tags.filter(isValidTag);
 }

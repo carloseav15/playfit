@@ -1,3 +1,4 @@
+import { resolveKnownGenre } from "../data/seeds";
 import type {
   ProductGameState,
   ProductOnboardingDraft,
@@ -45,7 +46,9 @@ function buildHistoryEntry({
     rating: record?.rating,
     status: record?.status,
     updatedAt: record?.updatedAt,
-    traits: [game.genreId ?? game.primaryGenre, ...game.tags].filter(Boolean).slice(0, 4),
+    traits: [resolveKnownGenre(game), ...game.tags]
+      .filter((trait): trait is string => Boolean(trait))
+      .slice(0, 4),
   };
 }
 

@@ -1,3 +1,4 @@
+import { isExplanationEligibleTag } from "../data/tags";
 import type {
   ProductConfidence,
   ProductProfile,
@@ -6,7 +7,6 @@ import type {
   RankedSeedGame,
   SeedGame,
 } from "../types";
-
 import {
   buildAccessiblePlatformIds,
   getAccessStatus,
@@ -332,7 +332,12 @@ function scoreSeedGameWithContext(
   const gameTags = game.tags;
   const gameTagsByWeight = [...gameTags].sort((a, b) => getTagWeight(b) - getTagWeight(a));
 
+  // Tag weight (getTagWeight) still drives this order, and still drives
+  // weightedCosineSimilarity below via the untouched `gameTags` array --
+  // isExplanationEligibleTag only decides whether a tag is legible enough
+  // to become human-facing copy, it never changes what counts for scoring.
   for (const tag of gameTagsByWeight) {
+    if (!isExplanationEligibleTag(tag)) continue;
     const likedScore = likedTags[tag] ?? 0;
     if (likedScore > 0) {
       fitReasons.push(matchCopy(tag, confidence));
@@ -340,6 +345,7 @@ function scoreSeedGameWithContext(
   }
 
   for (const tag of gameTagsByWeight) {
+    if (!isExplanationEligibleTag(tag)) continue;
     const dislikedScore = dislikedTags[tag] ?? 0;
     if (dislikedScore > 0) {
       cautionReasons.push(caveatCopy(tag, confidence));

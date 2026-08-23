@@ -149,6 +149,81 @@ describe("onboarding domain", () => {
     expect(profile.signals.length).toBeGreaterThan(0);
   });
 
+  it("resolves a genre with mixed evidence toward the net-stronger side, never both lists", () => {
+    const draft = createDraft();
+    const gamesById = new Map<string, SeedGame>([
+      ["loved", createGame("loved", "Loved Adventure", "adventure", ["exploration"])],
+      ["mild-miss", createGame("mild-miss", "Mild Miss", "adventure", ["puzzle"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      loved: createGameState("loved", 5), // magnitude 2 positive
+      "mild-miss": createGameState("mild-miss", 2), // magnitude 1 negative
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    expect(profile.likedGenres).toContain("adventure");
+    expect(profile.avoidedGenres).not.toContain("adventure");
+  });
+
+  it("keeps a genre out of both lists when positive and negative evidence exactly tie", () => {
+    const draft = createDraft();
+    const gamesById = new Map<string, SeedGame>([
+      ["loved", createGame("loved", "Loved Adventure", "adventure", ["exploration"])],
+      ["hated", createGame("hated", "Hated Adventure", "adventure", ["puzzle"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      loved: createGameState("loved", 5), // magnitude 2 positive
+      hated: createGameState("hated", 1), // magnitude 2 negative
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    // Exact tie: buildNetTagProfiles' existing rule (reused here unchanged)
+    // is that a perfect tie confirms neither lean, so the genre is dropped
+    // from both lists instead of being guessed onto one side.
+    expect(profile.likedGenres).not.toContain("adventure");
+    expect(profile.avoidedGenres).not.toContain("adventure");
+  });
+
+  it("never lets a missing/unknown genre enter likedGenres or avoidedGenres", () => {
+    const draft = createDraft();
+    const gamesById = new Map<string, SeedGame>([
+      [
+        "no-genre-loved",
+        createGame("no-genre-loved", "No Genre Loved", "unknown", ["exploration"]),
+      ],
+      ["no-genre-missed", createGame("no-genre-missed", "No Genre Missed", "unknown", ["puzzle"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      "no-genre-loved": createGameState("no-genre-loved", 5),
+      "no-genre-missed": createGameState("no-genre-missed", 1),
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    expect(profile.likedGenres).not.toContain("unknown");
+    expect(profile.avoidedGenres).not.toContain("unknown");
+  });
+
+  it("does not let an unknown-genre game disrupt reconciliation of a real genre", () => {
+    const draft = createDraft();
+    const gamesById = new Map<string, SeedGame>([
+      ["real-loved", createGame("real-loved", "Real Loved", "rpg", ["story_rich"])],
+      ["no-genre", createGame("no-genre", "No Genre", "unknown", ["puzzle"])],
+    ]);
+    const gameStates: Record<string, ProductGameState> = {
+      "real-loved": createGameState("real-loved", 5),
+      "no-genre": createGameState("no-genre", 1),
+    };
+
+    const profile = buildAdaptiveProfile(draft, gamesById, gameStates);
+
+    expect(profile.likedGenres).toContain("rpg");
+    expect(profile.avoidedGenres).not.toContain("unknown");
+    expect(profile.avoidedGenres).toHaveLength(0);
+  });
+
   it("uses disliked setup games as early negative evidence", () => {
     const draft = createDraft();
     draft.likedGameIds = ["anchor-a", "anchor-b", "anchor-c"];

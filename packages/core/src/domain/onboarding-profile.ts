@@ -1,3 +1,4 @@
+import { resolveKnownGenre } from "../data/seeds";
 import type {
   ProductGameState,
   ProductOnboardingDraft,
@@ -6,18 +7,28 @@ import type {
   SeedGame,
 } from "../types";
 
-function countGenres(gameIds: string[], gamesById: Map<string, SeedGame>) {
-  const counts = new Map<string, number>();
+function countGenresRecord(
+  gameIds: string[],
+  gamesById: Map<string, SeedGame>,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
 
   gameIds.forEach((gameId) => {
     const game = gamesById.get(gameId);
     if (!game) return;
-    const genre = game.genreId ?? game.primaryGenre;
+    const genre = resolveKnownGenre(game);
     if (!genre) return;
-    counts.set(genre, (counts.get(genre) ?? 0) + 1);
+    counts[genre] = (counts[genre] ?? 0) + 1;
   });
 
-  return [...counts.entries()].sort((left, right) => right[1] - left[1]).map(([genre]) => genre);
+  return counts;
+}
+
+function countGenres(gameIds: string[], gamesById: Map<string, SeedGame>) {
+  const counts = countGenresRecord(gameIds, gamesById);
+  return Object.entries(counts)
+    .sort((left, right) => right[1] - left[1])
+    .map(([genre]) => genre);
 }
 
 function countTags(gameIds: string[], gamesById: Map<string, SeedGame>): Record<string, number> {
@@ -182,10 +193,10 @@ interface RatingEvidence {
 function collectRatingEvidence(
   gameStates: Record<string, ProductGameState>,
   gamesById: Map<string, SeedGame>,
-  likedGenres: string[],
+  positiveGenres: Record<string, number>,
+  negativeGenres: Record<string, number>,
   positiveTags: Record<string, number>,
   negativeTags: Record<string, number>,
-  avoidedGenres: Map<string, number>,
 ): RatingEvidence {
   const ratedGameIds = new Set<string>();
   let ratedCount = 0;
@@ -205,23 +216,18 @@ function collectRatingEvidence(
 
     const positive = magnitude > 0;
     const negative = magnitude < 0;
+    const genreKey = resolveKnownGenre(game);
 
     if (positive) {
       positiveOutcomeCount++;
       addTagEvidence(positiveTags, game.tags, magnitude);
-      const genreKey = game.genreId ?? game.primaryGenre;
-      if (genreKey && !likedGenres.includes(genreKey)) {
-        likedGenres.push(genreKey);
-      }
+      if (genreKey) addTagEvidence(positiveGenres, [genreKey], magnitude);
     }
 
     if (negative) {
       negativeOutcomeCount++;
       addTagEvidence(negativeTags, game.tags, Math.abs(magnitude));
-      const genreKey = game.genreId ?? game.primaryGenre;
-      if (genreKey) {
-        avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
-      }
+      if (genreKey) addTagEvidence(negativeGenres, [genreKey], Math.abs(magnitude));
     }
   });
 
@@ -288,11 +294,12 @@ export function buildAdaptiveProfile(
 ): ProductProfile {
   const dislikedGameIds = new Set(draft.dislikedGameIds ?? []);
   const positiveAnchorIds = draft.likedGameIds.filter((gameId) => !dislikedGameIds.has(gameId));
-  const likedGenres = countGenres(positiveAnchorIds, gamesById).slice(0, 3);
   const positiveTags: Record<string, number> = {};
   const negativeTags: Record<string, number> = {};
-  const avoidedGenres = new Map<string, number>();
+  const positiveGenres: Record<string, number> = {};
+  const negativeGenres: Record<string, number> = {};
   const anchorTags = countTags(positiveAnchorIds, gamesById);
+  const anchorGenres = countGenresRecord(positiveAnchorIds, gamesById);
 
   const {
     ratedGameIds,
@@ -302,10 +309,10 @@ export function buildAdaptiveProfile(
   } = collectRatingEvidence(
     gameStates,
     gamesById,
-    likedGenres,
+    positiveGenres,
+    negativeGenres,
     positiveTags,
     negativeTags,
-    avoidedGenres,
   );
 
   let ratedCount = initialRatedCount;
@@ -319,11 +326,29 @@ export function buildAdaptiveProfile(
     ratedCount++;
     negativeOutcomeCount++;
     addTagEvidence(negativeTags, game.tags, 1);
-    const genreKey = game.genreId ?? game.primaryGenre;
-    if (genreKey) avoidedGenres.set(genreKey, (avoidedGenres.get(genreKey) ?? 0) + 1);
+    const genreKey = resolveKnownGenre(game);
+    if (genreKey) addTagEvidence(negativeGenres, [genreKey], 1);
   }
 
   const { likedTags, dislikedTags } = buildNetTagProfiles(positiveTags, negativeTags, anchorTags);
+  // Genres get the exact same net-evidence reconciliation as tags
+  // (buildNetTagProfiles is generic over any Record<string, number> triple):
+  // a genre only ends up on the liked or avoided side once its positive and
+  // negative evidence are compared, never both, and a true tie lands on
+  // neither list -- same semantics as tags, no new weighting invented.
+  const { likedTags: likedGenreEvidence, dislikedTags: avoidedGenreEvidence } = buildNetTagProfiles(
+    positiveGenres,
+    negativeGenres,
+    anchorGenres,
+  );
+  const likedGenres = Object.entries(likedGenreEvidence)
+    .sort(([, a], [, b]) => b - a)
+    .map(([genre]) => genre)
+    .slice(0, 5);
+  const avoidedGenres = Object.entries(avoidedGenreEvidence)
+    .sort(([, a], [, b]) => b - a)
+    .map(([genre]) => genre)
+    .slice(0, 3);
   const topLikedTags = Object.entries(likedTags)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3);
@@ -339,14 +364,10 @@ export function buildAdaptiveProfile(
     positiveOutcomeCount,
     negativeOutcomeCount,
   );
-  const mergedLikedGenres = [
-    ...new Set([...countGenres(positiveAnchorIds, gamesById), ...likedGenres]),
-  ].slice(0, 5);
-
   return {
     summary: buildProfileSummary(ratedCount, draft.likedGameIds.length),
-    likedGenres: mergedLikedGenres,
-    avoidedGenres: [...avoidedGenres.keys()].slice(0, 3),
+    likedGenres,
+    avoidedGenres,
     likedTags,
     dislikedTags,
     ratedCount,

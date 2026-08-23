@@ -145,6 +145,70 @@ describe("recommendations domain", () => {
     expect(ranked.cautionReasons.length).toBeGreaterThan(0);
   });
 
+  it("keeps catalog-metadata tags (aaa) out of fitReasons/cautionReasons while they still affect scoring", () => {
+    const state = createState();
+    if (state.user.profile) {
+      state.user.profile.likedTags.aaa = 5;
+      state.user.profile.likedTags.souls_like = 4;
+      state.user.profile.dislikedTags.indie = 3;
+      state.user.profile.dislikedTags.horror = 2;
+    }
+    const gamesById = new Map<string, SeedGame>();
+    const withMetadata = createGame("with-metadata", "With Metadata", {
+      tags: ["aaa", "souls_like", "indie", "horror"],
+    });
+    const withoutMetadata = createGame("without-metadata", "Without Metadata", {
+      tags: ["souls_like", "horror"],
+    });
+    gamesById.set(withMetadata.gameId, withMetadata);
+    gamesById.set(withoutMetadata.gameId, withoutMetadata);
+
+    const ranked = scoreSeedGame(withMetadata, state, getProfile(state));
+    const rankedWithoutMetadataTags = scoreSeedGame(withoutMetadata, state, getProfile(state));
+
+    // "aaa"/"indie" never become human-facing copy...
+    expect(ranked.fitReasons.some((reason) => /\baaa\b/i.test(reason))).toBe(false);
+    expect(ranked.cautionReasons.some((reason) => /\bindie\b/i.test(reason))).toBe(false);
+    // ...but a real gameplay/mood signal from the same candidate still does.
+    expect(ranked.fitReasons.some((reason) => reason.toLowerCase().includes("souls like"))).toBe(
+      true,
+    );
+    expect(ranked.cautionReasons.some((reason) => reason.toLowerCase().includes("horror"))).toBe(
+      true,
+    );
+    // "aaa"/"indie" are hidden from copy only -- they still carry real IDF
+    // weight in weightedCosineSimilarity, so a candidate that also matches
+    // them scores measurably differently than one that doesn't.
+    expect(ranked.affinityScore).toBeGreaterThan(rankedWithoutMetadataTags.affinityScore);
+    expect(ranked.riskScore).toBeGreaterThan(rankedWithoutMetadataTags.riskScore);
+  });
+
+  it("does not backfill fitReasons with metadata tags when few real signals are eligible", () => {
+    const state = createState();
+    if (state.user.profile) {
+      state.user.profile.likedTags = {
+        aaa: 5,
+        aaa_adjacent: 4,
+        indie: 3,
+        chill: 2,
+        cozy: 1,
+      };
+    }
+    const gamesById = new Map<string, SeedGame>();
+    const game = createGame("mostly-metadata", "Mostly Metadata", {
+      tags: ["aaa", "aaa_adjacent", "indie", "chill", "cozy"],
+    });
+    gamesById.set(game.gameId, game);
+
+    const ranked = scoreSeedGame(game, state, getProfile(state));
+
+    // Only "chill" and "cozy" are explanation-eligible here -- the pool
+    // must stay small rather than padding back up to 4 with metadata tags.
+    expect(ranked.fitReasons.length).toBeGreaterThan(0);
+    expect(ranked.fitReasons.length).toBeLessThan(4);
+    expect(ranked.fitReasons.some((reason) => /aaa|indie/i.test(reason))).toBe(false);
+  });
+
   it("uses net tag evidence when a saved profile has the same tag on both sides", () => {
     const state = createState();
     if (state.user.profile) {

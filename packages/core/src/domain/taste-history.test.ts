@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProductGameState, ProductOnboardingDraft, SeedGame } from "../types";
 import { buildTasteHistoryEntries } from "./taste-history";
 
-function createGame(gameId: string, title = gameId): SeedGame {
+function createGame(gameId: string, title = gameId, overrides: Partial<SeedGame> = {}): SeedGame {
   return {
     gameId,
     title,
@@ -17,6 +17,7 @@ function createGame(gameId: string, title = gameId): SeedGame {
     availablePlatformIds: [],
     availablePlatformNames: [],
     releaseState: "released",
+    ...overrides,
   };
 }
 
@@ -92,5 +93,21 @@ describe("buildTasteHistoryEntries", () => {
     );
 
     expect(entries.map((entry) => entry.gameId)).toEqual(["newer", "older"]);
+  });
+
+  it("never shows 'unknown' as a trait chip for a game with no catalog genre", () => {
+    const noGenre = createGame("no-genre", "No Genre Game", {
+      primaryGenre: "unknown",
+      genreId: undefined,
+    });
+
+    const entries = buildTasteHistoryEntries(
+      createDraft(),
+      { "no-genre": createState("no-genre", { rating: 4 }) },
+      new Map([[noGenre.gameId, noGenre]]),
+    );
+
+    expect(entries[0].traits).not.toContain("unknown");
+    expect(entries[0].traits).toContain("story_rich");
   });
 });
