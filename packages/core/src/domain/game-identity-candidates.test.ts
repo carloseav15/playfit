@@ -86,7 +86,7 @@ describe("confidence scoring", () => {
     expect(result.seriesMatch).toBe(true);
   });
 
-  it("discards a candidate whose edition predates its base game", () => {
+  it("keeps an exact title match with reversed years as LOW", () => {
     const result = computeConfidence({
       titleSimilarity: 1,
       isExactMatch: true,
@@ -96,7 +96,8 @@ describe("confidence scoring", () => {
       releaseYearB: 2015, // base
       editionIsA: true,
     });
-    expect(result.discard).toBe(true);
+    expect(result.discard).toBe(false);
+    expect(result.confidence).toBe("low");
   });
 
   it("does not discard when year is unknown, but caps confidence below high", () => {
@@ -110,7 +111,7 @@ describe("confidence scoring", () => {
       editionIsA: true,
     });
     expect(result.discard).toBe(false);
-    expect(result.confidence).not.toBe("high");
+    expect(result.confidence).toBe("medium");
   });
 
   it("treats a missing series_id on either side as neutral, not a penalty", () => {
@@ -134,6 +135,33 @@ describe("confidence scoring", () => {
     });
     expect(withSeries.confidence).toBe(withoutAnySeries.confidence);
     expect(withSeries.seriesMatch).toBeNull();
+  });
+
+  it("rejects a fuzzy match with reversed years", () => {
+    const result = computeConfidence({
+      titleSimilarity: 0.8,
+      isExactMatch: false,
+      seriesIdA: "series",
+      seriesIdB: "series",
+      releaseYearA: 2010,
+      releaseYearB: 2015,
+      editionIsA: true,
+    });
+    expect(result.discard).toBe(true);
+  });
+
+  it("does not let a matching series restore HIGH after a missing-year cap", () => {
+    const result = computeConfidence({
+      titleSimilarity: 1,
+      isExactMatch: true,
+      seriesIdA: "series",
+      seriesIdB: "series",
+      releaseYearA: null,
+      releaseYearB: 2015,
+      editionIsA: true,
+    });
+    expect(result.seriesMatch).toBe(true);
+    expect(result.confidence).toBe("medium");
   });
 });
 
@@ -171,11 +199,12 @@ describe("generateGameIdentityCandidates -- positive cases (should generate a pe
         candidates,
         "the_witcher_3_wild_hunt",
         "the_witcher_3_wild_hunt_game_of_the_year_edition",
-      ),
-    ).toBeTruthy();
+      )?.confidence,
+    ).toBe("high");
     expect(
-      pair(candidates, "the_witcher_3_wild_hunt", "the_witcher_3_wild_hunt_complete_edition"),
-    ).toBeTruthy();
+      pair(candidates, "the_witcher_3_wild_hunt", "the_witcher_3_wild_hunt_complete_edition")
+        ?.confidence,
+    ).toBe("high");
   });
 
   it("Dark Souls / Remastered", () => {
@@ -212,15 +241,16 @@ describe("generateGameIdentityCandidates -- positive cases (should generate a pe
     const candidates = generateGameIdentityCandidates(catalog);
 
     expect(
-      pair(candidates, "the_elder_scrolls_v_skyrim", "the_elder_scrolls_v_skyrim_special_edition"),
-    ).toBeTruthy();
+      pair(candidates, "the_elder_scrolls_v_skyrim", "the_elder_scrolls_v_skyrim_special_edition")
+        ?.confidence,
+    ).toBe("high");
     expect(
       pair(
         candidates,
         "the_elder_scrolls_v_skyrim",
         "the_elder_scrolls_v_skyrim_anniversary_edition",
-      ),
-    ).toBeTruthy();
+      )?.confidence,
+    ).toBe("high");
   });
 
   it("GTA IV / Complete Edition", () => {
@@ -236,8 +266,8 @@ describe("generateGameIdentityCandidates -- positive cases (should generate a pe
     ];
     const candidates = generateGameIdentityCandidates(catalog);
     expect(
-      pair(candidates, "grand_theft_auto_iv", "grand_theft_auto_iv_complete_edition"),
-    ).toBeTruthy();
+      pair(candidates, "grand_theft_auto_iv", "grand_theft_auto_iv_complete_edition")?.confidence,
+    ).toBe("high");
   });
 
   it("BioShock / Remastered", () => {
@@ -249,7 +279,18 @@ describe("generateGameIdentityCandidates -- positive cases (should generate a pe
       }),
     ];
     const candidates = generateGameIdentityCandidates(catalog);
-    expect(pair(candidates, "bioshock", "bioshock_remastered")).toBeTruthy();
+    expect(pair(candidates, "bioshock", "bioshock_remastered")?.confidence).toBe("high");
+  });
+
+  it("StarCraft / Remastered", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("starcraft", "StarCraft", { releaseYear: 1998, seriesId: "starcraft" }),
+      g("starcraft_remastered", "StarCraft: Remastered", {
+        releaseYear: 2017,
+        seriesId: "starcraft",
+      }),
+    ]);
+    expect(pair(candidates, "starcraft", "starcraft_remastered")?.confidence).toBe("high");
   });
 
   it("Spider-Man / Remastered -- generates a candidate even though genre/series metadata is actively wrong in production", () => {
@@ -271,6 +312,123 @@ describe("generateGameIdentityCandidates -- positive cases (should generate a pe
     // series mismatch must not have blocked generation, and must not be
     // reported as a positive match either.
     expect(found?.evidence.seriesMatch).toBe(false);
+  });
+});
+
+describe("generateGameIdentityCandidates -- confidence hardening", () => {
+  it("caps exact remakes and Collector's Editions at MEDIUM after all boosts", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("resident_evil_2", "Resident Evil 2", { releaseYear: 1998, seriesId: "resident_evil" }),
+      g("resident_evil_2_remake", "Resident Evil 2 Remake", {
+        releaseYear: 2019,
+        seriesId: "resident_evil",
+      }),
+      g("journey", "Journey", { releaseYear: 2012, seriesId: "journey" }),
+      g("journey_collectors", "Journey Collector's Edition", {
+        releaseYear: 2013,
+        seriesId: "journey",
+      }),
+    ]);
+
+    expect(pair(candidates, "resident_evil_2", "resident_evil_2_remake")?.confidence).toBe(
+      "medium",
+    );
+    expect(pair(candidates, "journey", "journey_collectors")?.confidence).toBe("medium");
+  });
+
+  it("caps exact and fuzzy partial-content candidates at MEDIUM", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("example_campaign", "Example Game Campaign", { releaseYear: 2010, seriesId: "example" }),
+      g("example_campaign_remastered", "Example Game Campaign Remastered", {
+        releaseYear: 2015,
+        seriesId: "example",
+      }),
+      g("mw2", "Call of Duty Modern Warfare 2", { releaseYear: 2009, seriesId: "modern_warfare" }),
+      g("mw2_campaign", "Call of Duty Modern Warfare 2 Campaign Remastered", {
+        releaseYear: 2020,
+        seriesId: "modern_warfare",
+      }),
+    ]);
+
+    expect(pair(candidates, "example_campaign", "example_campaign_remastered")?.confidence).toBe(
+      "medium",
+    );
+    expect(pair(candidates, "mw2", "mw2_campaign")?.confidence).toBe("medium");
+  });
+
+  it("keeps genuine fuzzy same-series matches at MEDIUM, never HIGH", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("assassins_creed", "Assassin's Creed", { releaseYear: 2007, seriesId: "assassins_creed" }),
+      g("ac_rogue_remastered", "Assassin's Creed Rogue Remastered", {
+        releaseYear: 2018,
+        seriesId: "assassins_creed",
+      }),
+    ]);
+    expect(pair(candidates, "assassins_creed", "ac_rogue_remastered")?.confidence).toBe("medium");
+  });
+
+  it("rejects fuzzy installment conflicts while preserving equal-installment exact matches", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("aoe_iii", "Age of Empires III", { releaseYear: 2005, seriesId: "aoe" }),
+      g("aoe_iv_anniversary", "Age of Empires IV Anniversary Edition", {
+        releaseYear: 2021,
+        seriesId: "aoe",
+      }),
+      g("tecmo_super_bowl", "Tecmo Super Bowl", { releaseYear: 1991, seriesId: "tecmo" }),
+      g("tecmo_super_bowl_ii", "Tecmo Super Bowl II Special Edition", {
+        releaseYear: 1994,
+        seriesId: "tecmo",
+      }),
+      g("soul_reaver_2", "Soul Reaver 2", { releaseYear: 2001, seriesId: "soul_reaver" }),
+      g("soul_reaver_1_2", "Soul Reaver 1&2 Remastered", {
+        releaseYear: 2024,
+        seriesId: "soul_reaver",
+      }),
+      g("dark_souls_iii", "Dark Souls III", { releaseYear: 2016, seriesId: "dark_souls" }),
+      g("dark_souls_iii_deluxe", "Dark Souls III Deluxe Edition", {
+        releaseYear: 2016,
+        seriesId: "dark_souls",
+      }),
+      g("chronicles_war_2", "Chronicles of War 2", { releaseYear: 2000, seriesId: "chronicles" }),
+      g("chronicles_war_ii_remastered", "Chronicles of War II Remastered", {
+        releaseYear: 2020,
+        seriesId: "chronicles",
+      }),
+    ]);
+
+    expect(pair(candidates, "aoe_iii", "aoe_iv_anniversary")).toBeNull();
+    expect(pair(candidates, "tecmo_super_bowl", "tecmo_super_bowl_ii")).toBeNull();
+    expect(pair(candidates, "soul_reaver_2", "soul_reaver_1_2")).toBeNull();
+    expect(pair(candidates, "dark_souls_iii", "dark_souls_iii_deluxe")?.confidence).toBe("high");
+    expect(pair(candidates, "chronicles_war_2", "chronicles_war_ii_remastered")?.confidence).toBe(
+      "medium",
+    );
+  });
+
+  it("never marks the Resident Evil 4 HD fuzzy conflict as HIGH", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("resident_evil_4_hd", "Resident Evil 4 HD", {
+        releaseYear: 2011,
+        seriesId: "resident_evil",
+      }),
+      g("resident_evil_hd_remaster", "Resident Evil HD Remaster", {
+        releaseYear: 2015,
+        seriesId: "resident_evil",
+      }),
+    ]);
+    expect(pair(candidates, "resident_evil_4_hd", "resident_evil_hd_remaster")).toBeNull();
+  });
+
+  it("keeps exact reversed-year pairs as LOW and rejects fuzzy reversed-year pairs", () => {
+    const candidates = generateGameIdentityCandidates([
+      g("exact_base", "Exact Base", { releaseYear: 2020, seriesId: "exact" }),
+      g("exact_edition", "Exact Base Remastered", { releaseYear: 2010, seriesId: "exact" }),
+      g("fuzzy_base", "Fuzzy Base", { releaseYear: 2020, seriesId: "fuzzy" }),
+      g("fuzzy_edition", "Fuzzy Base Rogue Remastered", { releaseYear: 2010, seriesId: "fuzzy" }),
+    ]);
+
+    expect(pair(candidates, "exact_base", "exact_edition")?.confidence).toBe("low");
+    expect(pair(candidates, "fuzzy_base", "fuzzy_edition")).toBeNull();
   });
 });
 

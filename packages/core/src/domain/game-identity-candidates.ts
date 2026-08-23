@@ -11,11 +11,9 @@
 //   - genre_id: ~68% disagreement rate on confirmed real edition/base pairs.
 //     Using it as a positive signal would systematically penalize real
 //     matches. Never referenced below.
-//   - series_id: used only as an auxiliary confidence *boost* when present
-//     and matching on both sides. A missing series_id never counts against
-//     a candidate, and a mismatch is treated as neutral (not a penalty) --
-//     the evidence for penalizing series mismatches is much weaker than for
-//     genre, and inventing an unrequested penalty rule is out of scope.
+//   - series_id: bounds fuzzy search and is auxiliary evidence when present
+//     on both sides. It can never turn a fuzzy candidate into HIGH. A missing
+//     series_id never counts against a candidate, and a mismatch is neutral.
 
 export type IdentityConfidence = "high" | "medium" | "low";
 
@@ -82,6 +80,18 @@ export const EDITION_KEYWORDS = [
 // Collection").
 export const CONTAINER_KEYWORDS = ["collection", "trilogy", "bundle"] as const;
 
+// These terms are deliberately a small, explicit set. They indicate that an
+// edition-labelled row may cover only part of the base experience, so title
+// similarity alone is not enough for a fast-track HIGH review.
+export const PARTIAL_CONTENT_INDICATORS = [
+  "campaign",
+  "multiplayer",
+  "episode",
+  "chapter",
+  "dlc",
+  "expansion",
+] as const;
+
 const WORD_BOUNDARY_CACHE = new Map<string, RegExp>();
 
 function wordBoundaryRegex(keyword: string): RegExp {
@@ -95,6 +105,10 @@ function wordBoundaryRegex(keyword: string): RegExp {
 
 export function matchesContainerKeyword(title: string): boolean {
   return CONTAINER_KEYWORDS.some((kw) => wordBoundaryRegex(kw).test(title));
+}
+
+export function hasPartialContentIndicator(title: string): boolean {
+  return PARTIAL_CONTENT_INDICATORS.some((indicator) => wordBoundaryRegex(indicator).test(title));
 }
 
 export function findEditionKeyword(title: string): string | null {
@@ -143,6 +157,40 @@ export function titleTokenSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+const ROMAN_INSTALLMENT_VALUES: Record<string, string> = {
+  ii: "2",
+  iii: "3",
+  iv: "4",
+  v: "5",
+  vi: "6",
+  vii: "7",
+  viii: "8",
+  ix: "9",
+  x: "10",
+};
+
+// This intentionally excludes a standalone "I": it is too ambiguous in a
+// game title to serve as a reliable installment signal. The guard is only
+// used for fuzzy candidates, never exact stripped-title matches.
+export function installmentIdentifiers(title: string): Set<string> {
+  const identifiers = new Set<string>();
+  for (const token of normalizeForCompare(title).split(" ")) {
+    if (/^\d+$/.test(token)) identifiers.add(token);
+    else if (ROMAN_INSTALLMENT_VALUES[token]) identifiers.add(ROMAN_INSTALLMENT_VALUES[token]);
+  }
+  return identifiers;
+}
+
+function hasCompatibleInstallmentIdentifiers(a: string, b: string): boolean {
+  const identifiersA = installmentIdentifiers(a);
+  const identifiersB = installmentIdentifiers(b);
+  if (identifiersA.size !== identifiersB.size) return false;
+  for (const identifier of identifiersA) {
+    if (!identifiersB.has(identifier)) return false;
+  }
+  return true;
+}
+
 const MIN_PLAUSIBLE_YEAR = 1950;
 
 function isKnownYear(year: number | null): year is number {
@@ -172,7 +220,7 @@ interface ConfidenceResult {
   seriesMatch: boolean | null;
   yearKnownBothSides: boolean;
   yearOrderValid: boolean | null;
-  discard: boolean; // true = year ordering is known and violated; never surface this candidate
+  discard: boolean; // true = a fuzzy candidate has known, reversed years
 }
 
 const TIER_ORDER: IdentityConfidence[] = ["low", "medium", "high"];
@@ -194,22 +242,26 @@ export function computeConfidence(input: ConfidenceInput): ConfidenceResult {
   const yearB = input.releaseYearB;
   const yearKnownBothSides = isKnownYear(yearA) && isKnownYear(yearB);
   let yearOrderValid: boolean | null = null;
+  let exactYearOrderInvalid = false;
 
   if (isKnownYear(yearA) && isKnownYear(yearB)) {
     const editionYear = input.editionIsA ? yearA : yearB;
     const baseYear = input.editionIsA ? yearB : yearA;
     yearOrderValid = editionYear >= baseYear;
     if (!yearOrderValid) {
-      // Hard gate, not a confidence penalty: a candidate whose edition
-      // predates its supposed base is not plausible at all in this
-      // catalog (held for every real pair sampled in the investigation).
-      return {
-        confidence: tier,
-        seriesMatch: null,
-        yearKnownBothSides,
-        yearOrderValid,
-        discard: true,
-      };
+      // A fuzzy match has insufficient structural evidence to survive a
+      // known chronology conflict. An exact stripped-title match remains a
+      // LOW review candidate because catalog years can be wrong.
+      if (!input.isExactMatch) {
+        return {
+          confidence: tier,
+          seriesMatch: null,
+          yearKnownBothSides,
+          yearOrderValid,
+          discard: true,
+        };
+      }
+      exactYearOrderInvalid = true;
     }
   } else {
     // Missing year data: don't discard, but don't let it reach "high"
@@ -227,7 +279,28 @@ export function computeConfidence(input: ConfidenceInput): ConfidenceResult {
   }
   // seriesMatch stays null (neutral) when either side is missing it.
 
+  // These are final confidence caps: later evidence must not restore HIGH.
+  if (exactYearOrderInvalid) tier = "low";
+  else if (!yearKnownBothSides) tier = tier === "high" ? "medium" : tier;
+  if (!input.isExactMatch && tier === "high") tier = "medium";
+
   return { confidence: tier, seriesMatch, yearKnownBothSides, yearOrderValid, discard: false };
+}
+
+function applySemanticConfidenceCaps(
+  confidence: IdentityConfidence,
+  input: {
+    matchType: GameIdentityCandidateEvidence["matchType"];
+    matchedKeyword: string;
+    editionTitle: string;
+  },
+): IdentityConfidence {
+  const requiresCarefulReview =
+    input.matchType === "fuzzy_title_same_series" ||
+    input.matchedKeyword === "remake" ||
+    input.matchedKeyword === "collector's edition" ||
+    hasPartialContentIndicator(input.editionTitle);
+  return requiresCarefulReview && confidence === "high" ? "medium" : confidence;
 }
 
 export interface GenerateCandidatesOptions {
@@ -298,7 +371,11 @@ export function generateGameIdentityCandidates(
     drafts.set(key, {
       gameIdA,
       gameIdB,
-      confidence: result.confidence,
+      confidence: applySemanticConfidenceCaps(result.confidence, {
+        matchType,
+        matchedKeyword: keyword,
+        editionTitle: edition.title,
+      }),
       source,
       evidence: {
         matchedKeyword: keyword,
@@ -342,7 +419,10 @@ export function generateGameIdentityCandidates(
     // "ante ambigüedad, genera candidato para revisión o no genera nada."
     if (!game.seriesId) continue;
     const seriesPool = (bySeriesId.get(game.seriesId) ?? []).filter(
-      (candidate) => candidate.gameId !== game.gameId && !findEditionKeyword(candidate.title),
+      (candidate) =>
+        candidate.gameId !== game.gameId &&
+        !findEditionKeyword(candidate.title) &&
+        hasCompatibleInstallmentIdentifiers(stripped, candidate.title),
     );
     let best: { game: CatalogGameForIdentity; score: number } | null = null;
     for (const candidate of seriesPool) {
