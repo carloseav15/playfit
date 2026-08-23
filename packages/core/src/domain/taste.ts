@@ -1,3 +1,4 @@
+import { resolveKnownGenre } from "../data/seeds";
 import type {
   ProductGameState,
   ProductOnboardingDraft,
@@ -34,7 +35,7 @@ function countGenreTraits(
 
   for (const entry of historyEntries) {
     const game = gamesById.get(entry.gameId);
-    const genre = game?.genreId ?? game?.primaryGenre;
+    const genre = game ? resolveKnownGenre(game) : null;
     if (!genre) continue;
     const current = counts.get(genre) ?? { positiveCount: 0, negativeCount: 0 };
     if (entry.tone === "positive") current.positiveCount += 1;
