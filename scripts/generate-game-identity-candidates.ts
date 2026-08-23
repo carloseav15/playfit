@@ -13,9 +13,15 @@
 // This script never confirms anything. It has no code path that writes to
 // game_identity_group or game_identity_group_member.
 //
+// Auth boundary: the dry run only reads games_library.games, so it only
+// needs the anon key. SUPABASE_SERVICE_KEY is required solely to write to
+// the private schema, so it's only checked once --apply is passed -- a
+// missing/empty service key can never block the dry run, and dry run
+// output never depends on write privileges being available.
+//
 // Usage:
-//   SUPABASE_SERVICE_KEY=... npx tsx scripts/generate-game-identity-candidates.ts
-//   SUPABASE_SERVICE_KEY=... npx tsx scripts/generate-game-identity-candidates.ts --apply
+//   NEXT_PUBLIC_SUPABASE_ANON_KEY=... npx tsx scripts/generate-game-identity-candidates.ts
+//   NEXT_PUBLIC_SUPABASE_ANON_KEY=... SUPABASE_SERVICE_KEY=... npx tsx scripts/generate-game-identity-candidates.ts --apply
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -26,16 +32,13 @@ import {
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY required.");
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+if (!SUPABASE_ANON_KEY) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY required.");
 
 const APPLY = process.argv.includes("--apply");
 
-const catalogClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+const catalogClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   db: { schema: "games_library" },
-});
-const privateClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  db: { schema: "games_library_private" },
 });
 
 async function fetchCatalog(): Promise<CatalogGameForIdentity[]> {
@@ -115,6 +118,12 @@ async function main() {
     console.log("\nDry run. Re-run with --apply to write pending candidates to the database.");
     return;
   }
+
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+  if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY required for --apply.");
+  const privateClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    db: { schema: "games_library_private" },
+  });
 
   console.log(
     `\nApplying ${candidates.length} candidates as 'pending' (existing pairs left untouched)...`,
