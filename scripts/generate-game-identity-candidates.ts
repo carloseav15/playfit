@@ -4,18 +4,28 @@
 // review candidates via the pure logic in
 // packages/core/src/domain/game-identity-candidates.ts and writes a JSON
 // report under reports/. Never writes to the database unless --apply is
-// passed explicitly, in which case it upserts `pending` rows into
-// games_library_private.game_identity_candidate -- and even then, only
-// INSERTs new pairs (onConflict: game_id_a,game_id_b -> ignoreDuplicates),
-// so an already-reviewed pair (accepted or rejected) is never touched
-// again by a later import.
+// passed explicitly, in which case it inserts `pending` rows via the
+// games_library.import_game_identity_candidates(jsonb) RPC -- and even
+// then, only INSERTs new pairs (the RPC does ON CONFLICT (game_id_a,
+// game_id_b) DO NOTHING), so an already-reviewed pair (accepted or
+// rejected) is never touched again by a later import.
+//
+// Why an RPC instead of writing to games_library_private directly: that
+// schema is deliberately not in the Supabase Data API's exposed schemas
+// (supabase/config.toml `schemas`), matching production, so
+// `.schema('games_library_private')` fails with PGRST106 "Invalid schema"
+// for ANY operation there, including calling a function that merely lives
+// in that schema. import_game_identity_candidates lives in games_library
+// (already exposed) and reaches into games_library_private on this
+// script's behalf -- see
+// supabase/migrations/20260823120000_add_game_identity_candidate_import_rpc.sql.
 //
 // This script never confirms anything. It has no code path that writes to
 // game_identity_group or game_identity_group_member.
 //
 // Auth boundary: the dry run only reads games_library.games, so it only
-// needs the anon key. SUPABASE_SERVICE_KEY is required solely to write to
-// the private schema, so it's only checked once --apply is passed -- a
+// needs the anon key. SUPABASE_SERVICE_KEY is required solely to call the
+// import RPC, so it's only checked once --apply is passed -- a
 // missing/empty service key can never block the dry run, and dry run
 // output never depends on write privileges being available.
 //
@@ -25,6 +35,10 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildCandidateImportRows,
+  chunkCandidateImportRows,
+} from "../packages/core/src/domain/game-identity-candidate-import";
 import {
   type CatalogGameForIdentity,
   generateGameIdentityCandidates,
@@ -121,31 +135,23 @@ async function main() {
 
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
   if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY required for --apply.");
-  const privateClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    db: { schema: "games_library_private" },
+  const importClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    db: { schema: "games_library" },
   });
 
   console.log(
     `\nApplying ${candidates.length} candidates as 'pending' (existing pairs left untouched)...`,
   );
-  const rows = candidates.map((c) => ({
-    game_id_a: c.gameIdA,
-    game_id_b: c.gameIdB,
-    confidence: c.confidence,
-    evidence: c.evidence,
-    source: c.source,
-    status: "pending",
-  }));
+  const rows = buildCandidateImportRows(candidates);
 
   const BATCH = 200;
   let inserted = 0;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH);
-    const { error, count } = await privateClient
-      .from("game_identity_candidate")
-      .upsert(batch, { onConflict: "game_id_a,game_id_b", ignoreDuplicates: true, count: "exact" });
+  for (const batch of chunkCandidateImportRows(rows, BATCH)) {
+    const { data, error } = await importClient.rpc("import_game_identity_candidates", {
+      p_candidates: batch,
+    });
     if (error) throw new Error(error.message);
-    inserted += count ?? 0;
+    inserted += data ?? 0;
   }
   console.log(`Done. New pending candidates inserted (existing pairs skipped): ${inserted}`);
 }
