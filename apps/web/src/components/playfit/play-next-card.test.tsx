@@ -56,4 +56,20 @@ describe("PlayNextCard", () => {
     expect(html).not.toContain("Maybe later");
     expect(html).not.toContain("I&#x27;ll play this");
   });
+
+  it("renders the existing picked state as a disabled save action", () => {
+    const html = renderToStaticMarkup(
+      <PlayNextCard
+        entry={entry}
+        primary
+        inPlayfitPicks
+        onAddPick={vi.fn()}
+        onAlreadyPlayed={vi.fn()}
+        onNotForMe={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("Saved in Playfit Picks");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>.*Saved in Playfit Picks/s);
+  });
 });
