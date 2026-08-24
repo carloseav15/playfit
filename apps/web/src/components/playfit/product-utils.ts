@@ -46,23 +46,43 @@ export function decisionTone(entry: RankedSeedGame): "positive" | "warning" | "n
   return "warning";
 }
 
-export function decisionLabel(entry: RankedSeedGame) {
+/**
+ * `signal` is optional and only passed for the primary Play Next card. There,
+ * this label sits in the same header row as the trust-signal headline
+ * (playNextHeadline) -- without qualifying it, a near-tied top pick would
+ * show "Close call" right next to an unqualified "Strong match" badge,
+ * reading as two contradictory verdicts about the same recommendation. A
+ * low-confidence ("exploratory") entry never reaches the Strong-match branch
+ * here: it already returns "Too early to tell" via the confidence check above.
+ */
+export function decisionLabel(entry: RankedSeedGame, signal?: PlayNextTrustSignal) {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD) return "Watch out";
   if (entry.confidence === "low") return "Too early to tell";
-  if (entry.affinityScore >= STRONG_FIT_THRESHOLD) return "Strong match";
+  if (entry.affinityScore >= STRONG_FIT_THRESHOLD) {
+    return signal === "close_call" ? "Strong match (close call)" : "Strong match";
+  }
   if (entry.affinityScore >= PROMISING_FIT_THRESHOLD) return "Promising";
   return "Still learning";
 }
 
 /**
  * `signal` is optional and only passed for the primary Play Next card, where
- * an "Exploratory pick" headline sits right next to this label. Without it,
- * a high-affinity match under low confidence would read as "Strong match" --
- * asserting the exact certainty the headline says Playfit doesn't have yet.
+ * a trust-signal headline ("Exploratory pick" or "Close call") sits right
+ * next to this label. Without it:
+ * - a high-affinity match under low confidence would read as "Strong match"
+ *   -- asserting the exact certainty the "Exploratory pick" headline says
+ *   Playfit doesn't have yet;
+ * - a high-affinity match that's nearly tied with the next-best candidate
+ *   would read as an unqualified "Strong match" right next to "Close call",
+ *   which a reasonable user reads as two conflicting verdicts about the same
+ *   pick, even though the two labels measure different things (this
+ *   candidate's own fit vs. how decisively it beats the runner-up).
  */
 export function matchQualityLabel(score: number, signal?: PlayNextTrustSignal) {
   if (score >= STRONG_FIT_THRESHOLD) {
-    return signal === "exploratory" ? "Strong match (early)" : "Strong match";
+    if (signal === "exploratory") return "Strong match (early)";
+    if (signal === "close_call") return "Strong match (close call)";
+    return "Strong match";
   }
   if (score >= PROMISING_FIT_THRESHOLD) return "Promising";
   if (score >= 35) return "Moderate match";

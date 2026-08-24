@@ -96,9 +96,8 @@ describe("matchQualityLabel", () => {
     expect(matchQualityLabel(90)).toBe("Strong match");
   });
 
-  it("keeps the plain tier label for a clear-lead or close-call primary pick", () => {
+  it("keeps the plain tier label for a clear-lead primary pick", () => {
     expect(matchQualityLabel(90, "clear_lead")).toBe("Strong match");
-    expect(matchQualityLabel(90, "close_call")).toBe("Strong match");
   });
 
   it("does not assert unqualified certainty for a high-affinity exploratory pick", () => {
@@ -112,10 +111,59 @@ describe("matchQualityLabel", () => {
     expect(label).not.toBe("Strong match");
   });
 
-  it("leaves the softer tiers (Promising/Moderate/Early) unchanged under exploratory", () => {
+  it("does not pair an unqualified 'Strong match' with a 'Close call' headline (P1 #4)", () => {
+    // playNextTrustSignal can independently return close_call (a thin gap to
+    // the next-best candidate) for a pick whose own affinityScore already
+    // clears STRONG_FIT_THRESHOLD -- e.g. 82 vs 80. Both facts are true and
+    // measure different things (this candidate's own fit vs. how decisively
+    // it beats the runner-up), but an unqualified "Strong match" badge next
+    // to a "Close call" headline reads as two conflicting verdicts.
+    const label = matchQualityLabel(90, "close_call");
+    expect(label).toBe("Strong match (close call)");
+    expect(label).not.toBe("Strong match");
+  });
+
+  it("leaves the softer tiers (Promising/Moderate/Early) unchanged under exploratory or close_call", () => {
     expect(matchQualityLabel(65, "exploratory")).toBe("Promising");
     expect(matchQualityLabel(40, "exploratory")).toBe("Moderate match");
     expect(matchQualityLabel(10, "exploratory")).toBe("Early match");
+    expect(matchQualityLabel(65, "close_call")).toBe("Promising");
+    expect(matchQualityLabel(40, "close_call")).toBe("Moderate match");
+    expect(matchQualityLabel(10, "close_call")).toBe("Early match");
+  });
+});
+
+describe("decisionLabel", () => {
+  it("keeps the plain tier label when no trust signal is passed (non-primary cards, dossier)", () => {
+    expect(decisionLabel(entry({ affinityScore: 90 }))).toBe("Strong match");
+  });
+
+  it("keeps the plain tier label for a clear-lead primary pick", () => {
+    expect(decisionLabel(entry({ affinityScore: 90 }), "clear_lead")).toBe("Strong match");
+  });
+
+  it("does not pair an unqualified 'Strong match' with a 'Close call' headline (P1 #4)", () => {
+    // Same reproduction as the matchQualityLabel case above, but for the
+    // header-row badge: entry({affinityScore: 90}) already clears
+    // STRONG_FIT_THRESHOLD, and a close_call signal must not let this badge
+    // assert plain "Strong match" right next to a "Close call" headline.
+    const label = decisionLabel(entry({ affinityScore: 90 }), "close_call");
+    expect(label).toBe("Strong match (close call)");
+    expect(label).not.toBe("Strong match");
+  });
+
+  it("never reaches the close_call branch for a low-confidence entry -- 'Too early to tell' wins first", () => {
+    // playNextTrustSignal only ever returns "exploratory" when confidence is
+    // "low", and decisionLabel's own confidence check already short-circuits
+    // to "Too early to tell" before the Strong-match branch in that case, so
+    // no separate exploratory handling is needed here.
+    const coldStart = entry({ affinityScore: 90, confidence: "low" });
+    expect(decisionLabel(coldStart, "exploratory")).toBe("Too early to tell");
+  });
+
+  it("lets a high watch-out score win regardless of the trust signal", () => {
+    const risky = entry({ affinityScore: 90, riskScore: 80 });
+    expect(decisionLabel(risky, "close_call")).toBe("Watch out");
   });
 });
 
