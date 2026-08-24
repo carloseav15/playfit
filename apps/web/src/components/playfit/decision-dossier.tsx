@@ -20,6 +20,7 @@ import { CoverArt } from "../playfit/cover-art";
 import { usePlayfitState } from "../playfit/playfit-context";
 import {
   confidenceLabel,
+  confidenceMeterValue,
   decisionLabel,
   decisionTone,
   formatDisplayGenre,
@@ -410,7 +411,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                 <RecommendationMetric
                   label="Confidence Read"
                   value={confidenceLabel(entry.confidence)}
-                  numericValue={100}
+                  numericValue={confidenceMeterValue(entry.confidence)}
                   colorClass="bg-accent/70"
                   labelClassName="text-[9px]"
                 />

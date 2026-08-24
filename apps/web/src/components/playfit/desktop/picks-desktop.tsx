@@ -114,7 +114,7 @@ export function PicksDesktop({
                 className="flex-1 border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
               >
                 <XCircle className="size-4 mr-1.5 text-destructive" />
-                No, skip this
+                Not for me
               </Button>
               <Button
                 type="button"

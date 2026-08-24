@@ -54,8 +54,16 @@ export function decisionLabel(entry: RankedSeedGame) {
   return "Still learning";
 }
 
-export function matchQualityLabel(score: number) {
-  if (score >= STRONG_FIT_THRESHOLD) return "Strong match";
+/**
+ * `signal` is optional and only passed for the primary Play Next card, where
+ * an "Exploratory pick" headline sits right next to this label. Without it,
+ * a high-affinity match under low confidence would read as "Strong match" --
+ * asserting the exact certainty the headline says Playfit doesn't have yet.
+ */
+export function matchQualityLabel(score: number, signal?: PlayNextTrustSignal) {
+  if (score >= STRONG_FIT_THRESHOLD) {
+    return signal === "exploratory" ? "Strong match (early)" : "Strong match";
+  }
   if (score >= PROMISING_FIT_THRESHOLD) return "Promising";
   if (score >= 35) return "Moderate match";
   return "Early match";
@@ -81,4 +89,54 @@ export function recommendationGroupTitle(entries: RankedSeedGame[]) {
   }
 
   return "Best matches";
+}
+
+/**
+ * How confidently the #1 Play Next pick should be presented, derived purely
+ * from data already computed for the ranked list (no new scoring signal):
+ * how much evidence Playfit has on this user (entry.confidence) and how far
+ * ahead the top pick's affinity is from the next-best visible candidate.
+ * A close affinityScore gap means the ranking is mathematically correct but
+ * not decisive -- the UI shouldn't claim more certainty than the numbers hold.
+ */
+export type PlayNextTrustSignal = "clear_lead" | "close_call" | "exploratory";
+
+const CLOSE_CALL_AFFINITY_GAP = 4;
+
+export function playNextTrustSignal(
+  primary: RankedSeedGame,
+  closestAlternativeScore: number | null | undefined,
+): PlayNextTrustSignal {
+  if (primary.confidence === "low") return "exploratory";
+  if (
+    typeof closestAlternativeScore === "number" &&
+    primary.affinityScore - closestAlternativeScore <= CLOSE_CALL_AFFINITY_GAP
+  ) {
+    return "close_call";
+  }
+  return "clear_lead";
+}
+
+export function playNextHeadline(signal: PlayNextTrustSignal) {
+  if (signal === "exploratory") return "Exploratory pick";
+  if (signal === "close_call") return "Close call";
+  return "Play this next";
+}
+
+export function playNextTrustNote(signal: PlayNextTrustSignal) {
+  if (signal === "close_call") {
+    return "A few other options score almost as high -- see Also worth considering.";
+  }
+  if (signal === "exploratory") {
+    return "Limited signal so far. Playfit is still calibrating to your taste.";
+  }
+  return null;
+}
+
+/** Presentation-only fill for the Confidence meter -- confidence is a label,
+ * not a score, so this never claims more precision than "low/medium/high". */
+export function confidenceMeterValue(value: RankedSeedGame["confidence"]) {
+  if (value === "high") return 100;
+  if (value === "medium") return 66;
+  return 33;
 }
