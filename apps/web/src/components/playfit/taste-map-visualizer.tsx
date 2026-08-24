@@ -3,7 +3,7 @@
 import type { ProductGameState, RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,11 @@ import { CoverArt } from "../playfit/cover-art";
 import { usePlayfitState } from "../playfit/playfit-context";
 import { buildTasteMapNodes, type TasteMapNode } from "./taste-map-helpers";
 
-export function TasteMapVisualizer({
+// Memoized: gamesById/gameStates are the only props that matter for output,
+// and rendering N SVG nodes + N carousel cards is expensive enough that an
+// unrelated parent re-render (e.g. a sibling tab toggle) must bail out here
+// instead of reconciling the whole map.
+export const TasteMapVisualizer = memo(function TasteMapVisualizer({
   gamesById,
   gameStates,
 }: {
@@ -410,4 +414,4 @@ export function TasteMapVisualizer({
       </CardContent>
     </Card>
   );
-}
+});
