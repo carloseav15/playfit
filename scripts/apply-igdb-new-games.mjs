@@ -18,6 +18,7 @@
 //   SUPABASE_SERVICE_KEY=... node scripts/apply-igdb-new-games.mjs [--dry-run] [--limit 500]
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "node:fs";
+import { refreshGameQualityScore } from "./lib/refresh-game-quality-score.mjs";
 
 const GAMES_FILE = new URL("../reports/igdb-games.ndjson", import.meta.url);
 const NEW_GAMES_FILE = new URL("../reports/igdb-new-games.ndjson", import.meta.url);
@@ -355,6 +356,11 @@ async function main() {
     doneScores += 1;
   });
   console.log(`Scores inserted: ${doneScores}, failed: ${failedScores}`);
+
+  if (doneScores > 0) {
+    await refreshGameQualityScore(supabase);
+    console.log("game_quality_score refreshed.");
+  }
 }
 
 main().catch((e) => {

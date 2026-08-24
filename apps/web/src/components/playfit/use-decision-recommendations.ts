@@ -357,6 +357,7 @@ export function useDecisionRecommendations({
     primary,
     recommendationRefreshPending,
     refreshing,
+    refreshRecommendations,
     setExcludedIds,
     slowLoading,
     visiblePool,

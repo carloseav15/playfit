@@ -51,6 +51,11 @@ export function DecisionShell({
   const { state, applyDecisionFeedback, getSeedGame, setPlayfitPick, resetLocalState } =
     usePlayfitState();
   const { ui, setUi } = usePlayfitUi();
+  // Guards the terminal "Play Next could not load" retry button. Distinct from the hook's own
+  // `loading` -- that flips true (and swaps this screen for the loading skeleton) only once the
+  // effect inside usePlayNextRecommendations actually fires; this flips synchronously on click,
+  // so a second click in that gap can't queue a duplicate request.
+  const [isRetryingRecommendations, setIsRetryingRecommendations] = useState(false);
   // Resume the onboarding wizard directly when the account has in-progress onboarding
   // data saved server-side. The marketing landing also sets this flag when its CTA opens
   // the wizard, so there is only one onboarding entry experience.
@@ -83,6 +88,7 @@ export function DecisionShell({
     primary,
     recommendationRefreshPending,
     refreshing,
+    refreshRecommendations,
     setExcludedIds,
     slowLoading,
     visiblePool,
@@ -94,6 +100,22 @@ export function DecisionShell({
     setPlayfitPick,
     resetLocalState,
   });
+
+  // Manual recovery from the terminal "Play Next could not load" state (see the `loadError`
+  // render branch below). Reuses the same fetch usePlayNextRecommendations already exposes for
+  // background pool refreshes -- one click, one request; execute()'s own inFlightRef dedupes
+  // any overlap, and isRetryingRecommendations blocks the button itself in the meantime. No
+  // profile write is involved: this only re-requests /api/recommendations/today.
+  function handleRetryRecommendations() {
+    if (isRetryingRecommendations) return;
+    setIsRetryingRecommendations(true);
+    // usePlayNextRecommendations' execute() always resolves -- a failed fetch is caught
+    // internally and surfaced as `loadError`, never as a rejection. The catch here is a
+    // defensive no-op against that contract ever changing, not a path this is expected to hit.
+    void refreshRecommendations()
+      .catch(() => undefined)
+      .finally(() => setIsRetryingRecommendations(false));
+  }
 
   const selectedAnchorGames = useMemo(
     () =>
@@ -320,6 +342,16 @@ export function DecisionShell({
             <CardTitle>Play Next could not load</CardTitle>
             <CardDescription>{loadError}</CardDescription>
           </CardHeader>
+          <div className="px-6 pb-6">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleRetryRecommendations}
+              disabled={isRetryingRecommendations}
+            >
+              {isRetryingRecommendations ? "Retrying..." : "Try again"}
+            </Button>
+          </div>
         </Card>
         <StatusToast />
       </Container>
