@@ -17,10 +17,16 @@ export function SearchResultRow({
   game,
   onSelect,
   selectionState,
+  disabled = false,
 }: {
   game: SeedGame;
   onSelect: () => void;
   selectionState?: SearchResultSelectionState;
+  // A fresher search request is in flight for a query this row's game no longer matches.
+  // Distinct from selectionState.isDisabled (which reflects the *game*, e.g. "already loved"),
+  // this reflects the *row's staleness* -- set true, it blocks selection regardless of
+  // selectionState so a click can never land on a result computed for a stale query.
+  disabled?: boolean;
 }) {
   const {
     isCurrentSelection = false,
@@ -33,7 +39,7 @@ export function SearchResultRow({
     <button
       type="button"
       aria-pressed={selectionState ? isCurrentSelection : undefined}
-      disabled={isDisabled}
+      disabled={isDisabled || disabled}
       onClick={onSelect}
       className={cn(
         "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted/10",
@@ -98,7 +104,8 @@ export function SearchResultRow({
             <Check className="size-3.5 stroke-[3]" />
           </div>
         ) : (
-          !isDisabled && (
+          !isDisabled &&
+          !disabled && (
             <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
           )
         )

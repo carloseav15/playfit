@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { refreshGameQualityScore } from "./lib/refresh-game-quality-score.mjs";
 
 const PROGRESS_FILE = "/tmp/rawg-scrape-progress.json";
 const API_DELAY_MS = 800;
@@ -1012,6 +1013,16 @@ async function main() {
   console.error(`\n=== Done ===`);
   console.error(`  Phase 1: ${phase1Total} games`);
   console.error(`  Phase 2: ${detailTotal} details fetched`);
+
+  // Both phases above can write game_scores conditionally (processListBatch,
+  // processDetailBatch); refreshing unconditionally here -- once, at the
+  // true end of the run -- is simpler than threading a "did anything change"
+  // flag through both, and a no-op refresh when nothing changed is harmless.
+  await refreshGameQualityScore(supabase);
+  console.error("game_quality_score refreshed.");
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

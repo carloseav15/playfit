@@ -138,7 +138,7 @@ export function usePlayNextRecommendations({
   }, [enabled, fetchRecommendations, reset]);
 
   const refreshRecommendations = useCallback(() => {
-    void fetchRecommendations({ background: true });
+    return fetchRecommendations({ background: true });
   }, [fetchRecommendations]);
 
   const loading = enabled ? !model && !loadError : false;

@@ -29,6 +29,7 @@
 //   SUPABASE_SERVICE_KEY=... node scripts/resolve-igdb-title-collisions.mjs [--dry-run] [--limit 500]
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "node:fs";
+import { refreshGameQualityScore } from "./lib/refresh-game-quality-score.mjs";
 
 const GAMES_FILE = new URL("../reports/igdb-games.ndjson", import.meta.url);
 const NEW_GAMES_FILE = new URL("../reports/igdb-new-games.ndjson", import.meta.url);
@@ -478,6 +479,15 @@ async function main() {
     doneNew += 1;
   });
   console.log(`insert_as_new inserted: ${doneNew}, failed: ${failedNew}`);
+
+  // Scores are written conditionally inside the loop above (only when the
+  // IGDB enrichment had a rating); doneNew > 0 is a coarser but safe proxy
+  // for "some score writes may have happened this run" -- refreshing when
+  // none actually occurred is a harmless no-op, not a correctness issue.
+  if (doneNew > 0) {
+    await refreshGameQualityScore(supabase);
+    console.log("game_quality_score refreshed.");
+  }
 }
 
 main().catch((e) => {
