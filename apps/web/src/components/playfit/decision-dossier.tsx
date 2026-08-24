@@ -48,7 +48,7 @@ function CurrentUserState({
     inPlayfitPicks ? "In Playfit Picks" : null,
     status ? `Status: ${status.replaceAll("_", " ")}` : null,
     rating ? `Rating: ${rating}` : null,
-    excluded ? "Skipped for now" : null,
+    excluded ? "Not for me" : null,
   ].filter(Boolean);
 
   if (labels.length === 0) {
@@ -58,7 +58,7 @@ function CurrentUserState({
   return (
     <Stack direction="row" wrap gap={2}>
       {labels.map((label) => (
-        <Badge key={label} variant={label === "Skipped for now" ? "negative" : "outline"}>
+        <Badge key={label} variant={label === "Not for me" ? "negative" : "outline"}>
           {label}
         </Badge>
       ))}
