@@ -133,3 +133,46 @@ export function withPlatformSelectionGuard<T extends { platformId: string }>(
 ): T[] {
   return next.length === 0 && current.length > 0 ? current : next;
 }
+
+/**
+ * Decides what a Quick Group preset click should do to the current onboarding
+ * platform selection.
+ *
+ * Fresh onboarding starts with every known platform pre-selected (see
+ * withDefaultPlatforms) so a fully-skipped flow still has an eligible catalog.
+ * The Quick Groups are additive toggles designed for building a selection up
+ * from nothing ("Start broad by selecting quick groups") -- against that
+ * all-selected starting point, a plain toggle inverts: clicking the one group
+ * a first-time user actually owns (e.g. "Nintendo") *removes* it, leaving
+ * every platform they DON'T own still selected. While the selection is still
+ * exactly the untouched default, a preset click instead narrows the
+ * selection down to just that preset -- matching what "select this group"
+ * obviously means to a first-time user. Once the user has made any explicit
+ * change, presets go back to normal additive/removable toggle behavior.
+ */
+export function nextPlatformSelectionForPreset<T extends { platformId: string }>(
+  current: T[],
+  presetIds: string[],
+  totalPlatformCount: number,
+  buildEntry: (platformId: string) => T,
+): T[] {
+  if (presetIds.length === 0) return current;
+
+  const stillDefaultAllPlatforms = totalPlatformCount > 0 && current.length === totalPlatformCount;
+  if (stillDefaultAllPlatforms) {
+    return presetIds.map(buildEntry);
+  }
+
+  const currentIds = selectedPlatformIdSet(current);
+  const presetFullySelected = presetIds.every((id) => currentIds.has(id));
+
+  if (presetFullySelected) {
+    const remaining = current.filter((entry) => !presetIds.includes(entry.platformId));
+    return withPlatformSelectionGuard(current, remaining);
+  }
+
+  return [
+    ...current.filter((entry) => !presetIds.includes(entry.platformId)),
+    ...presetIds.map(buildEntry),
+  ];
+}
