@@ -29,7 +29,7 @@ export { PlatformsTabContent } from "./platforms-tab-content";
 export function TasteShell() {
   const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal, setPlayfitPick } =
     usePlayfitState();
-  const [, setCacheVersion] = useState(0);
+  const [cacheVersion, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
   const [changingId, setChangingId] = useState<string | null>(null);
@@ -49,7 +49,16 @@ export function TasteShell() {
   );
   const profile = state.user.profile;
   const requiredIds = useMemo(() => getTasteGameIds(state), [state]);
-  const gamesById = getSeedGamesById(requiredIds, getSeedGame);
+  // requiredIds gets a new array identity on every state change (even ones
+  // unrelated to which games are tracked), and cacheVersion is the explicit
+  // signal that ensureGamesCached() populated new entries. Recomputing on
+  // every render (unmemoized) forced a full affinity-map + model rebuild on
+  // every unrelated re-render (e.g. switching mapView/subView tabs).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cacheVersion isn't read in the body, but its bump is the signal that getSeedGame's underlying cache gained entries and gamesById must be re-derived.
+  const gamesById = useMemo(
+    () => getSeedGamesById(requiredIds, getSeedGame),
+    [requiredIds, getSeedGame, cacheVersion],
+  );
   const missingIds = getMissingGameIds(requiredIds, gamesById);
   const missingKey = missingIds.join("|");
   const model = useMemo(
