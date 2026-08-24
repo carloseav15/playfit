@@ -17,8 +17,8 @@ import { OnboardingSection } from "../playfit/onboarding-section";
 import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { recommendationGroupTitle } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
-import { PlayNextCard } from "./play-next-card";
 import { recordRecommendationClientEvent } from "./core-loop-analytics";
+import { PlayNextCard } from "./play-next-card";
 import {
   shouldShowNoRecommendations,
   useDecisionRecommendations,
@@ -402,6 +402,7 @@ export function DecisionShell({
                 entry={primary}
                 primary
                 inPlayfitPicks={primary.inPlayfitPicks}
+                closestAlternativeScore={alternatives[0]?.affinityScore ?? null}
                 onAddPick={() => {
                   recordPrimaryInteraction("recommendation_saved");
                   handleAddPick(primary);

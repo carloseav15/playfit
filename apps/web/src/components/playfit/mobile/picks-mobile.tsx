@@ -59,7 +59,7 @@ function ManagePickDialog({
           className="w-full h-12 rounded-xl text-xs font-bold justify-start px-4"
         >
           <XCircle className="size-4 mr-2.5 text-destructive" />
-          No, skip this
+          Not for me
         </Button>
         <Button
           type="button"

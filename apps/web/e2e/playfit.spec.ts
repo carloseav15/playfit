@@ -939,7 +939,7 @@ test("play next feedback excludes a bad fit", async ({ page }) => {
   await page.getByRole("button", { name: "Find Play Next" }).click();
 
   await expect(page.getByText("Play this next")).toBeVisible();
-  await page.getByRole("button", { name: "No, skip this" }).first().click();
+  await page.getByRole("button", { name: "Not for me" }).first().click();
 
   await expect(page.getByText("What got in the way?")).toHaveCount(0);
   await expect
