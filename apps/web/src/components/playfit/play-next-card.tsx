@@ -48,14 +48,14 @@ export function PlayNextCard({
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const alreadyPlayedPanelId = `already-played-${entry.game.gameId}`;
   const tone = decisionTone(entry);
-  const label = decisionLabel(entry);
+  const trustSignal = playNextTrustSignal(entry, closestAlternativeScore);
+  const label = decisionLabel(entry, primary ? trustSignal : undefined);
   const bestReason = primaryReason(entry);
   const validCautions = filterUsefulCautions(entry.cautionReasons);
   const hasCautions = validCautions.length > 0;
   const firstWatchOut = validCautions[0] ?? "";
   const watchLabel = watchOutLabel(entry.riskScore);
   const confidence = confidenceLabel(entry.confidence);
-  const trustSignal = playNextTrustSignal(entry, closestAlternativeScore);
   const matchLabel = matchQualityLabel(entry.affinityScore, primary ? trustSignal : undefined);
   const trustNote = primary ? playNextTrustNote(trustSignal) : null;
 

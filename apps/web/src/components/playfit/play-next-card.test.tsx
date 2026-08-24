@@ -88,6 +88,10 @@ describe("PlayNextCard", () => {
     expect(html).toContain("Play this next");
     expect(html).not.toContain("Close call");
     expect(html).not.toContain("score almost as high");
+    // Normal clear-lead case: an unqualified "Strong match" is correct here
+    // since nothing next to it claims otherwise.
+    expect(html).toContain("Strong match");
+    expect(html).not.toContain("Strong match (close call)");
   });
 
   it("flags a close call instead of 'Play this next' when scores are nearly tied (e.g. 82 vs 80)", () => {
@@ -105,6 +109,29 @@ describe("PlayNextCard", () => {
     expect(html).toContain("Close call");
     expect(html).toContain("score almost as high");
     expect(html).not.toContain("Play this next");
+  });
+
+  it("does not pair 'Close call' with an unqualified 'Strong match' badge (P1 #4)", () => {
+    // Reproduces the exact reported contradiction: entry.affinityScore=82
+    // already clears STRONG_FIT_THRESHOLD (78), and closestAlternativeScore=80
+    // is a thin 2-point gap, so both the header badge (decisionLabel) and the
+    // Match tile (matchQualityLabel) used to render plain "Strong match"
+    // right alongside the "Close call" headline -- two badges asserting
+    // unqualified certainty next to a headline saying the #1 spot is a toss-up.
+    const html = renderToStaticMarkup(
+      <PlayNextCard
+        entry={entry}
+        primary
+        closestAlternativeScore={80}
+        onAddPick={vi.fn()}
+        onAlreadyPlayed={vi.fn()}
+        onNotForMe={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("Close call");
+    expect(html).toContain("Strong match (close call)");
+    expect(html).not.toMatch(/Strong match(?!\s*\(close call\))/);
   });
 
   it("does not claim 'Play this next' for a low-evidence / cold-start pick, avoiding a contradiction with 'Too early to tell'", () => {
