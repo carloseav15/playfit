@@ -24,6 +24,15 @@ interface UseGameSearchResult {
   // (e.g. "Load more") tell a real page-N delivery apart from a stale prior-page
   // results array that hasn't been refetched yet after `page` just changed.
   resolvedPage: number;
+  // The exact query+platform+genre these results answer, set atomically with
+  // `results`/`resolvedPage`. `resolvedPage` alone can't detect a query/filter
+  // change that happens to land back on the same page number (e.g. page stays 1
+  // across two different queries) -- a consumer that only guards on resolvedPage
+  // can briefly re-adopt a still-fresh-looking `results` array that actually
+  // answers the *previous* query, because its own effect can run in the same
+  // commit as this hook's, before this hook's state update is visible to it.
+  // Comparing this key closes that gap.
+  resolvedKey: string;
 }
 
 function buildSearchUrl(
@@ -56,6 +65,7 @@ export function useGameSearch({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resolvedPage, setResolvedPage] = useState(page);
+  const [resolvedKey, setResolvedKey] = useState("");
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const requestCounterRef = useRef(0);
@@ -63,6 +73,7 @@ export function useGameSearch({
   const platformKey = filters?.platform?.join(",") ?? "";
   const genreKey = filters?.genre ?? "";
   const hasSearchIntent = query.trim().length > 0 || platformKey.length > 0 || genreKey.length > 0;
+  const requestKey = `${query.trim()}|${platformKey}|${genreKey}|${page}`;
 
   useEffect(() => {
     const requestId = ++requestCounterRef.current;
@@ -76,6 +87,7 @@ export function useGameSearch({
       setResults([]);
       setTotal(0);
       setResolvedPage(page);
+      setResolvedKey(requestKey);
       return;
     }
 
@@ -91,6 +103,7 @@ export function useGameSearch({
           setResults([]);
           setTotal(0);
           setResolvedPage(page);
+          setResolvedKey(requestKey);
           setPending(false);
           return;
         }
@@ -100,6 +113,7 @@ export function useGameSearch({
         setResults(data.games);
         setTotal(data.total);
         setResolvedPage(page);
+        setResolvedKey(requestKey);
         setPending(false);
       } catch {
         if (requestId !== requestCounterRef.current) return;
@@ -107,6 +121,7 @@ export function useGameSearch({
         setResults([]);
         setTotal(0);
         setResolvedPage(page);
+        setResolvedKey(requestKey);
         setPending(false);
       }
     }, 250);
@@ -114,7 +129,7 @@ export function useGameSearch({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [query, platformKey, genreKey, page, pageSize, hasSearchIntent]);
+  }, [query, platformKey, genreKey, page, pageSize, hasSearchIntent, requestKey]);
 
-  return { results, total, pending, error, resolvedPage };
+  return { results, total, pending, error, resolvedPage, resolvedKey };
 }
