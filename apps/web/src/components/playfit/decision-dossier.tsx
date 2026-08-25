@@ -25,6 +25,7 @@ import {
   decisionTone,
   formatDisplayGenre,
   isValidReleaseYear,
+  watchOutColorClass,
 } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
@@ -414,7 +415,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                   label="Watch-out Score"
                   value={`${entry.riskScore}%`}
                   numericValue={entry.riskScore}
-                  colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
+                  colorClass={watchOutColorClass(entry.riskScore)}
                   labelClassName="text-[9px]"
                 />
                 <RecommendationMetric

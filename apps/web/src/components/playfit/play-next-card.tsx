@@ -18,6 +18,7 @@ import {
   playNextTrustNote,
   playNextTrustSignal,
   primaryReason,
+  watchOutColorClass,
   watchOutLabel,
 } from "../playfit/product-utils";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
@@ -250,7 +251,7 @@ export function PlayNextCard({
                 value={watchLabel}
                 detail={`${entry.riskScore}/100`}
                 numericValue={entry.riskScore}
-                colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
+                colorClass={watchOutColorClass(entry.riskScore)}
                 interactive
                 className="p-2.5 sm:p-4"
                 labelClassName="text-[8px] sm:text-[10px]"

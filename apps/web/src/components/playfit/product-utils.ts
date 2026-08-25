@@ -96,6 +96,15 @@ export function watchOutLabel(score: number) {
   return "Clear read";
 }
 
+// Mirrors watchOutLabel's bands so the metric's fill color never contradicts its own
+// label (e.g. a "Clear read" score previously rendered in the same warning color as
+// "Some watch-outs", reading as cautionary even though it's good news).
+export function watchOutColorClass(score: number) {
+  if (score >= HIGH_FRICTION_THRESHOLD) return "bg-destructive";
+  if (score >= 35) return "bg-warning";
+  return "bg-positive";
+}
+
 export function primaryReason(entry: RankedSeedGame) {
   if (entry.riskScore >= HIGH_FRICTION_THRESHOLD && entry.cautionReasons[0]) {
     return entry.cautionReasons[0];
