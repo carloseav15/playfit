@@ -68,26 +68,35 @@ export function TasteHistory({
   onToggleChange,
   onChange,
   onRemove,
+  traitFilter,
+  onClearTraitFilter,
 }: {
   entries: HistoryOrActivityEntry[];
   changingId: string | null;
   onToggleChange: (gameId: string) => void;
   onChange: (entry: HistoryOrActivityEntry, feedback: ProductDecisionFeedback) => void;
   onRemove: (entry: HistoryOrActivityEntry) => void;
+  // Arrived here from a "See games behind this trait" tap in the Taste DNA view --
+  // narrows the list to the entries that actually contributed to that trait.
+  traitFilter?: { id: string; label: string } | null;
+  onClearTraitFilter?: () => void;
 }) {
   const { getSeedGame } = usePlayfitState();
   const [activeTab, setActiveTab] = useState<"all" | "active" | "taste">("all");
   const [page, setPage] = useState(1);
 
   const filteredEntries = useMemo(() => {
+    let next = entries;
     if (activeTab === "active") {
-      return entries.filter((entry) => entry.decision === "picks");
+      next = next.filter((entry) => entry.decision === "picks");
+    } else if (activeTab === "taste") {
+      next = next.filter((entry) => entry.decision !== "picks");
     }
-    if (activeTab === "taste") {
-      return entries.filter((entry) => entry.decision !== "picks");
+    if (traitFilter) {
+      next = next.filter((entry) => entry.traits.includes(traitFilter.id));
     }
-    return entries;
-  }, [entries, activeTab]);
+    return next;
+  }, [entries, activeTab, traitFilter]);
 
   const itemsPerPage = 5;
   const totalItems = filteredEntries.length;
@@ -98,6 +107,11 @@ export function TasteHistory({
       setPage(totalPages);
     }
   }, [totalPages, page]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: traitFilter isn't read in the body -- its identity changing is the reset trigger itself (a fresh filter should always land on page 1).
+  useEffect(() => {
+    setPage(1);
+  }, [traitFilter]);
 
   const paginatedEntries = useMemo(() => {
     const startIndex = (page - 1) * itemsPerPage;
@@ -174,6 +188,22 @@ export function TasteHistory({
           </button>
         </div>
       </CardHeader>
+      {traitFilter && (
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-accent/5 px-4 py-2.5 sm:px-6">
+          <span className="text-xs font-bold text-muted-foreground">
+            Filtered by <span className="text-foreground">"{traitFilter.label}"</span>
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClearTraitFilter}
+            className="h-7 px-2.5 text-xs font-bold"
+          >
+            Clear
+          </Button>
+        </div>
+      )}
       <CardContent className="p-0">
         <div className="divide-y divide-border/60">
           {paginatedEntries.length === 0 ? (

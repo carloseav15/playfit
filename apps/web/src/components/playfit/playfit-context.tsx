@@ -105,10 +105,14 @@ export function PlayfitProvider({
     onSavedStateVersion: handleSavedStateVersion,
   });
 
-  const { onboardingSearchResults, onboardingSearchError, onboardingSearchPending } =
-    usePlayfitSearch({
-      onboardingQuery: ui?.onboardingQuery,
-    });
+  const {
+    onboardingSearchResults,
+    onboardingSearchError,
+    onboardingSearchPending,
+    retryOnboardingSearch,
+  } = usePlayfitSearch({
+    onboardingQuery: ui?.onboardingQuery,
+  });
 
   const bootError = usePlayfitBoot({
     authUser,
@@ -349,6 +353,7 @@ export function PlayfitProvider({
       },
       onboardingSearchError,
       onboardingSearchPending,
+      retryOnboardingSearch,
       searchGames(query: string) {
         const trimmed = query.trim();
         if (!trimmed) return [];
@@ -372,6 +377,7 @@ export function PlayfitProvider({
     onboardingSearchError,
     onboardingSearchPending,
     onboardingSearchResults,
+    retryOnboardingSearch,
     flushSave,
     enqueueSave,
     state,

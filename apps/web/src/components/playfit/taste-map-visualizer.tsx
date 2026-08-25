@@ -7,11 +7,29 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
+import { getQuadrantName, scaleCoordinateX, scaleCoordinateY } from "@/lib/map-geometry";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "../playfit/cover-art";
 import { usePlayfitState } from "../playfit/playfit-context";
-import { buildTasteMapNodes, type TasteMapNode } from "./taste-map-helpers";
+import {
+  buildTasteMapNodes,
+  findNearestNodeInDirection,
+  type SpatialArrowKey,
+  type TasteMapNode,
+} from "./taste-map-helpers";
+
+const nodeTypeLabel: Record<TasteMapNode["type"], string> = {
+  liked: "Liked or playing",
+  disliked: "Avoided or dropped",
+  pending: "Saved pick, no verdict yet",
+};
+
+const spatialArrowKeys = new Set<SpatialArrowKey>([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+]);
 
 // Memoized: gamesById/gameStates are the only props that matter for output,
 // and rendering N SVG nodes + N carousel cards is expensive enough that an
@@ -112,10 +130,13 @@ export const TasteMapVisualizer = memo(function TasteMapVisualizer({
         {/* SVG Cartesian Space */}
         <div className="w-full max-w-[460px] mx-auto aspect-square relative">
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click to clear selection is secondary mouse helper */}
+          {/* biome-ignore lint/a11y/useSemanticElements: <section> can't replace an <svg> root */}
           <svg
             viewBox="0 0 400 400"
             className="w-full h-full text-muted-foreground/35 select-none"
-            aria-label="Affinity Map Plot"
+            role="region"
+            aria-roledescription="Interactive affinity map"
+            aria-label="Affinity map plot. Focus a game, then use arrow keys to move between nearby games."
             onClick={() => setActiveNode(null)}
           >
             {/* Grid Circles */}
@@ -235,13 +256,16 @@ export const TasteMapVisualizer = memo(function TasteMapVisualizer({
                 strokeColor = "color-mix(in srgb, var(--muted-foreground), transparent 60%)";
               }
 
+              const quadrant = getQuadrantName(node.x, node.y);
+
               return (
                 // biome-ignore lint/a11y/useSemanticElements: SVG groups cannot be semantic HTML buttons
                 <g
                   key={node.game.gameId}
+                  id={`map-node-${node.game.gameId}`}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${node.game.title} - ${node.type}`}
+                  aria-label={`${node.game.title}. ${nodeTypeLabel[node.type]}. ${quadrant} quadrant.`}
                   className="cursor-pointer group focus:outline-none"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -253,6 +277,19 @@ export const TasteMapVisualizer = memo(function TasteMapVisualizer({
                       setActiveNode((prev) =>
                         prev?.game.gameId === node.game.gameId ? null : node,
                       );
+                      return;
+                    }
+                    if (spatialArrowKeys.has(e.key as SpatialArrowKey)) {
+                      const next = findNearestNodeInDirection(
+                        node,
+                        e.key as SpatialArrowKey,
+                        nodes,
+                      );
+                      if (next) {
+                        e.preventDefault();
+                        setActiveNode(next);
+                        document.getElementById(`map-node-${next.game.gameId}`)?.focus();
+                      }
                     }
                   }}
                 >

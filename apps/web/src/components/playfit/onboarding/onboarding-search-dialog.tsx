@@ -19,6 +19,7 @@ export function OnboardingSearchDialog({
   onboardingQuery,
   onboardingSearchError,
   onboardingSearchPending,
+  onRetryOnboardingSearch,
   replaceGameId,
   searchSlot,
   seedData,
@@ -34,6 +35,7 @@ export function OnboardingSearchDialog({
   onboardingQuery: string;
   onboardingSearchError: string | null;
   onboardingSearchPending: boolean;
+  onRetryOnboardingSearch: () => void;
   replaceGameId: string | null;
   searchSlot: SearchSlot | null;
   seedData: ProductSeedData;
@@ -130,6 +132,7 @@ export function OnboardingSearchDialog({
               error={onboardingSearchError}
               catalogEmpty={seedData.allGames.length === 0}
               hasQuery={hasOnboardingSearch}
+              onRetry={onRetryOnboardingSearch}
             />
           )}
         </div>

@@ -392,6 +392,16 @@ export function DecisionShell({
             </CardDescription>
           </CardHeader>
         </Card>
+        {pool.length === 0 ? (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <Button type="button" asChild>
+              <Link href="/settings">Update your platforms</Link>
+            </Button>
+            <Button type="button" variant="secondary" asChild>
+              <Link href="/search">Find games to rate</Link>
+            </Button>
+          </div>
+        ) : null}
         {pool.length > 0 ? (
           <>
             <Alert variant="info">All current candidates were skipped in this session.</Alert>

@@ -83,3 +83,12 @@ export function calculateGameCoordinates(game: SeedGame): { x: number; y: number
 // Translate coordinate from [-100, 100] scale to SVG Viewbox [20, 380]
 export const scaleCoordinateX = (val: number) => 200 + (val / 100) * 160;
 export const scaleCoordinateY = (val: number) => 200 - (val / 100) * 160; // Invert Y for standard Cartesian
+
+// Matches the four quadrant labels drawn on the map's corners (taste-map-visualizer.tsx) --
+// x follows the Chill(-)/Demanding(+) axis, y follows the Story(-)/Systems(+) axis.
+export function getQuadrantName(x: number, y: number): string {
+  if (x >= 0 && y >= 0) return "Complex & Systems";
+  if (x < 0 && y >= 0) return "Chill & Open World";
+  if (x < 0 && y < 0) return "Cozy & Story-Rich";
+  return "Demanding & Linear";
+}

@@ -49,6 +49,37 @@ describe("useGameSearch", () => {
     expect(result.current).toMatchObject({ pending: false, error: null, results: [], total: 0 });
   });
 
+  it("does not fetch the full catalog when there is no query and no filters", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useGameSearch({ query: "" }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current).toMatchObject({ pending: false, error: null, results: [], total: 0 });
+  });
+
+  it("fetches when a filter is set even with an empty query", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ games: [], total: 0 }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() => useGameSearch({ query: "", filters: { platform: ["pc"] } }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces a network failure as the existing recoverable error", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));

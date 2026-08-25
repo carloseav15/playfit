@@ -67,20 +67,36 @@ function CurrentUserState({
   );
 }
 
-function DossierActions({ entry }: { entry: RankedSeedGame }) {
+function DossierActions({
+  entry,
+  hasVerdict,
+  editingVerdict,
+  onEditingVerdictChange,
+}: {
+  entry: RankedSeedGame;
+  hasVerdict: boolean;
+  editingVerdict: boolean;
+  onEditingVerdictChange: (next: boolean) => void;
+}) {
   const { applyDecisionFeedback, setPlayfitPick } = usePlayfitState();
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const isPicked = entry.inPlayfitPicks;
   const alreadyPlayedPanelId = `dossier-already-played-${entry.game.gameId}`;
+  // Once a game already has a verdict, don't re-present the full pending CTA set --
+  // that reads as if Playfit forgot the decision. Collapse to a single "Change verdict"
+  // action that reveals the same two buttons on demand.
+  const showVerdictButtons = !hasVerdict || editingVerdict;
 
   function markNotForMe() {
     applyDecisionFeedback(entry.game.gameId, "not_for_me");
     setShowAlreadyPlayed(false);
+    onEditingVerdictChange(false);
   }
 
   function markAlreadyPlayed(feedback: AlreadyPlayedFeedback) {
     applyDecisionFeedback(entry.game.gameId, feedback);
     setShowAlreadyPlayed(false);
+    onEditingVerdictChange(false);
   }
 
   return (
@@ -106,32 +122,45 @@ function DossierActions({ entry }: { entry: RankedSeedGame }) {
             Save to Picks
           </Button>
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          aria-expanded={showAlreadyPlayed}
-          aria-controls={alreadyPlayedPanelId}
-          onClick={() => {
-            setShowAlreadyPlayed((current) => !current);
-          }}
-          className="flex-1 h-11 md:h-10 text-xs font-bold"
-        >
-          <CheckCircle2 className="size-4" />
-          Already Played
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={markNotForMe}
-          className="flex-1 h-11 md:h-10 text-xs font-bold hover:bg-destructive/10 hover:text-destructive"
-        >
-          <XCircle className="size-4" />
-          Not for me
-        </Button>
+        {showVerdictButtons ? (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              aria-expanded={showAlreadyPlayed}
+              aria-controls={alreadyPlayedPanelId}
+              onClick={() => {
+                setShowAlreadyPlayed((current) => !current);
+              }}
+              className="flex-1 h-11 md:h-10 text-xs font-bold"
+            >
+              <CheckCircle2 className="size-4" />
+              Already Played
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={markNotForMe}
+              className="flex-1 h-11 md:h-10 text-xs font-bold hover:bg-destructive/10 hover:text-destructive"
+            >
+              <XCircle className="size-4" />
+              Not for me
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onEditingVerdictChange(true)}
+            className="flex-1 h-11 md:h-10 text-xs font-bold"
+          >
+            Change verdict
+          </Button>
+        )}
       </div>
       <AlreadyPlayedPanel
         id={alreadyPlayedPanelId}
-        open={showAlreadyPlayed}
+        open={showAlreadyPlayed && showVerdictButtons}
         onClose={() => setShowAlreadyPlayed(false)}
         onSelect={markAlreadyPlayed}
       />
@@ -247,6 +276,15 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   // a "Recommended" badge next to that verdict; every other decision (in Picks, played and liked,
   // no decision yet) keeps the badge unchanged.
   const isRejected = gameState?.excluded === true;
+  // Same "has this game already been judged" boundary CurrentUserState uses to decide
+  // between showing status badges and the "No decision yet" badge.
+  const hasVerdict = !!(gameState?.status || gameState?.excluded || gameState?.rating);
+  const [editingVerdict, setEditingVerdict] = useState(false);
+  // The fixed action bar is 3 stacked buttons when a verdict is still pending (or being
+  // changed) but only 2 (Picks + "Change verdict") once a verdict already exists -- match
+  // the scroll padding to whichever bar is actually on screen instead of always reserving
+  // room for the tallest case.
+  const showVerdictButtons = !hasVerdict || editingVerdict;
 
   useEffect(() => {
     if (!profileReady) redirectToMarketingLanding();
@@ -313,7 +351,14 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[400px] rounded-full bg-indigo-500/5 blur-[100px]" />
 
       <div className="min-h-screen lg:h-full lg:min-h-0">
-        <Container as="main" size="md" className="grid gap-6 pt-6 pb-56 md:py-8 relative z-10">
+        <Container
+          as="main"
+          size="md"
+          className={cn(
+            "grid gap-6 pt-6 md:py-8 relative z-10",
+            showVerdictButtons ? "pb-56" : "pb-44",
+          )}
+        >
           <div className="hidden md:flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
             <Button
               type="button"
@@ -419,7 +464,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                   labelClassName="text-[9px]"
                 />
                 <RecommendationMetric
-                  label="Confidence Read"
+                  label="Confidence"
                   value={confidenceLabel(entry.confidence)}
                   numericValue={confidenceMeterValue(entry.confidence)}
                   colorClass="bg-accent/70"
@@ -443,7 +488,12 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                   />
                 ) : null}
               </div>
-              <DossierActions entry={entry} />
+              <DossierActions
+                entry={entry}
+                hasVerdict={hasVerdict}
+                editingVerdict={editingVerdict}
+                onEditingVerdictChange={setEditingVerdict}
+              />
             </div>
           </div>
         </Container>

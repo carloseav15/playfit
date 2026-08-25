@@ -76,6 +76,7 @@ export function SearchPageClient({
   }, [results, page, pending, resolvedPage]);
 
   const hasMore = accumulated.length < total;
+  const hasQuery = query.trim().length > 0 || !!family || !!genre;
 
   function selectGame(gameId: string) {
     const params = new URLSearchParams();
@@ -170,7 +171,12 @@ export function SearchPageClient({
         )}
 
         {accumulated.length === 0 && (
-          <SearchStatusPanel pending={pending} error={error} catalogEmpty={false} hasQuery />
+          <SearchStatusPanel
+            pending={pending}
+            error={error}
+            catalogEmpty={false}
+            hasQuery={hasQuery}
+          />
         )}
 
         {hasMore && (
