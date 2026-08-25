@@ -3,6 +3,7 @@
 import type {
   ProductDecisionFeedback,
   ProductGameState,
+  ProductTasteMapTrait,
   ProductTasteModel,
   ProductTasteSignalSource,
   RankedSeedGame,
@@ -28,6 +29,9 @@ interface TasteDesktopProps {
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
   setPlayfitPick: (gameId: string, pick: boolean) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
+  traitFilter: { id: string; label: string } | null;
+  onSelectTrait: (trait: ProductTasteMapTrait) => void;
+  onClearTraitFilter: () => void;
 }
 
 export function TasteDesktop({
@@ -45,6 +49,9 @@ export function TasteDesktop({
   applyDecisionFeedback,
   setPlayfitPick,
   removeTasteSignal,
+  traitFilter,
+  onSelectTrait,
+  onClearTraitFilter,
 }: TasteDesktopProps) {
   return (
     <div className="hidden md:flex flex-col gap-6">
@@ -141,7 +148,7 @@ export function TasteDesktop({
                 recommendations={recs}
               />
             ) : (
-              <TasteMap traits={model.mapTraits} />
+              <TasteMap traits={model.mapTraits} onSelectTrait={onSelectTrait} />
             )}
           </>
         )}
@@ -163,6 +170,8 @@ export function TasteDesktop({
               }
               setChangingId(null);
             }}
+            traitFilter={traitFilter}
+            onClearTraitFilter={onClearTraitFilter}
           />
         )}
       </div>

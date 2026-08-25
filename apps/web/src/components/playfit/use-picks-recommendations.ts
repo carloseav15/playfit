@@ -2,7 +2,7 @@
 
 import { authenticatedFetch } from "@playfit/core/store";
 import type { ProductGameState, ProductProfile, RankedSeedGame } from "@playfit/core/types";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
 import { useRecommendationFetch } from "./use-recommendation-fetch";
 
@@ -31,6 +31,17 @@ export function usePicksRecommendations({
     return parts.join(",");
   }, [gameStates]);
 
+  const runFetch = useCallback(() => {
+    return execute(
+      async () => {
+        const res = await authenticatedFetch("/api/recommendations/picks");
+        if (!res.ok) throw new Error(errorMessage);
+        return (await res.json()) as RankedSeedGame[];
+      },
+      { onSuccess: (data) => addGamesToCache(data.map((p) => p.game)) },
+    );
+  }, [errorMessage, execute]);
+
   useEffect(() => {
     if (!enabled || !profile) {
       reset();
@@ -42,28 +53,17 @@ export function usePicksRecommendations({
 
     if (!changed && picks.length > 0) return;
 
-    void execute(
-      async () => {
-        const res = await authenticatedFetch("/api/recommendations/picks");
-        if (!res.ok) throw new Error(errorMessage);
-        return (await res.json()) as RankedSeedGame[];
-      },
-      { onSuccess: (data) => addGamesToCache(data.map((p) => p.game)) },
-    );
+    void runFetch();
 
     return () => {
       abandonInFlight();
     };
-  }, [
-    enabled,
-    profile,
-    serializedKey,
-    errorMessage,
-    picks.length,
-    execute,
-    reset,
-    abandonInFlight,
-  ]);
+  }, [enabled, profile, serializedKey, picks.length, runFetch, reset, abandonInFlight]);
 
-  return { picks, loading, loadError };
+  const retry = useCallback(() => {
+    if (!enabled || !profile) return Promise.resolve();
+    return runFetch();
+  }, [enabled, profile, runFetch]);
+
+  return { picks, loading, loadError, retry };
 }

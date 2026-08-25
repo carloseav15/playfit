@@ -3,7 +3,7 @@
 import type { RankedSeedGame } from "@playfit/core/types";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,12 +70,17 @@ export function PicksShell() {
     if (!profileReady) redirectToMarketingLanding();
   }, [profileReady]);
 
-  const { picks, loading, loadError } = usePicksRecommendations({
+  const { picks, loading, loadError, retry } = usePicksRecommendations({
     enabled: profileReady,
     profile: state.user.profile,
     gameStates: state.user.gameStates,
     errorMessage: "Playfit Picks could not be refreshed.",
   });
+  const [isRetrying, setIsRetrying] = useState(false);
+  const handleRetry = useCallback(() => {
+    setIsRetrying(true);
+    Promise.resolve(retry()).finally(() => setIsRetrying(false));
+  }, [retry]);
 
   if (!profileReady) {
     return null;
@@ -113,8 +118,20 @@ export function PicksShell() {
             </p>
           </div>
           {loadError ? (
-            <Alert variant="warning" className="shrink-0">
-              {loadError}
+            <Alert
+              variant="warning"
+              className="shrink-0 flex flex-wrap items-center justify-between gap-3"
+            >
+              <span>{loadError}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleRetry}
+                disabled={isRetrying}
+              >
+                {isRetrying ? "Retrying..." : "Try again"}
+              </Button>
             </Alert>
           ) : null}
 

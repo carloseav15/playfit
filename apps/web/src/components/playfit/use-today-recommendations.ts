@@ -7,7 +7,7 @@ import type {
   ProductProfile,
   ProductTodayModel,
 } from "@playfit/core/types";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
 import { useRecommendationFetch } from "./use-recommendation-fetch";
 
@@ -62,6 +62,27 @@ export function useTodayRecommendations({
     dislikedGameIds: onboarding.dislikedGameIds ?? [],
   });
 
+  const fetchRecommendations = useCallback(() => {
+    return execute(
+      async () => {
+        const res = await authenticatedFetch("/api/recommendations/model", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-playfit-refresh-key": `${serializedGameStates.length}:${serializedOnboarding.length}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(errorMessage);
+        }
+
+        return (await res.json()) as ProductTodayModel;
+      },
+      { onSuccess: (data) => addGamesToCache(selectCacheGames(data, cacheScope)) },
+    );
+  }, [serializedGameStates, serializedOnboarding, errorMessage, cacheScope, execute]);
+
   useEffect(() => {
     if (!enabled || !profile) {
       reset();
@@ -70,26 +91,6 @@ export function useTodayRecommendations({
 
     const gameStateChanged = serializedGameStates !== serializedRef.current;
     serializedRef.current = serializedGameStates;
-
-    const fetchRecommendations = () =>
-      execute(
-        async () => {
-          const res = await authenticatedFetch("/api/recommendations/model", {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "x-playfit-refresh-key": `${serializedGameStates.length}:${serializedOnboarding.length}`,
-            },
-          });
-
-          if (!res.ok) {
-            throw new Error(errorMessage);
-          }
-
-          return (await res.json()) as ProductTodayModel;
-        },
-        { onSuccess: (data) => addGamesToCache(selectCacheGames(data, cacheScope)) },
-      );
 
     if (gameStateChanged) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -105,17 +106,12 @@ export function useTodayRecommendations({
         debounceRef.current = null;
       }
     };
-  }, [
-    enabled,
-    profile,
-    serializedGameStates,
-    serializedOnboarding,
-    errorMessage,
-    cacheScope,
-    execute,
-    reset,
-    abandonInFlight,
-  ]);
+  }, [enabled, profile, serializedGameStates, fetchRecommendations, reset, abandonInFlight]);
 
-  return { model, loading, loadError };
+  const retry = useCallback(() => {
+    if (!enabled || !profile) return Promise.resolve();
+    return fetchRecommendations();
+  }, [enabled, profile, fetchRecommendations]);
+
+  return { model, loading, loadError, retry };
 }

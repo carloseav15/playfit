@@ -194,6 +194,22 @@ describe("buildTasteModel", () => {
     expect(model.mapTraits.find((trait) => trait.id === "horror")?.direction).toBe("negative");
   });
 
+  it("never surfaces 'unknown' as a genre trait for a game with no catalog genre", () => {
+    const noGenre = createGame("no-genre", "No Genre", {
+      primaryGenre: "unknown",
+      genreId: undefined,
+      tags: ["story_rich"],
+    });
+    const model = buildTasteModel(
+      createDraft(),
+      { [noGenre.gameId]: createGameState(noGenre, { rating: 5 }) },
+      new Map([[noGenre.gameId, noGenre]]),
+      profile,
+    );
+
+    expect(model.mapTraits.find((trait) => trait.id === "unknown")).toBeUndefined();
+  });
+
   it("returns still learning for an empty model", () => {
     const model = buildTasteModel(createDraft(), {}, new Map(), null);
 

@@ -58,7 +58,7 @@ export function Button({
   }
 
   return (
-    <button className={classNames} disabled={disabled || loading} {...props}>
+    <button type="button" className={classNames} disabled={disabled || loading} {...props}>
       {loading && <Spinner size="sm" className="shrink-0" />}
       {children}
     </button>

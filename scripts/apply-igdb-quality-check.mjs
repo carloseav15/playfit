@@ -14,6 +14,7 @@
 //     [--only companies,scores] [--limit 500]
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { refreshGameQualityScore } from "./lib/refresh-game-quality-score.mjs";
 
 const QUALITY_FILE = new URL("../reports/igdb-quality-check.ndjson", import.meta.url);
 
@@ -180,6 +181,11 @@ async function main() {
     if (doneScores % 5000 === 0) console.log(`  scores: ${doneScores}/${limitedScores.length}`);
   });
   console.log(`Scores inserted: ${doneScores}, failed: ${failedScores}`);
+
+  if (doneScores > 0) {
+    await refreshGameQualityScore(supabase);
+    console.log("game_quality_score refreshed.");
+  }
 }
 
 main().catch((e) => {

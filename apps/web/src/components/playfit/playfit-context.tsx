@@ -34,6 +34,7 @@ import {
   buildAdaptiveProfileFromCache,
   rebuildAdaptiveProfileFromCache,
 } from "./profile-cache-helpers";
+import { diffUserPatch } from "./profile-mutation-patch";
 import { usePlayfitAuth } from "./use-playfit-auth";
 import { usePlayfitBoot } from "./use-playfit-boot";
 import { usePlayfitGameActions } from "./use-playfit-game-actions";
@@ -88,7 +89,16 @@ export function PlayfitProvider({
     setState(versioned);
   }, []);
 
+  // Stable identity is required, not just nice-to-have: usePlayfitBoot's effect depends on
+  // enqueueSave (which depends on this), so an unmemoized closure here would give enqueueSave
+  // a new identity every render, re-firing that effect on every commit -- an infinite loop.
+  // stateRef.current is always fresh regardless of when this particular closure was created
+  // (it's a ref), so the empty dependency array is intentional, not a missed dependency.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: state deliberately excluded, see comment above
+  const getCurrentState = useCallback(() => stateRef.current ?? state, []);
+
   const { enqueueSave, flushSave, saveNow } = useQueuedProfileSave({
+    getCurrentState,
     setAuthUser,
     setUseLocalProfile,
     setUi,
@@ -96,10 +106,14 @@ export function PlayfitProvider({
     onSavedStateVersion: handleSavedStateVersion,
   });
 
-  const { onboardingSearchResults, onboardingSearchError, onboardingSearchPending } =
-    usePlayfitSearch({
-      onboardingQuery: ui?.onboardingQuery,
-    });
+  const {
+    onboardingSearchResults,
+    onboardingSearchError,
+    onboardingSearchPending,
+    retryOnboardingSearch,
+  } = usePlayfitSearch({
+    onboardingQuery: ui?.onboardingQuery,
+  });
 
   const bootError = usePlayfitBoot({
     authUser,
@@ -119,7 +133,13 @@ export function PlayfitProvider({
         const next = cloneState(current);
         updater(next);
         next.user.lastUpdatedAt = nowIso();
-        void enqueueSave(next);
+        // The queued save gets a diffed *patch* (the already-decided resulting values), not
+        // `updater` itself. `updater` may read draft state to compute a relative result (a
+        // toggle, for example) -- replaying that logic a second time at send time, against
+        // state that already reflects this application, would produce a different result.
+        // The patch captures only what changed and its final value, which is safe to apply
+        // any number of times. See profile-mutation-patch.ts.
+        void enqueueSave(diffUserPatch(current, next));
         stateRef.current = next;
         return next;
       });
@@ -132,16 +152,17 @@ export function PlayfitProvider({
       if (!state) {
         return Promise.resolve({
           ok: false as const,
-          reason: "error" as const,
+          reason: "invalid_state" as const,
           error: "Profile unavailable",
         });
       }
       const next = cloneState(state);
       updater(next);
       next.user.lastUpdatedAt = nowIso();
+      const patch = diffUserPatch(state, next);
       setState(next);
       stateRef.current = next;
-      return saveNow(next);
+      return saveNow(patch);
     },
     [saveNow, state],
   );
@@ -213,7 +234,10 @@ export function PlayfitProvider({
       },
       resetLocalState() {
         const clean = withDefaultPlatforms(createInitialState(), platforms);
-        void enqueueSave(clean);
+        // Replaces user data wholesale but deliberately leaves stateVersion untouched -- doSave
+        // sets it from the authoritative state it reads at send time, exactly like any other
+        // patch. Reusing clean.stateVersion here would reintroduce a frozen version.
+        void enqueueSave({ replaceUser: clean.user });
         flushSave();
         setState(clean);
         updateUi(initialUi(clean));
@@ -330,6 +354,7 @@ export function PlayfitProvider({
       },
       onboardingSearchError,
       onboardingSearchPending,
+      retryOnboardingSearch,
       searchGames(query: string) {
         const trimmed = query.trim();
         if (!trimmed) return [];
@@ -341,7 +366,9 @@ export function PlayfitProvider({
       flushSave,
       async retrySave() {
         if (state) {
-          await enqueueSave(state, { successMessage: "Saved." });
+          // Empty patch: doSave already rebuilds the payload from the current authoritative
+          // state at send time, so "retry with what's current" needs nothing more than that.
+          await enqueueSave({}, { successMessage: "Saved." });
         }
       },
     } satisfies PlayfitUiContextValue;
@@ -351,6 +378,7 @@ export function PlayfitProvider({
     onboardingSearchError,
     onboardingSearchPending,
     onboardingSearchResults,
+    retryOnboardingSearch,
     flushSave,
     enqueueSave,
     state,

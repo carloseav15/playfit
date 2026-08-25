@@ -15,6 +15,7 @@ import type {
 import { getCache, setCache } from "@/lib/api-cache";
 import { fetchGamesByIds, mapRowsToSeedGames } from "@/lib/games-db";
 import { createAnonClient } from "@/lib/supabase/server";
+import { buildIdentityExpandedGameStates } from "./identity-equivalents";
 
 export type { LoadedRecommendationState, PersistedProfilePayload } from "./state-loader";
 export { loadRecommendationState, loadRecommendationStateFromContext } from "./state-loader";
@@ -77,6 +78,7 @@ function normalizeModel(model: unknown): ProductTodayModel {
 async function callScoringRpc(
   state: ProductState,
   skipBuckets: string[] = [],
+  gameStatesOverride?: Record<string, unknown>,
 ): Promise<ProductTodayModel> {
   const profile = state.user.profile;
   if (!profile || !state.user.onboardingCompletedAt) {
@@ -99,7 +101,7 @@ async function callScoringRpc(
     p_accessible_platform_ids: accessiblePlatformIds,
     p_onboarding_liked_ids: state.user.onboarding.likedGameIds,
     p_onboarding_disliked_ids: state.user.onboarding.dislikedGameIds ?? [],
-    p_game_states: state.user.gameStates as Record<string, unknown>,
+    p_game_states: gameStatesOverride ?? (state.user.gameStates as Record<string, unknown>),
     p_skip_buckets: skipBuckets,
   });
 
@@ -212,8 +214,14 @@ export async function buildPlayNextModel({
   const cached = await getCache<ProductPlayNextModel>(cacheKey);
   if (cached) return cached;
 
-  // Skip all buckets except nextUp
-  const model = await callScoringRpc(state, ["currentRun", "resume", "picks"]);
+  // Skip all buckets except nextUp. Confirmed identity equivalents (other
+  // editions of a game the user already has a decision/state on) are added
+  // to this call's game_states as excluded=true so they stay ineligible as
+  // *new* recommendations -- see identity-equivalents.ts. This never
+  // touches `state` itself, so scoring/hydration below still runs against
+  // the user's real, unmodified game states.
+  const identityGameStates = await buildIdentityExpandedGameStates(state);
+  const model = await callScoringRpc(state, ["currentRun", "resume", "picks"], identityGameStates);
   const batch = model.nextUp.slice(0, 20);
 
   const profile = state.user.profile;

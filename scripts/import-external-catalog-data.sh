@@ -149,6 +149,14 @@ run_sql "select * from games_library_private.refresh_external_match_candidates()
 if [[ "$APPLY_AUTO_APPROVED" == true ]]; then
   echo "-> Applying auto-approved candidates into enrichment side tables"
   run_sql "select * from games_library_private.apply_approved_external_enrichment();"
+  # apply_approved_external_enrichment() can write games_library.game_scores
+  # (scores_inserted in its own return columns above). game_quality_score is
+  # a materialized view (20260824145027) and only stays byte-equivalent to
+  # the original live view if refreshed after game_scores changes -- ON_ERROR_STOP=1
+  # plus this script's `set -euo pipefail` means a failed refresh aborts the
+  # script non-zero, the same as any other step here failing.
+  echo "-> Refreshing game_quality_score"
+  run_sql "select games_library.refresh_game_quality_score();"
 else
   echo "-> Not applying candidates. Review auto_approved/needs_review first or rerun with --apply-auto-approved."
 fi

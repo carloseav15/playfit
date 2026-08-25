@@ -1,8 +1,8 @@
 import { playNextModelSchema } from "@/lib/api-contracts";
 import { jsonData, jsonError } from "@/lib/api-errors";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
-import { createRequestSupabaseContext } from "@/lib/supabase/server";
 import { recordRecommendationGenerated } from "@/lib/record-recommendation-generated";
+import { createRequestSupabaseContext } from "@/lib/supabase/server";
 import { buildPlayNextModel, loadRecommendationState } from "../shared";
 
 export const maxDuration = 30;

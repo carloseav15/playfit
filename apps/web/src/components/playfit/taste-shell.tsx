@@ -1,11 +1,13 @@
 "use client";
 
 import { buildTasteModel } from "@playfit/core/domain";
+import type { ProductTasteMapTrait } from "@playfit/core/types";
 import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ensureGamesCached } from "@/lib/game-cache";
@@ -29,13 +31,24 @@ export { PlatformsTabContent } from "./platforms-tab-content";
 export function TasteShell() {
   const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal, setPlayfitPick } =
     usePlayfitState();
-  const [, setCacheVersion] = useState(0);
+  const [cacheVersion, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [activeMainTab, setActiveMainTab] = useState<"taste" | "activity">("taste");
   const [mapView, setMapView] = useState<"visual" | "list">("visual");
   const [subView, setSubView] = useState<"menu" | "map" | "list" | "activity">("menu");
+  const [traitFilter, setTraitFilter] = useState<{ id: string; label: string } | null>(null);
+
+  // Jumping here from a trait pill in the Taste DNA view -- filter Activity down to the
+  // games that actually contributed to that trait, instead of leaving the reader to
+  // guess which entry in a long history list is the one responsible.
+  const handleSelectTrait = useCallback((trait: ProductTasteMapTrait) => {
+    setTraitFilter({ id: trait.id, label: trait.label });
+    setActiveMainTab("activity");
+    setSubView("activity");
+  }, []);
+  const handleClearTraitFilter = useCallback(() => setTraitFilter(null), []);
 
   useHeader(
     subView === "map"
@@ -49,7 +62,16 @@ export function TasteShell() {
   );
   const profile = state.user.profile;
   const requiredIds = useMemo(() => getTasteGameIds(state), [state]);
-  const gamesById = getSeedGamesById(requiredIds, getSeedGame);
+  // requiredIds gets a new array identity on every state change (even ones
+  // unrelated to which games are tracked), and cacheVersion is the explicit
+  // signal that ensureGamesCached() populated new entries. Recomputing on
+  // every render (unmemoized) forced a full affinity-map + model rebuild on
+  // every unrelated re-render (e.g. switching mapView/subView tabs).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cacheVersion isn't read in the body, but its bump is the signal that getSeedGame's underlying cache gained entries and gamesById must be re-derived.
+  const gamesById = useMemo(
+    () => getSeedGamesById(requiredIds, getSeedGame),
+    [requiredIds, getSeedGame, cacheVersion],
+  );
   const missingIds = getMissingGameIds(requiredIds, gamesById);
   const missingKey = missingIds.join("|");
   const model = useMemo(
@@ -61,7 +83,11 @@ export function TasteShell() {
     (state.user.onboarding.dislikedGameIds ?? []).length < 1;
 
   const profileReady = !!state.user.onboardingCompletedAt && !!profile;
-  const { model: recsModel } = useTodayRecommendations({
+  const {
+    model: recsModel,
+    loadError: recsLoadError,
+    retry: retryRecs,
+  } = useTodayRecommendations({
     enabled: profileReady,
     profile,
     gameStates: state.user.gameStates,
@@ -69,6 +95,11 @@ export function TasteShell() {
     errorMessage: "Recommendations could not be loaded for the map.",
     cacheScope: "decision",
   });
+  const [isRetryingRecs, setIsRetryingRecs] = useState(false);
+  const handleRetryRecs = useCallback(() => {
+    setIsRetryingRecs(true);
+    Promise.resolve(retryRecs()).finally(() => setIsRetryingRecs(false));
+  }, [retryRecs]);
 
   useEffect(() => {
     if (!profileReady) redirectToMarketingLanding();
@@ -184,6 +215,24 @@ export function TasteShell() {
             </Alert>
           ) : null}
 
+          {recsLoadError ? (
+            <Alert
+              variant="error"
+              className="shrink-0 flex flex-wrap items-center justify-between gap-3"
+            >
+              <span>{recsLoadError}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleRetryRecs}
+                disabled={isRetryingRecs}
+              >
+                {isRetryingRecs ? "Retrying..." : "Try again"}
+              </Button>
+            </Alert>
+          ) : null}
+
           {/* Mobile sub-views layout */}
           <TasteMobile
             model={model}
@@ -198,6 +247,9 @@ export function TasteShell() {
             applyDecisionFeedback={applyDecisionFeedback}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
+            traitFilter={traitFilter}
+            onSelectTrait={handleSelectTrait}
+            onClearTraitFilter={handleClearTraitFilter}
           />
 
           {/* Desktop layout */}
@@ -216,6 +268,9 @@ export function TasteShell() {
             applyDecisionFeedback={applyDecisionFeedback}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
+            traitFilter={traitFilter}
+            onSelectTrait={handleSelectTrait}
+            onClearTraitFilter={handleClearTraitFilter}
           />
         </Container>
         <StatusToast />

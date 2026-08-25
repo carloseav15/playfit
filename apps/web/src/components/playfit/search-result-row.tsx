@@ -1,6 +1,7 @@
 import type { SeedGame } from "@playfit/core/types";
 import { Check, ChevronRight } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "./cover-art";
@@ -17,10 +18,16 @@ export function SearchResultRow({
   game,
   onSelect,
   selectionState,
+  disabled = false,
 }: {
   game: SeedGame;
   onSelect: () => void;
   selectionState?: SearchResultSelectionState;
+  // A fresher search request is in flight for a query this row's game no longer matches.
+  // Distinct from selectionState.isDisabled (which reflects the *game*, e.g. "already loved"),
+  // this reflects the *row's staleness* -- set true, it blocks selection regardless of
+  // selectionState so a click can never land on a result computed for a stale query.
+  disabled?: boolean;
 }) {
   const {
     isCurrentSelection = false,
@@ -33,7 +40,7 @@ export function SearchResultRow({
     <button
       type="button"
       aria-pressed={selectionState ? isCurrentSelection : undefined}
-      disabled={isDisabled}
+      disabled={isDisabled || disabled}
       onClick={onSelect}
       className={cn(
         "group flex w-full min-w-0 items-center gap-3.5 rounded-2xl border border-white/5 bg-secondary/25 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all duration-200 hover:bg-secondary/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-muted/10",
@@ -98,7 +105,8 @@ export function SearchResultRow({
             <Check className="size-3.5 stroke-[3]" />
           </div>
         ) : (
-          !isDisabled && (
+          !isDisabled &&
+          !disabled && (
             <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform group-hover:translate-x-0.5" />
           )
         )
@@ -114,16 +122,18 @@ export function SearchStatusPanel({
   error,
   catalogEmpty,
   hasQuery,
+  onRetry,
 }: {
   pending: boolean;
   error: string | null;
   catalogEmpty: boolean;
   hasQuery: boolean;
+  onRetry?: () => void;
 }) {
   if (!hasQuery) {
     return (
       <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/5">
-        Type a game title above to search.
+        Type a game title above, or filter by platform or genre, to browse the catalog.
       </p>
     );
   }
@@ -136,7 +146,16 @@ export function SearchStatusPanel({
     );
   }
   if (error) {
-    return <Alert variant="error">{error}</Alert>;
+    return (
+      <Alert variant="error" className="flex flex-wrap items-center justify-between gap-3">
+        <span>{error}</span>
+        {onRetry ? (
+          <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : null}
+      </Alert>
+    );
   }
   if (catalogEmpty) {
     return (

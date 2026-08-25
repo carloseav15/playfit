@@ -62,10 +62,23 @@ export function useGameSearch({
 
   const platformKey = filters?.platform?.join(",") ?? "";
   const genreKey = filters?.genre ?? "";
+  const hasSearchIntent = query.trim().length > 0 || platformKey.length > 0 || genreKey.length > 0;
 
   useEffect(() => {
     const requestId = ++requestCounterRef.current;
     if (timerRef.current) clearTimeout(timerRef.current);
+
+    // No query and no filters: this is the blank initial state, not "browse everything."
+    // Skip the fetch entirely instead of dumping the full catalog A-Z.
+    if (!hasSearchIntent) {
+      setPending(false);
+      setError(null);
+      setResults([]);
+      setTotal(0);
+      setResolvedPage(page);
+      return;
+    }
+
     setPending(true);
 
     timerRef.current = setTimeout(async () => {
@@ -101,7 +114,7 @@ export function useGameSearch({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [query, platformKey, genreKey, page, pageSize]);
+  }, [query, platformKey, genreKey, page, pageSize, hasSearchIntent]);
 
   return { results, total, pending, error, resolvedPage };
 }
