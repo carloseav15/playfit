@@ -41,12 +41,13 @@ export function SearchPageClient({
     ? platforms.filter((p) => p.family === family).map((p) => p.platformId)
     : [];
 
-  const { results, total, pending, error, resolvedPage } = useGameSearch({
+  const { results, total, pending, error, resolvedKey } = useGameSearch({
     query,
     filters: { platform: platformIds, genre: genre ?? undefined },
     page,
     pageSize: PAGE_SIZE,
   });
+  const currentKey = `${query.trim()}|${platformIds.join(",")}|${genre ?? ""}|${page}`;
 
   // Filter/query changes reset paging and reflect in the URL so a search is
   // shareable/bookmarkable; "Load more" (page increments) deliberately does not
@@ -63,17 +64,23 @@ export function SearchPageClient({
   }, [query, family, genre, router]);
 
   useEffect(() => {
-    // resolvedPage guards against a stale prior-page `results` array: when `page`
-    // just changed, this effect can re-fire (page is one of its deps) before
-    // useGameSearch's own effect has actually refetched -- resolvedPage only
-    // updates once real data for the requested page has landed.
-    if (pending || resolvedPage !== page) return;
+    // resolvedKey guards against a stale `results` array answering a *different*
+    // query/filter/page combination than the one currently selected. Checking
+    // resolvedPage alone isn't enough: this effect and useGameSearch's own effect
+    // both belong to this component, so on a query/filter change they can run in
+    // the same commit, with this effect reading `results`/`pending` from *before*
+    // useGameSearch's state update lands -- e.g. `page` stays 1 across two
+    // different queries, resolvedPage still equals page, and this effect would
+    // otherwise briefly re-adopt the previous query's (already-cleared)
+    // `accumulated` from stale `results`. Comparing the full resolved identity
+    // closes that gap.
+    if (pending || resolvedKey !== currentKey) return;
     setAccumulated((prev) => {
       if (page === 1) return results;
       const seen = new Set(prev.map((game) => game.gameId));
       return [...prev, ...results.filter((game) => !seen.has(game.gameId))];
     });
-  }, [results, page, pending, resolvedPage]);
+  }, [results, page, pending, resolvedKey, currentKey]);
 
   const hasMore = accumulated.length < total;
   const hasQuery = query.trim().length > 0 || !!family || !!genre;

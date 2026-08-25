@@ -141,4 +141,35 @@ describe("useGameSearch", () => {
     expect(result.current.results[0]?.gameId).toBe("new");
     expect(result.current.resolvedPage).toBe(1);
   });
+
+  it("changes resolvedKey when the query changes even though the page stays the same", async () => {
+    // Regression test for a consumer-side bug (search-page-client.tsx): a page-only
+    // staleness guard can't tell two different queries apart when both happen to
+    // resolve on page 1, so a consumer effect could briefly re-adopt results that
+    // actually answer the *previous* query. resolvedKey carries the full
+    // query+filters+page identity so a consumer can guard on that instead.
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ games: [], total: 0 }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(({ query }) => useGameSearch({ query }), {
+      initialProps: { query: "mario" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    const marioKey = result.current.resolvedKey;
+    expect(result.current.resolvedPage).toBe(1);
+
+    rerender({ query: "zelda" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(result.current.resolvedPage).toBe(1);
+    expect(result.current.resolvedKey).not.toBe(marioKey);
+    expect(result.current.resolvedKey).toBe("zelda|||1");
+  });
 });
