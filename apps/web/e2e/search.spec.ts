@@ -140,8 +140,13 @@ test("search page loads and browses without creating a session", async ({ page }
   await expect(page.getByRole("heading", { name: "Search the catalog" })).toBeVisible({
     timeout: 15_000,
   });
+  // /search deliberately doesn't fetch anything until the user types a query or picks a
+  // filter (hasSearchIntent in use-game-search.ts) -- landing on the page bare shows a
+  // prompt, not the full catalog.
+  await expect(page.getByText("Type a game title above")).toBeVisible();
+
+  await page.getByPlaceholder("Search by title...").fill("chrono");
   await expect(page.getByText("Chrono Trigger")).toBeVisible();
-  await expect(page.getByText("The Legend of Zelda: Tears of the Kingdom")).toBeVisible();
 
   expect(getSignupCalls()).toBe(0);
 });
@@ -161,10 +166,11 @@ test("search filters by query without creating a session", async ({ page }) => {
   const getSignupCalls = await mockAuthAndSearch(page);
 
   await page.goto("/search", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText("Chrono Trigger")).toBeVisible({ timeout: 15_000 });
 
   await page.getByPlaceholder("Search by title...").fill("zelda");
-  await expect(page.getByText("The Legend of Zelda: Tears of the Kingdom")).toBeVisible();
+  await expect(page.getByText("The Legend of Zelda: Tears of the Kingdom")).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("Chrono Trigger")).toHaveCount(0);
 
   expect(getSignupCalls()).toBe(0);
@@ -174,10 +180,11 @@ test("search explains an empty result without creating a session", async ({ page
   const getSignupCalls = await mockAuthAndSearch(page);
 
   await page.goto("/search", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText("Chrono Trigger")).toBeVisible({ timeout: 15_000 });
 
   await page.getByPlaceholder("Search by title...").fill("no matching game");
-  await expect(page.getByText("No games found matching your search.")).toBeVisible();
+  await expect(page.getByText("No games found matching your search.")).toBeVisible({
+    timeout: 15_000,
+  });
   expect(getSignupCalls()).toBe(0);
 });
 
@@ -187,12 +194,15 @@ test("clicking a search result navigates to the game page, which is where the se
   const getSignupCalls = await mockAuthAndSearch(page);
 
   await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await page.getByPlaceholder("Search by title...").fill("chrono");
   await expect(page.getByText("Chrono Trigger")).toBeVisible({ timeout: 15_000 });
   expect(getSignupCalls()).toBe(0);
 
   await page.getByText("Chrono Trigger").click();
 
   await expect(page).toHaveURL(/\/game\/chrono_trigger/, { timeout: 15_000 });
-  expect(new URL(page.url()).searchParams.get("returnTo")).toBe("/search");
+  // returnTo carries the active query (search-page-client.tsx's selectGame) so "back" from
+  // the game page restores this same filtered view, not a blank /search.
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe("/search?q=chrono");
   await expect.poll(() => getSignupCalls(), { timeout: 15_000 }).toBeGreaterThan(0);
 });

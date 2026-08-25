@@ -408,6 +408,135 @@ async function mockSupabase(page: Page) {
       }),
     });
   });
+  // /api/decisions is the canonical taste-decision endpoint (use-playfit-game-actions.ts's
+  // applyDecisionFeedback) -- server-authoritative, RPC-backed in production. Mirrors just
+  // the request/response contract (productTasteActionRequestSchema,
+  // ProductCanonicalDecisionResponse) and the rating/status mapping in
+  // packages/core/src/domain/feedback.ts's applyProductDecisionFeedback, not the real RPCs.
+  await page.route("**/api/decisions", async (route) => {
+    const body = route.request().postDataJSON() as {
+      actionType: string;
+      gameId: string;
+      played?: boolean;
+    };
+    const row = gameRows.find((g) => g.game_id === body.gameId);
+    if (!row) {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: '{"error":"Game not found"}',
+      });
+      return;
+    }
+
+    const feedback = ((): string => {
+      switch (body.actionType) {
+        case "loved":
+          return body.played ? "played_loved" : "loved";
+        case "liked":
+          return body.played ? "played_liked" : "liked";
+        case "mixed":
+          return "played_mixed";
+        case "dropped":
+          return "played_dropped";
+        default:
+          return body.actionType;
+      }
+    })();
+    const ratingByFeedback: Record<string, number> = {
+      loved: 5,
+      liked: 4,
+      mixed: 3,
+      not_for_me: 2,
+      played_loved: 5,
+      played_liked: 4,
+      played_mixed: 3,
+      played_dropped: 2,
+    };
+    const statusByFeedback: Record<string, string> = {
+      played_loved: "completed",
+      played_liked: "completed",
+      played_mixed: "completed",
+      played_dropped: "abandoned",
+    };
+    const timestamp = "2026-01-01T00:00:00.000Z";
+    const existingProfile = (latestProfile ?? {}) as {
+      gameStates?: Record<string, Record<string, unknown>>;
+      onboarding?: unknown;
+      onboardingCompletedAt?: string;
+      profile?: unknown;
+    };
+    const existingGameState = existingProfile.gameStates?.[body.gameId] ?? {
+      gameId: body.gameId,
+      title: row.title,
+      inBacklog: false,
+      inWishlist: false,
+      inPlayfitPicks: false,
+      excluded: false,
+      source: "manual",
+      createdAt: timestamp,
+    };
+    const rating = ratingByFeedback[feedback];
+    const status = statusByFeedback[feedback];
+    const nextGameState = {
+      ...existingGameState,
+      updatedAt: timestamp,
+      ...(status ? { status, inBacklog: false, inPlayfitPicks: false } : {}),
+      ...(rating
+        ? { rating, excluded: feedback === "not_for_me" || feedback === "played_dropped" }
+        : {}),
+    };
+
+    latestProfile = {
+      ...existingProfile,
+      gameStates: { ...(existingProfile.gameStates ?? {}), [body.gameId]: nextGameState },
+    };
+    savedProfiles.push(latestProfile);
+
+    const fixtures = buildRecommendationFixtures();
+    const stateVersion = String(savedProfiles.length);
+    // ProductState's real shape (types.ts) -- {version, stateVersion, user: {...}} -- not
+    // the flat {onboarding, gameStates, profile} latestProfile itself is. Getting this
+    // wrong doesn't surface as a route error: replaceAuthoritativeState(authoritative.state)
+    // in use-playfit-game-actions.ts just silently adopts a malformed ProductState, so the
+    // decision *saves* fine but the next screen's UI (which reads client state directly,
+    // not a fresh /api/profile fetch) never rotates to the next recommendation.
+    const productState = {
+      version: 1,
+      stateVersion,
+      user: {
+        onboarding: existingProfile.onboarding ?? {
+          step: "recommendations",
+          platforms: [],
+          likedGameIds: [],
+          dislikedGameIds: [],
+        },
+        onboardingCompletedAt: existingProfile.onboardingCompletedAt ?? timestamp,
+        profile: existingProfile.profile ?? null,
+        gameStates: (latestProfile as { gameStates: Record<string, unknown> }).gameStates,
+        lastUpdatedAt: timestamp,
+      },
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        operationId: body.gameId,
+        stateVersion,
+        state: productState,
+        gameState: nextGameState,
+        profile: { ...(existingProfile.profile as object), stateVersion },
+        recommendationModel: {
+          primary: fixtures.nextUp[0] ?? null,
+          alternatives: fixtures.nextUp.slice(1, 4),
+          savedPickIds: fixtures.savedPickIds,
+          stateVersion,
+          rankingMetadata: { profileStateVersion: stateVersion, candidates: [] },
+        },
+      }),
+    });
+  });
+
   await page.route("**/api/profile**", async (route) => {
     if (route.request().method() === "POST") {
       latestProfile = route.request().postDataJSON();
