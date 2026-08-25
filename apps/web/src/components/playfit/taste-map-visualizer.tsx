@@ -221,18 +221,18 @@ export const TasteMapVisualizer = memo(function TasteMapVisualizer({
               const cy = scaleCoordinateY(node.y);
               const isActive = activeNode?.game.gameId === node.game.gameId;
 
-              let fillColor = "#6b7280";
-              let strokeColor = "rgba(107, 114, 128, 0.4)";
+              let fillColor = "var(--muted-foreground)";
+              let strokeColor = "color-mix(in srgb, var(--muted-foreground), transparent 60%)";
 
               if (node.type === "liked") {
-                fillColor = "#10b981"; // Positive green
-                strokeColor = "rgba(16, 185, 129, 0.4)";
+                fillColor = "var(--positive)";
+                strokeColor = "color-mix(in srgb, var(--positive), transparent 60%)";
               } else if (node.type === "disliked") {
-                fillColor = "#ef4444"; // Negative red
-                strokeColor = "rgba(239, 68, 68, 0.4)";
+                fillColor = "var(--negative)";
+                strokeColor = "color-mix(in srgb, var(--negative), transparent 60%)";
               } else if (node.type === "pending") {
-                fillColor = "#9ca3af"; // Gray
-                strokeColor = "rgba(156, 163, 175, 0.4)";
+                fillColor = "var(--muted-foreground)";
+                strokeColor = "color-mix(in srgb, var(--muted-foreground), transparent 60%)";
               }
 
               return (
@@ -287,7 +287,7 @@ export const TasteMapVisualizer = memo(function TasteMapVisualizer({
                     cy={cy}
                     r={isActive ? 5.5 : 4.5}
                     fill={fillColor}
-                    stroke="#ffffff"
+                    stroke="var(--card)"
                     strokeWidth="1.2"
                     className="transition-all duration-300"
                   />
