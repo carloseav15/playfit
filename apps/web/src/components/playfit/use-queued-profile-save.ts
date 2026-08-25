@@ -29,7 +29,6 @@ export function describeSaveFailure(result: Extract<SaveStateResult, { ok: false
       return "Too many changes at once. Try again in a moment.";
     case "invalid_state":
       return "PlayFit couldn't save this change.";
-    case "server_error":
     default:
       return "PlayFit couldn't save this right now. Please try again.";
   }
@@ -124,7 +123,11 @@ export function useQueuedProfileSave({
               if (sequence === saveSequenceRef.current) {
                 setUi((currentUi) =>
                   currentUi
-                    ? { ...currentUi, saveStatus: "error", statusMessage: describeSaveFailure(result) }
+                    ? {
+                        ...currentUi,
+                        saveStatus: "error",
+                        statusMessage: describeSaveFailure(result),
+                      }
                     : currentUi,
                 );
               }

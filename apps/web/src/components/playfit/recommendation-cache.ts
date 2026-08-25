@@ -34,7 +34,10 @@ interface CachedPlayNextEntry {
 // treated as "no valid cache" (same as a genuinely first-ever load), not "stale but ok".
 let lastEntry: CachedPlayNextEntry | null = null;
 
-export function getLastPlayNextModel(userId: string, stateVersion: string): ProductPlayNextModel | null {
+export function getLastPlayNextModel(
+  userId: string,
+  stateVersion: string,
+): ProductPlayNextModel | null {
   if (!lastEntry) return null;
   if (lastEntry.userId !== userId) return null;
   if (lastEntry.stateVersion !== stateVersion) return null;
