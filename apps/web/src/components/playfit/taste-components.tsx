@@ -24,7 +24,13 @@ function wrapText(text: string, maxChars = 12): string[] {
   return lines;
 }
 
-export function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
+export function TasteMap({
+  traits,
+  onSelectTrait,
+}: {
+  traits: ProductTasteMapTrait[];
+  onSelectTrait?: (trait: ProductTasteMapTrait) => void;
+}) {
   const maxStrength = Math.max(...traits.map((trait) => trait.strength), 1);
 
   const radarData = useMemo(() => {
@@ -138,11 +144,17 @@ export function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
           const isMedium =
             trait.strength >= maxStrength * 0.3 && trait.strength < maxStrength * 0.6;
 
+          const Tag = onSelectTrait ? "button" : "div";
+
           return (
-            <div
+            <Tag
               key={`${trait.kind}:${trait.id}`}
+              type={onSelectTrait ? "button" : undefined}
+              onClick={onSelectTrait ? () => onSelectTrait(trait) : undefined}
+              title={onSelectTrait ? `See games behind "${trait.label}" in Activity` : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all duration-300 select-none",
+                onSelectTrait && "cursor-pointer",
                 type === "loved"
                   ? "bg-positive/5 border-positive/15 text-positive-foreground/90 hover:bg-positive/10 hover:border-positive/30 hover:shadow-[0_0_10px_rgba(46,213,115,0.1)]"
                   : "bg-negative/5 border-negative/15 text-negative-foreground/90 hover:bg-negative/10 hover:border-negative/30 hover:shadow-[0_0_10px_rgba(255,71,87,0.1)]",
@@ -162,7 +174,7 @@ export function TasteMap({ traits }: { traits: ProductTasteMapTrait[] }) {
               >
                 {trait.strength}
               </span>
-            </div>
+            </Tag>
           );
         })}
       </div>

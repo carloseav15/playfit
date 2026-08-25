@@ -2,6 +2,7 @@ import { createInitialState } from "@playfit/core/store";
 import type { ProductProfile, RankedSeedGame } from "@playfit/core/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const mocks = vi.hoisted(() => ({
   usePlayfitState: vi.fn(),
@@ -84,7 +85,11 @@ describe("PicksShell", () => {
     });
     const { PicksShell } = await loadPicksShell();
 
-    const html = renderToStaticMarkup(<PicksShell />);
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <PicksShell />
+      </TooltipProvider>,
+    );
 
     expect(html).toBe("");
   });
@@ -98,7 +103,11 @@ describe("PicksShell", () => {
     mocks.usePicksRecommendations.mockReturnValue({ picks: [], loading: true, loadError: null });
     const { PicksShell } = await loadPicksShell();
 
-    const html = renderToStaticMarkup(<PicksShell />);
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <PicksShell />
+      </TooltipProvider>,
+    );
 
     expect(html).toContain("h-44");
     expect(html).not.toContain("No saved picks yet");
@@ -113,7 +122,11 @@ describe("PicksShell", () => {
     mocks.usePicksRecommendations.mockReturnValue({ picks: [], loading: false, loadError: null });
     const { PicksShell } = await loadPicksShell();
 
-    const html = renderToStaticMarkup(<PicksShell />);
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <PicksShell />
+      </TooltipProvider>,
+    );
 
     expect(html).toContain("No saved picks yet");
     expect(html).toContain("Find Recommendations");
@@ -132,7 +145,11 @@ describe("PicksShell", () => {
     });
     const { PicksShell } = await loadPicksShell();
 
-    const html = renderToStaticMarkup(<PicksShell />);
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <PicksShell />
+      </TooltipProvider>,
+    );
 
     expect(html).toContain("Hades");
     expect(html).not.toContain("No saved picks yet");

@@ -59,6 +59,7 @@ describe("onboarding UI states", () => {
         onboardingQuery="Hades"
         onboardingSearchError={null}
         onboardingSearchPending
+        onRetryOnboardingSearch={vi.fn()}
         replaceGameId={null}
         searchSlot="anchor"
         seedData={seedData}
@@ -82,6 +83,7 @@ describe("onboarding UI states", () => {
         onboardingQuery="Hades"
         onboardingSearchError="Search could not load. Try again."
         onboardingSearchPending={false}
+        onRetryOnboardingSearch={vi.fn()}
         replaceGameId={null}
         searchSlot="anchor"
         seedData={seedData}

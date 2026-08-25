@@ -1,11 +1,13 @@
 "use client";
 
 import { buildTasteModel } from "@playfit/core/domain";
+import type { ProductTasteMapTrait } from "@playfit/core/types";
 import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ensureGamesCached } from "@/lib/game-cache";
@@ -36,6 +38,17 @@ export function TasteShell() {
   const [activeMainTab, setActiveMainTab] = useState<"taste" | "activity">("taste");
   const [mapView, setMapView] = useState<"visual" | "list">("visual");
   const [subView, setSubView] = useState<"menu" | "map" | "list" | "activity">("menu");
+  const [traitFilter, setTraitFilter] = useState<{ id: string; label: string } | null>(null);
+
+  // Jumping here from a trait pill in the Taste DNA view -- filter Activity down to the
+  // games that actually contributed to that trait, instead of leaving the reader to
+  // guess which entry in a long history list is the one responsible.
+  const handleSelectTrait = useCallback((trait: ProductTasteMapTrait) => {
+    setTraitFilter({ id: trait.id, label: trait.label });
+    setActiveMainTab("activity");
+    setSubView("activity");
+  }, []);
+  const handleClearTraitFilter = useCallback(() => setTraitFilter(null), []);
 
   useHeader(
     subView === "map"
@@ -70,7 +83,11 @@ export function TasteShell() {
     (state.user.onboarding.dislikedGameIds ?? []).length < 1;
 
   const profileReady = !!state.user.onboardingCompletedAt && !!profile;
-  const { model: recsModel } = useTodayRecommendations({
+  const {
+    model: recsModel,
+    loadError: recsLoadError,
+    retry: retryRecs,
+  } = useTodayRecommendations({
     enabled: profileReady,
     profile,
     gameStates: state.user.gameStates,
@@ -78,6 +95,11 @@ export function TasteShell() {
     errorMessage: "Recommendations could not be loaded for the map.",
     cacheScope: "decision",
   });
+  const [isRetryingRecs, setIsRetryingRecs] = useState(false);
+  const handleRetryRecs = useCallback(() => {
+    setIsRetryingRecs(true);
+    Promise.resolve(retryRecs()).finally(() => setIsRetryingRecs(false));
+  }, [retryRecs]);
 
   useEffect(() => {
     if (!profileReady) redirectToMarketingLanding();
@@ -193,6 +215,24 @@ export function TasteShell() {
             </Alert>
           ) : null}
 
+          {recsLoadError ? (
+            <Alert
+              variant="error"
+              className="shrink-0 flex flex-wrap items-center justify-between gap-3"
+            >
+              <span>{recsLoadError}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleRetryRecs}
+                disabled={isRetryingRecs}
+              >
+                {isRetryingRecs ? "Retrying..." : "Try again"}
+              </Button>
+            </Alert>
+          ) : null}
+
           {/* Mobile sub-views layout */}
           <TasteMobile
             model={model}
@@ -207,6 +247,9 @@ export function TasteShell() {
             applyDecisionFeedback={applyDecisionFeedback}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
+            traitFilter={traitFilter}
+            onSelectTrait={handleSelectTrait}
+            onClearTraitFilter={handleClearTraitFilter}
           />
 
           {/* Desktop layout */}
@@ -225,6 +268,9 @@ export function TasteShell() {
             applyDecisionFeedback={applyDecisionFeedback}
             setPlayfitPick={setPlayfitPick}
             removeTasteSignal={removeTasteSignal}
+            traitFilter={traitFilter}
+            onSelectTrait={handleSelectTrait}
+            onClearTraitFilter={handleClearTraitFilter}
           />
         </Container>
         <StatusToast />

@@ -1,6 +1,7 @@
 import type { SeedGame } from "@playfit/core/types";
 import { Check, ChevronRight } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { CoverArt } from "./cover-art";
@@ -121,16 +122,18 @@ export function SearchStatusPanel({
   error,
   catalogEmpty,
   hasQuery,
+  onRetry,
 }: {
   pending: boolean;
   error: string | null;
   catalogEmpty: boolean;
   hasQuery: boolean;
+  onRetry?: () => void;
 }) {
   if (!hasQuery) {
     return (
       <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-white/5 rounded-2xl bg-secondary/5">
-        Type a game title above to search.
+        Type a game title above, or filter by platform or genre, to browse the catalog.
       </p>
     );
   }
@@ -143,7 +146,16 @@ export function SearchStatusPanel({
     );
   }
   if (error) {
-    return <Alert variant="error">{error}</Alert>;
+    return (
+      <Alert variant="error" className="flex flex-wrap items-center justify-between gap-3">
+        <span>{error}</span>
+        {onRetry ? (
+          <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : null}
+      </Alert>
+    );
   }
   if (catalogEmpty) {
     return (

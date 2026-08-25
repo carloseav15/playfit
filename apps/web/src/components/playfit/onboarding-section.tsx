@@ -27,7 +27,14 @@ import { SectionHead } from "./section-head";
 
 export function OnboardingSection({ onExit }: { onExit?: () => void }) {
   const { seedData, state, updateState, updateStateAndSave, getSeedGame } = usePlayfitState();
-  const { ui, setUi, searchGames, onboardingSearchError, onboardingSearchPending } = usePlayfitUi();
+  const {
+    ui,
+    setUi,
+    searchGames,
+    onboardingSearchError,
+    onboardingSearchPending,
+    retryOnboardingSearch,
+  } = usePlayfitUi();
   const draft = state.user.onboarding;
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
   const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);
@@ -320,6 +327,7 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
         onboardingQuery={ui.onboardingQuery}
         onboardingSearchError={onboardingSearchError}
         onboardingSearchPending={onboardingSearchPending}
+        onRetryOnboardingSearch={retryOnboardingSearch}
         replaceGameId={replaceGameId}
         searchSlot={searchSlot}
         seedData={seedData}

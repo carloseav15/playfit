@@ -347,8 +347,8 @@ export function AuthPanel({ onAuth, onContinueLocal, onClose }: AuthPanelProps) 
         {view === "options" && (
           <div className="grid gap-2 border-t border-white/5 pt-4 text-center px-1">
             <p className="text-[10px] leading-relaxed text-muted-foreground/80">
-              Guest profiles store choices locally in your browser cache. Creating an account allows
-              you to backup and sync recommendations.
+              Guest profiles store choices locally on this device. Creating an account allows you to
+              backup and sync recommendations.
             </p>
           </div>
         )}

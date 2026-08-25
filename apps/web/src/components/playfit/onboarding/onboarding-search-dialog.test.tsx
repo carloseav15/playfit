@@ -42,6 +42,7 @@ function baseProps(overrides: Partial<Parameters<typeof OnboardingSearchDialog>[
     onboardingQuery: "Hades",
     onboardingSearchError: null,
     onboardingSearchPending: false,
+    onRetryOnboardingSearch: vi.fn(),
     replaceGameId: null,
     searchSlot: "anchor" as const,
     seedData,
@@ -141,5 +142,32 @@ describe("OnboardingSearchDialog: stale-click safety", () => {
 
     expect(onAddDislikedAnchor).toHaveBeenCalledWith(fifa);
     expect(onAddAnchor).not.toHaveBeenCalled();
+  });
+});
+
+describe("OnboardingSearchDialog: recoverable search failure", () => {
+  it("shows a retry action alongside the search error, and wires it to onRetryOnboardingSearch", () => {
+    const onRetryOnboardingSearch = vi.fn();
+    render(
+      <OnboardingSearchDialog
+        {...baseProps({
+          anchorResults: [],
+          onboardingSearchError: "Search could not load. Try again.",
+          onRetryOnboardingSearch,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Search could not load. Try again.")).toBeTruthy();
+    const retryButton = screen.getByRole("button", { name: "Try again" });
+    fireEvent.click(retryButton);
+
+    expect(onRetryOnboardingSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show a retry action when there is no error", () => {
+    render(<OnboardingSearchDialog {...baseProps({ anchorResults: [] })} />);
+
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 });

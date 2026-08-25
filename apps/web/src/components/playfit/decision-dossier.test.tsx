@@ -178,6 +178,9 @@ describe("DecisionDossier", () => {
     expect(html).toContain("No decision yet");
     expect(html).toContain("Too early to tell");
     expect(html).toContain("Why it fits: Early signal around action combat");
+    // No verdict yet: the full pending CTA set is shown, not the collapsed "Change verdict" state.
+    expect(html).toContain("Already Played");
+    expect(html).not.toContain("Change verdict");
   });
 
   it("does not show Recommended for a game marked Not for me, and keeps the existing verdict visible", async () => {
@@ -193,6 +196,10 @@ describe("DecisionDossier", () => {
     // it stays visible, only the "Recommended" framing is suppressed.
     expect(html).toContain("Too early to tell");
     expect(html).toContain("Why it fits: Early signal around action combat");
+    // A verdict already exists: don't re-offer "Already Played" / "Not for me" as if the
+    // decision were still pending -- collapse to a single "Change verdict" action instead.
+    expect(html).toContain("Change verdict");
+    expect(html).not.toContain("Already Played");
   });
 
   it("does not show Recommended for a game dropped after being played (the other 'excluded' outcome)", async () => {
@@ -225,5 +232,9 @@ describe("DecisionDossier", () => {
     expect(html).toContain("Recommended");
     expect(html).toContain("In Playfit Picks");
     expect(html).toContain("Remove from Picks");
+    // Being saved to Picks isn't a played/rejected verdict -- the decision is still pending,
+    // so the full CTA set (not the collapsed "Change verdict" state) should still show.
+    expect(html).toContain("Already Played");
+    expect(html).not.toContain("Change verdict");
   });
 });
