@@ -1,6 +1,10 @@
 import type { ProductGameState, ProductOnboardingDraft, SeedGame } from "@playfit/core/types";
 import { describe, expect, it } from "vitest";
-import { buildTasteMapNodes } from "./taste-map-helpers";
+import {
+  buildTasteMapNodes,
+  findNearestNodeInDirection,
+  type TasteMapNode,
+} from "./taste-map-helpers";
 
 function createGame(gameId: string): SeedGame {
   return {
@@ -85,5 +89,51 @@ describe("buildTasteMapNodes", () => {
     );
 
     expect(nodes[0]?.type).toBe("liked");
+  });
+});
+
+function createNode(id: string, x: number, y: number): TasteMapNode {
+  return { game: createGame(id), x, y, type: "liked" };
+}
+
+describe("findNearestNodeInDirection", () => {
+  // A plus-sign layout around the origin -- one node in each cardinal direction,
+  // plus a diagonal one that should never win a cardinal arrow-key press.
+  const center = createNode("center", 0, 0);
+  const north = createNode("north", 0, 20);
+  const south = createNode("south", 0, -20);
+  const east = createNode("east", 20, 0);
+  const west = createNode("west", -20, 0);
+  const diagonal = createNode("diagonal", 15, 15);
+  const nodes = [center, north, south, east, west, diagonal];
+
+  it("picks the node straight ahead for each arrow key", () => {
+    expect(findNearestNodeInDirection(center, "ArrowUp", nodes)?.game.gameId).toBe("north");
+    expect(findNearestNodeInDirection(center, "ArrowDown", nodes)?.game.gameId).toBe("south");
+    expect(findNearestNodeInDirection(center, "ArrowRight", nodes)?.game.gameId).toBe("east");
+    expect(findNearestNodeInDirection(center, "ArrowLeft", nodes)?.game.gameId).toBe("west");
+  });
+
+  it("prefers a closer node over a farther one in the same direction", () => {
+    const near = createNode("near", 0, 10);
+    const far = createNode("far", 0, 30);
+    expect(findNearestNodeInDirection(center, "ArrowUp", [center, near, far])?.game.gameId).toBe(
+      "near",
+    );
+  });
+
+  it("penalizes perpendicular drift more than distance along the pressed axis", () => {
+    // Directly ahead but far vs. slightly ahead but far off-axis -- the on-axis one wins.
+    const farButAligned = createNode("far-aligned", 0, 30);
+    const closeButOffAxis = createNode("close-off-axis", 25, 5);
+    expect(
+      findNearestNodeInDirection(center, "ArrowUp", [center, farButAligned, closeButOffAxis])?.game
+        .gameId,
+    ).toBe("far-aligned");
+  });
+
+  it("returns null when there is no candidate in that direction", () => {
+    const onlyNorth = createNode("only-north", 0, 20);
+    expect(findNearestNodeInDirection(center, "ArrowDown", [center, onlyNorth])).toBeNull();
   });
 });

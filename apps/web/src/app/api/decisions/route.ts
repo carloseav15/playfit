@@ -15,8 +15,8 @@ import type {
 } from "@playfit/core/types";
 import { jsonError } from "@/lib/api-errors";
 import { playNextRecommendationId } from "@/lib/core-loop-analytics";
-import { recordRecommendationGenerated } from "@/lib/record-recommendation-generated";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
+import { recordRecommendationGenerated } from "@/lib/record-recommendation-generated";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
 import {
   buildPlayNextModel,

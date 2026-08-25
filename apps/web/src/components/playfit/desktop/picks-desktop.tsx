@@ -5,6 +5,7 @@ import { CheckCircle2, Eye, Trash2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip } from "@/components/ui/tooltip";
 import { CoverArt } from "../../playfit/cover-art";
 import { confidenceLabel } from "../../playfit/product-utils";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "../already-played-panel";
@@ -107,24 +108,28 @@ export function PicksDesktop({
                 <CheckCircle2 className="size-4 mr-1.5 text-positive" />
                 Already Played It
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onNotForMe(gameId)}
-                className="flex-1 border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
-              >
-                <XCircle className="size-4 mr-1.5 text-destructive" />
-                No, skip this
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onRemove(gameId)}
-                className="flex-1 border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
-              >
-                <Trash2 className="size-4 mr-1.5 text-destructive" />
-                Remove Pick
-              </Button>
+              <Tooltip content="Trains your taste profile so Playfit avoids games like this">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onNotForMe(gameId)}
+                  className="flex-1 border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 rounded-xl text-xs font-bold"
+                >
+                  <XCircle className="size-4 mr-1.5 text-destructive" />
+                  Not for me
+                </Button>
+              </Tooltip>
+              <Tooltip content="Just unpicks it -- doesn't affect your taste profile">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onRemove(gameId)}
+                  className="flex-1 border border-border/60 bg-secondary/50 hover:bg-secondary h-10 rounded-xl text-xs font-bold"
+                >
+                  <Trash2 className="size-4 mr-1.5" />
+                  Remove Pick
+                </Button>
+              </Tooltip>
             </div>
           </div>
           <AlreadyPlayedPanel

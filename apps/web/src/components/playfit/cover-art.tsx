@@ -3,10 +3,19 @@ import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
+const IGDB_LOW_RES_SIZES = /\/(t_thumb|t_micro|t_cover_small|t_cover_big)\//;
+
+// IGDB caps t_cover_big at 264x352, which renders blurry on retina displays and
+// in hero contexts (e.g. Decision Dossier) that show the cover well past 264px wide.
+// t_1080p is the same asset at a higher-resolution CDN derivative.
+function upgradeIgdbResolution(url: string) {
+  return url.includes("images.igdb.com") ? url.replace(IGDB_LOW_RES_SIZES, "/t_1080p/") : url;
+}
+
 function normalizeCoverSrc(game: SeedGame) {
   const raw = game.coverPath || game.externalCoverUrl;
   if (!raw) return null;
-  if (raw.startsWith("http")) return raw;
+  if (raw.startsWith("http")) return upgradeIgdbResolution(raw);
 
   const src = raw.startsWith("/") ? raw : `/${raw}`;
   return src.startsWith("/covers/games/") ? src : null;

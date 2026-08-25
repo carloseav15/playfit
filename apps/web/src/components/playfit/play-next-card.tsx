@@ -14,7 +14,11 @@ import {
   decisionLabel,
   decisionTone,
   matchQualityLabel,
+  playNextHeadline,
+  playNextTrustNote,
+  playNextTrustSignal,
   primaryReason,
+  watchOutColorClass,
   watchOutLabel,
 } from "../playfit/product-utils";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
@@ -25,6 +29,7 @@ export function PlayNextCard({
   entry,
   primary = false,
   inPlayfitPicks = false,
+  closestAlternativeScore = null,
   onAddPick,
   onNotForMe,
   onAlreadyPlayed,
@@ -33,6 +38,9 @@ export function PlayNextCard({
   entry: RankedSeedGame;
   primary?: boolean;
   inPlayfitPicks?: boolean;
+  /** Affinity score of the next-best visible candidate, if any -- used only
+   * to decide how confidently the #1 pick should be presented. */
+  closestAlternativeScore?: number | null;
   onAddPick: () => void;
   onNotForMe: () => void;
   onAlreadyPlayed: (feedback: AlreadyPlayedFeedback) => void;
@@ -41,14 +49,16 @@ export function PlayNextCard({
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
   const alreadyPlayedPanelId = `already-played-${entry.game.gameId}`;
   const tone = decisionTone(entry);
-  const label = decisionLabel(entry);
+  const trustSignal = playNextTrustSignal(entry, closestAlternativeScore);
+  const label = decisionLabel(entry, primary ? trustSignal : undefined);
   const bestReason = primaryReason(entry);
   const validCautions = filterUsefulCautions(entry.cautionReasons);
   const hasCautions = validCautions.length > 0;
   const firstWatchOut = validCautions[0] ?? "";
-  const matchLabel = matchQualityLabel(entry.affinityScore);
   const watchLabel = watchOutLabel(entry.riskScore);
   const confidence = confidenceLabel(entry.confidence);
+  const matchLabel = matchQualityLabel(entry.affinityScore, primary ? trustSignal : undefined);
+  const trustNote = primary ? playNextTrustNote(trustSignal) : null;
 
   function markNotForMe() {
     onNotForMe();
@@ -186,7 +196,7 @@ export function PlayNextCard({
             variant={tone}
             className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-sm"
           >
-            {primary ? "Play this next" : "Worth checking"}
+            {primary ? playNextHeadline(trustSignal) : "Worth checking"}
           </Badge>
           <Badge
             variant="outline"
@@ -211,6 +221,9 @@ export function PlayNextCard({
             />
           </div>
           <div className="grid min-w-0 content-start gap-3 sm:gap-4">
+            {trustNote ? (
+              <p className="text-xs italic leading-relaxed text-muted-foreground/80">{trustNote}</p>
+            ) : null}
             <div>
               <h2
                 className={cn(
@@ -238,7 +251,7 @@ export function PlayNextCard({
                 value={watchLabel}
                 detail={`${entry.riskScore}/100`}
                 numericValue={entry.riskScore}
-                colorClass={entry.riskScore > 45 ? "bg-destructive" : "bg-warning"}
+                colorClass={watchOutColorClass(entry.riskScore)}
                 interactive
                 className="p-2.5 sm:p-4"
                 labelClassName="text-[8px] sm:text-[10px]"
@@ -328,7 +341,7 @@ export function PlayNextCard({
                 className="flex-1 text-xs border border-border/60 bg-secondary/50 hover:bg-destructive-bg hover:text-destructive h-10 sm:h-11 rounded-xl text-xs font-bold"
               >
                 <XCircle className="size-4 mr-1.5 text-destructive" />
-                No, skip this
+                Not for me
               </Button>
             </div>
           </div>

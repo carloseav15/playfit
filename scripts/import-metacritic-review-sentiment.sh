@@ -98,6 +98,14 @@ run_sql "select * from games_library_private.refresh_metacritic_review_sentiment
 if [[ "$APPLY_AUTO_APPROVED" == true ]]; then
   echo "-> Applying auto-approved review sentiment candidates into side tables"
   run_sql "select * from games_library_private.apply_approved_metacritic_review_sentiment();"
+  # apply_approved_metacritic_review_sentiment() can write games_library.game_scores
+  # (scores_upserted in its own return columns above). game_quality_score is
+  # a materialized view (20260824145027) and only stays byte-equivalent to
+  # the original live view if refreshed after game_scores changes -- ON_ERROR_STOP=1
+  # plus this script's `set -euo pipefail` means a failed refresh aborts the
+  # script non-zero, the same as any other step here failing.
+  echo "-> Refreshing game_quality_score"
+  run_sql "select games_library.refresh_game_quality_score();"
 else
   echo "-> Not applying candidates. Review auto_approved/needs_review first or rerun with --apply-auto-approved."
 fi

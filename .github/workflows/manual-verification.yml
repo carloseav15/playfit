@@ -8,6 +8,21 @@ on:
         required: false
         type: boolean
         default: false
+      game_identity_dry_run:
+        description: "Game Identity: run candidate generator dry-run (read-only)"
+        required: false
+        type: boolean
+        default: false
+      game_identity_apply:
+        description: "Game Identity: run candidate generator with --apply (writes pending candidates to production)"
+        required: false
+        type: boolean
+        default: false
+      game_identity_apply_confirm:
+        description: "Required when game_identity_apply is true: type APPLY to confirm the production write"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -54,5 +69,48 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       - run: npm ci
       - run: npm run check:covers
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+  game-identity-dry-run:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.game_identity_dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Require Supabase read credentials
+        run: |
+          if [ "$NEXT_PUBLIC_SUPABASE_URL" = "http://127.0.0.1:54321" ] || [ "$NEXT_PUBLIC_SUPABASE_ANON_KEY" = "local-dev-anon-key" ]; then
+            echo "Game Identity dry-run requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY secrets."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Game Identity candidate generation (dry-run)
+        run: npx tsx scripts/generate-game-identity-candidates.ts
+
+  game-identity-apply:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.game_identity_apply && inputs.game_identity_apply_confirm == 'APPLY' }}
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Require Supabase write credentials
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "SUPABASE_SERVICE_KEY is required for Game Identity candidate import."
+            exit 1
+          fi
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      - run: npm ci
+      - name: Game Identity candidate generation (apply)
+        run: npx tsx scripts/generate-game-identity-candidates.ts --apply
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { LovedGamesStep, MissedGameStep } from "./onboarding/game-selection-step";
 import {
   formatPlatformFamily,
+  nextPlatformSelectionForPreset,
   type PlatformPreset,
   preferredPlatformFamilies,
   type SearchSlot,
@@ -26,7 +27,14 @@ import { SectionHead } from "./section-head";
 
 export function OnboardingSection({ onExit }: { onExit?: () => void }) {
   const { seedData, state, updateState, updateStateAndSave, getSeedGame } = usePlayfitState();
-  const { ui, setUi, searchGames, onboardingSearchError, onboardingSearchPending } = usePlayfitUi();
+  const {
+    ui,
+    setUi,
+    searchGames,
+    onboardingSearchError,
+    onboardingSearchPending,
+    retryOnboardingSearch,
+  } = usePlayfitUi();
   const draft = state.user.onboarding;
   const [showPlatformDetails, setShowPlatformDetails] = useState(false);
   const [searchSlot, setSearchSlot] = useState<SearchSlot | null>(null);
@@ -101,24 +109,12 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
     if (presetIds.length === 0) return;
 
     updateState((next) => {
-      const nextSelectedIds = selectedPlatformIdSet(next.user.onboarding.platforms);
-      const presetSelected = presetIds.every((id) => nextSelectedIds.has(id));
-
-      if (presetSelected) {
-        const remaining = next.user.onboarding.platforms.filter(
-          (entry) => !presetIds.includes(entry.platformId),
-        );
-        next.user.onboarding.platforms = withPlatformSelectionGuard(
-          next.user.onboarding.platforms,
-          remaining,
-        );
-        return;
-      }
-
-      next.user.onboarding.platforms = [
-        ...next.user.onboarding.platforms.filter((entry) => !presetIds.includes(entry.platformId)),
-        ...presetIds.map((platformId) => ({ platformId, status: "available" as const })),
-      ];
+      next.user.onboarding.platforms = nextPlatformSelectionForPreset(
+        next.user.onboarding.platforms,
+        presetIds,
+        seedData.platforms.length,
+        (platformId) => ({ platformId, status: "available" as const }),
+      );
     });
   }
 
@@ -331,6 +327,7 @@ export function OnboardingSection({ onExit }: { onExit?: () => void }) {
         onboardingQuery={ui.onboardingQuery}
         onboardingSearchError={onboardingSearchError}
         onboardingSearchPending={onboardingSearchPending}
+        onRetryOnboardingSearch={retryOnboardingSearch}
         replaceGameId={replaceGameId}
         searchSlot={searchSlot}
         seedData={seedData}

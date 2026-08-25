@@ -3,6 +3,7 @@
 import type {
   ProductDecisionFeedback,
   ProductGameState,
+  ProductTasteMapTrait,
   ProductTasteModel,
   ProductTasteSignalSource,
   RankedSeedGame,
@@ -26,6 +27,9 @@ interface TasteMobileProps {
   applyDecisionFeedback: (gameId: string, feedback: ProductDecisionFeedback) => void;
   setPlayfitPick: (gameId: string, pick: boolean) => void;
   removeTasteSignal: (gameId: string, source: ProductTasteSignalSource) => void;
+  traitFilter: { id: string; label: string } | null;
+  onSelectTrait: (trait: ProductTasteMapTrait) => void;
+  onClearTraitFilter: () => void;
 }
 
 export function TasteMobile({
@@ -41,6 +45,9 @@ export function TasteMobile({
   applyDecisionFeedback,
   setPlayfitPick,
   removeTasteSignal,
+  traitFilter,
+  onSelectTrait,
+  onClearTraitFilter,
 }: TasteMobileProps) {
   return (
     <div className="flex flex-col gap-6 md:hidden">
@@ -165,7 +172,7 @@ export function TasteMobile({
 
       {subView === "list" && (
         <div className="flex flex-col gap-4">
-          <TasteMap traits={model.mapTraits} />
+          <TasteMap traits={model.mapTraits} onSelectTrait={onSelectTrait} />
         </div>
       )}
 
@@ -187,6 +194,8 @@ export function TasteMobile({
               }
               setChangingId(null);
             }}
+            traitFilter={traitFilter}
+            onClearTraitFilter={onClearTraitFilter}
           />
         </div>
       )}

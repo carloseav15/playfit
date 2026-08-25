@@ -69,6 +69,7 @@ export interface PlayfitUiContextValue {
   setStatusMessage: (message: string | null) => void;
   onboardingSearchError: string | null;
   onboardingSearchPending: boolean;
+  retryOnboardingSearch: () => void;
   searchGames: (query: string) => SeedGame[];
   flushSave: () => void;
   retrySave: () => Promise<void>;

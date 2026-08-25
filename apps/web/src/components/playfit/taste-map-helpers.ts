@@ -47,3 +47,54 @@ export function buildTasteMapNodes(
 
   return nodes;
 }
+
+export type SpatialArrowKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+
+// Cartesian spatial nav for the affinity map's SVG nodes: restrict candidates to the
+// half-plane the arrow key points toward, then prefer the one most directly ahead
+// (perpendicular drift is penalized more than distance along the pressed direction) so
+// the "nearest" node reads as spatially correct rather than just Euclidean-closest.
+// Raw node.y increases toward the map's visual top (see scaleCoordinateY's inversion),
+// so ArrowUp/ArrowDown compare against increasing/decreasing y, matching the screen.
+export function findNearestNodeInDirection(
+  current: TasteMapNode,
+  direction: SpatialArrowKey,
+  nodes: TasteMapNode[],
+): TasteMapNode | null {
+  let best: TasteMapNode | null = null;
+  let bestCost = Infinity;
+
+  for (const candidate of nodes) {
+    if (candidate.game.gameId === current.game.gameId) continue;
+    const dx = candidate.x - current.x;
+    const dy = candidate.y - current.y;
+
+    let primary: number;
+    let cross: number;
+    if (direction === "ArrowRight") {
+      if (dx <= 0) continue;
+      primary = dx;
+      cross = dy;
+    } else if (direction === "ArrowLeft") {
+      if (dx >= 0) continue;
+      primary = -dx;
+      cross = dy;
+    } else if (direction === "ArrowUp") {
+      if (dy <= 0) continue;
+      primary = dy;
+      cross = dx;
+    } else {
+      if (dy >= 0) continue;
+      primary = -dy;
+      cross = dx;
+    }
+
+    const cost = primary + Math.abs(cross) * 2;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = candidate;
+    }
+  }
+
+  return best;
+}

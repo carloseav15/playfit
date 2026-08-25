@@ -63,6 +63,10 @@ function getUserId(): string | null {
   return cachedUserId;
 }
 
+export function getCachedAuthUserId(): string | null {
+  return cachedUserId;
+}
+
 export function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   const token = getCachedAuthToken();
@@ -161,10 +165,28 @@ export async function loadProductState(): Promise<ProductState> {
   return (await loadProductStateOrNull()) ?? createInitialState();
 }
 
+// Distinguishes *why* a save didn't land so callers can be honest with the user instead of
+// collapsing every cause into one generic, connectivity-flavored message. `network_error` is
+// the only case where the request never definitively reached the server -- every other reason
+// means the server was reached and responded, so the outcome (persisted or not) is known.
+export type SaveStateFailureReason =
+  | "network_error"
+  | "auth_expired"
+  | "conflict"
+  | "rate_limited"
+  | "server_error"
+  | "invalid_state";
+
 export type SaveStateResult =
   | { ok: true; stateVersion: string }
-  | { ok: false; reason: "auth_expired" }
-  | { ok: false; reason: "error"; error: string };
+  | { ok: false; reason: SaveStateFailureReason; status?: number; error: string };
+
+function classifyStatus(status: number): SaveStateFailureReason {
+  if (status === 401 || status === 403) return "auth_expired";
+  if (status === 409) return "conflict";
+  if (status === 429) return "rate_limited";
+  return "server_error";
+}
 
 export async function saveProductState(
   state: ProductState,
@@ -172,7 +194,7 @@ export async function saveProductState(
 ): Promise<SaveStateResult> {
   const parsedState = productStateSchema.safeParse(state);
   if (!parsedState.success) {
-    return { ok: false, reason: "error", error: "Invalid local profile state" };
+    return { ok: false, reason: "invalid_state", error: "Invalid local profile state" };
   }
 
   const safeState = parsedState.data;
@@ -192,11 +214,19 @@ export async function saveProductState(
     deviceId,
   };
 
-  const res = await apiPost("/api/profile", body, options);
+  let res: Response;
+  try {
+    res = await apiPost("/api/profile", body, options);
+  } catch {
+    // The request may or may not have reached the server -- a thrown fetch exception proves
+    // nothing about whether it was persisted, only that this client never got a response.
+    return { ok: false, reason: "network_error", error: "Failed to reach PlayFit" };
+  }
 
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    return { ok: false, reason: "error", error: json.error ?? "Unknown error" };
+    const error = typeof json.error === "string" ? json.error : "Unknown error";
+    return { ok: false, reason: classifyStatus(res.status), status: res.status, error };
   }
 
   const json = (await res.json().catch(() => ({}))) as { stateVersion?: unknown };

@@ -56,10 +56,15 @@ function ManagePickDialog({
             onNotForMe();
             onClose();
           }}
-          className="w-full h-12 rounded-xl text-xs font-bold justify-start px-4"
+          className="w-full h-auto py-2.5 rounded-xl justify-start px-4 hover:bg-destructive/10"
         >
-          <XCircle className="size-4 mr-2.5 text-destructive" />
-          No, skip this
+          <XCircle className="size-4 mr-2.5 shrink-0 text-destructive" />
+          <span className="grid text-left">
+            <span className="text-xs font-bold">Not for me</span>
+            <span className="text-[10px] font-normal text-muted-foreground">
+              Trains your taste profile
+            </span>
+          </span>
         </Button>
         <Button
           type="button"
@@ -68,10 +73,15 @@ function ManagePickDialog({
             onRemove();
             onClose();
           }}
-          className="w-full h-12 rounded-xl text-xs font-bold justify-start px-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="w-full h-auto py-2.5 rounded-xl justify-start px-4"
         >
-          <Trash2 className="size-4 mr-2.5" />
-          Remove Pick
+          <Trash2 className="size-4 mr-2.5 shrink-0" />
+          <span className="grid text-left">
+            <span className="text-xs font-bold">Remove Pick</span>
+            <span className="text-[10px] font-normal text-muted-foreground">
+              Just unpicks -- doesn't affect your taste
+            </span>
+          </span>
         </Button>
         <Button
           type="button"

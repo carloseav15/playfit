@@ -307,4 +307,109 @@ describe("product indexeddb store", () => {
       expect((error as InstanceType<typeof ResetProductStateError>).reason).toBe("network_error");
     });
   });
+
+  describe("saveProductState failure classification", () => {
+    function jsonResponse(status: number, ok: boolean, body: unknown = {}) {
+      return { ok, status, json: () => Promise.resolve(body) };
+    }
+
+    it("classifies 401 as auth_expired and preserves the status", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, false)));
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "auth_expired", status: 401 });
+    });
+
+    it("classifies 403 as auth_expired", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(403, false)));
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "auth_expired", status: 403 });
+    });
+
+    it("classifies 409 as conflict", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          jsonResponse(409, false, {
+            error: "Profile changed before this save completed",
+            conflict: true,
+          }),
+        ),
+      );
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "conflict", status: 409 });
+    });
+
+    it("classifies 429 as rate_limited", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(429, false)));
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "rate_limited", status: 429 });
+    });
+
+    it("classifies 500 as server_error", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(500, false)));
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "server_error", status: 500 });
+    });
+
+    it("classifies 503 as server_error", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(jsonResponse(503, false, { error: "Rate limiter unavailable" })),
+      );
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "server_error", status: 503 });
+    });
+
+    it("classifies a thrown fetch exception as network_error -- the only outcome-unknown case", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toMatchObject({ ok: false, reason: "network_error" });
+      // No HTTP status exists for a request that never got a response.
+      expect((result as { status?: number }).status).toBeUndefined();
+    });
+
+    it("classifies a local schema validation failure as invalid_state without making a request", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await saveProductState({ version: 2 } as never);
+
+      expect(result).toMatchObject({ ok: false, reason: "invalid_state" });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("still returns ok:true with the authoritative stateVersion on success (unchanged behavior)", async () => {
+      const { saveProductState } = await import("./indexed-db");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(jsonResponse(200, true, { ok: true, stateVersion: "9" })),
+      );
+
+      const result = await saveProductState(createInitialState());
+
+      expect(result).toEqual({ ok: true, stateVersion: "9" });
+    });
+  });
 });

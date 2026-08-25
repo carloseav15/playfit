@@ -11,7 +11,11 @@ export const metadata: Metadata = {
     "Tell Playfit what you've loved and what didn't land. It finds your next best match — in your library or not — with the reasons attached, not a wall of star ratings.",
 };
 
-export default async function PlayPage() {
+export default async function PlayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onboarding?: string }>;
+}) {
   if (!(await isReturningVisitor())) {
     // Fetched independently of (play)/layout.tsx, which skips this fetch entirely for
     // cold visitors — LandingPage needs it ready for the moment the visitor clicks in,
@@ -20,9 +24,14 @@ export default async function PlayPage() {
     return <LandingPage platforms={platforms} />;
   }
 
+  // Set by /auth/callback for a freshly authenticated user with no profile yet, so
+  // onboarding opens immediately instead of DecisionShell treating the missing profile
+  // as a stale session and bouncing back to the marketing page.
+  const { onboarding } = await searchParams;
+
   return (
     <ErrorBoundary>
-      <DecisionShell />
+      <DecisionShell startInCalibration={onboarding === "1"} />
     </ErrorBoundary>
   );
 }

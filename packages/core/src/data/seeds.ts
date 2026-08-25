@@ -193,6 +193,19 @@ function platformsToOptions(rows: PlatformRow[]): ProductPlatformOption[] {
 const SEED_CACHE_KEY = "playfit_seed_cache_v4";
 const SEED_CACHE_TTL = 86_400_000; // 24 hours
 
+// The literal fallback used below (mapGames) when a catalog row has no
+// genre_id. It means "we don't know this game's genre", not "the user has
+// a real Unknown-genre preference" -- callers deriving taste evidence from
+// a game's genre must use resolveKnownGenre() rather than reading
+// genreId/primaryGenre directly, or a data gap silently becomes a signal.
+export const UNKNOWN_GENRE = "unknown" as const;
+
+export function resolveKnownGenre(game: Pick<SeedGame, "genreId" | "primaryGenre">): string | null {
+  const genre = game.genreId ?? game.primaryGenre;
+  if (!genre || genre === UNKNOWN_GENRE) return null;
+  return genre;
+}
+
 function mapGames(gameRows: GameRow[], platformById: Map<string, ProductPlatformOption>) {
   return gameRows.map((row) => {
     const availablePlatformIds = row.platforms ?? [];

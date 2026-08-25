@@ -19,6 +19,7 @@ export function OnboardingSearchDialog({
   onboardingQuery,
   onboardingSearchError,
   onboardingSearchPending,
+  onRetryOnboardingSearch,
   replaceGameId,
   searchSlot,
   seedData,
@@ -34,6 +35,7 @@ export function OnboardingSearchDialog({
   onboardingQuery: string;
   onboardingSearchError: string | null;
   onboardingSearchPending: boolean;
+  onRetryOnboardingSearch: () => void;
   replaceGameId: string | null;
   searchSlot: SearchSlot | null;
   seedData: ProductSeedData;
@@ -102,6 +104,13 @@ export function OnboardingSearchDialog({
               key={game.gameId}
               game={game}
               selectionState={buildSelectionState(game, draft, replaceGameId, searchSlot)}
+              // A fresher search request is in flight (the user kept typing or a new
+              // debounce cycle started): these rows were computed for a query that's no
+              // longer current, so block selection until the matching fetch resolves.
+              // See use-playfit-search.ts -- onboardingSearchPending stays true for the
+              // *entire* window from query-change to matching-fetch-resolution, and is
+              // never cleared early by a stale/earlier response.
+              disabled={onboardingSearchPending}
               onSelect={() => {
                 if (searchSlot === "anchor") {
                   if (replaceGameId) {
@@ -123,6 +132,7 @@ export function OnboardingSearchDialog({
               error={onboardingSearchError}
               catalogEmpty={seedData.allGames.length === 0}
               hasQuery={hasOnboardingSearch}
+              onRetry={onRetryOnboardingSearch}
             />
           )}
         </div>
