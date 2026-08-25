@@ -239,6 +239,13 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   const entry = recommendationEntry ?? localEntry;
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
   const gameState = game ? state.user.gameStates[game.gameId] : null;
+  // `excluded` is the same flag CurrentUserState reads to show "Not for me" -- it's set for
+  // both the "not_for_me" and "played_dropped" feedback outcomes (see applyProductDecisionFeedback
+  // in packages/core/src/domain/feedback.ts), i.e. it's already the codebase's own boundary for
+  // "this game was rejected," not something invented here. A rejected game shouldn't still wear
+  // a "Recommended" badge next to that verdict; every other decision (in Picks, played and liked,
+  // no decision yet) keeps the badge unchanged.
+  const isRejected = gameState?.excluded === true;
 
   useEffect(() => {
     if (!profileReady) redirectToMarketingLanding();
@@ -332,12 +339,14 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                   >
                     {decisionLabel(entry)}
                   </Badge>
-                  <Badge
-                    variant="outline"
-                    className="border-accent/30 text-accent font-bold px-2 py-0.5 text-[10px] bg-accent/5"
-                  >
-                    Recommended
-                  </Badge>
+                  {!isRejected && (
+                    <Badge
+                      variant="outline"
+                      className="border-accent/30 text-accent font-bold px-2 py-0.5 text-[10px] bg-accent/5"
+                    >
+                      Recommended
+                    </Badge>
+                  )}
                 </Stack>
                 <div>
                   <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-black leading-tight text-foreground">
