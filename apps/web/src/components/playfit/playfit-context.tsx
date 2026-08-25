@@ -30,11 +30,11 @@ import type {
   ProductUiState,
 } from "./playfit-context-types";
 import { cloneState, initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
-import { diffUserPatch } from "./profile-mutation-patch";
 import {
   buildAdaptiveProfileFromCache,
   rebuildAdaptiveProfileFromCache,
 } from "./profile-cache-helpers";
+import { diffUserPatch } from "./profile-mutation-patch";
 import { usePlayfitAuth } from "./use-playfit-auth";
 import { usePlayfitBoot } from "./use-playfit-boot";
 import { usePlayfitGameActions } from "./use-playfit-game-actions";
@@ -94,6 +94,7 @@ export function PlayfitProvider({
   // a new identity every render, re-firing that effect on every commit -- an infinite loop.
   // stateRef.current is always fresh regardless of when this particular closure was created
   // (it's a ref), so the empty dependency array is intentional, not a missed dependency.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: state deliberately excluded, see comment above
   const getCurrentState = useCallback(() => stateRef.current ?? state, []);
 
   const { enqueueSave, flushSave, saveNow } = useQueuedProfileSave({

@@ -2,8 +2,8 @@ import type { ProductGameState, ProductState } from "@playfit/core/types";
 import { act, renderHook } from "@testing-library/react";
 import { useCallback, useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { diffUserPatch } from "./profile-mutation-patch";
 import type { ProductUiState } from "./playfit-context-types";
+import { diffUserPatch } from "./profile-mutation-patch";
 import type { AuthUser } from "./use-playfit-auth";
 import {
   describeSaveFailure,
@@ -119,8 +119,8 @@ function renderQueuedSave(initial: ProductState) {
       email: "a@b.com",
       isAnonymous: false,
     });
-    const [useLocalProfile, setUseLocalProfile] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [_useLocalProfile, setUseLocalProfile] = useState(false);
+    const [_isSaving, setIsSaving] = useState(false);
 
     const setCurrent = useCallback(
       (updater: ProductState | null | ((c: ProductState | null) => ProductState | null)) => {
@@ -139,8 +139,7 @@ function renderQueuedSave(initial: ProductState) {
       setUseLocalProfile,
       setUi,
       setIsSaving,
-      onSavedStateVersion: (stateVersion) =>
-        setCurrent((c) => (c ? { ...c, stateVersion } : c)),
+      onSavedStateVersion: (stateVersion) => setCurrent((c) => (c ? { ...c, stateVersion } : c)),
     });
 
     const simulateUpdateState = useCallback(
@@ -153,7 +152,7 @@ function renderQueuedSave(initial: ProductState) {
         setCurrent(next);
         save.enqueueSave(patch, options);
       },
-      [save],
+      [save, setCurrent],
     );
 
     return { ...save, simulateUpdateState, ui, authUser, current: currentRef.current, setCurrent };

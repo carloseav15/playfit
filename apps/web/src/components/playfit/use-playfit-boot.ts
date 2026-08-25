@@ -6,8 +6,8 @@ import { clearGameCache, ensureGamesCached } from "@/lib/game-cache";
 import type { ProductUiState } from "./playfit-context-types";
 import { initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
 import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
-import type { ProfileMutationPatch } from "./use-queued-profile-save";
 import type { AuthUser } from "./use-playfit-auth";
+import type { ProfileMutationPatch } from "./use-queued-profile-save";
 
 type EnqueueSave = (patch: ProfileMutationPatch, options?: { successMessage?: string }) => void;
 

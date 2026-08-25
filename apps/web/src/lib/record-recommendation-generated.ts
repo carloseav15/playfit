@@ -1,6 +1,6 @@
+import type { ProductPlayNextModel } from "@playfit/core/types";
 import { playNextRecommendationId } from "@/lib/core-loop-analytics";
 import type { RequestSupabaseContext } from "@/lib/supabase/server";
-import type { ProductPlayNextModel } from "@playfit/core/types";
 
 export async function recordRecommendationGenerated({
   context,

@@ -64,7 +64,20 @@ describe("diffUserPatch / applyProfileMutationPatch", () => {
   });
 
   it("is a no-op patch when nothing changed", () => {
-    const current = state({ gameStates: { g1: { gameId: "g1", title: "g1", inBacklog: true, inWishlist: false, inPlayfitPicks: false, source: "manual", createdAt: "t", updatedAt: "t" } } });
+    const current = state({
+      gameStates: {
+        g1: {
+          gameId: "g1",
+          title: "g1",
+          inBacklog: true,
+          inWishlist: false,
+          inPlayfitPicks: false,
+          source: "manual",
+          createdAt: "t",
+          updatedAt: "t",
+        },
+      },
+    });
     const next = structuredClone(current);
 
     const patch = diffUserPatch(current, next);

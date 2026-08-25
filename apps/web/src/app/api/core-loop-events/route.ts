@@ -1,5 +1,5 @@
-import { coreLoopClientEventSchema, playNextRecommendationId } from "@/lib/core-loop-analytics";
 import { jsonError } from "@/lib/api-errors";
+import { coreLoopClientEventSchema, playNextRecommendationId } from "@/lib/core-loop-analytics";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
 import { buildPlayNextModel, loadRecommendationStateFromContext } from "../recommendations/shared";
@@ -13,7 +13,10 @@ async function postCoreLoopEvent(request: Request) {
 
   const loaded = await loadRecommendationStateFromContext(request, context);
   if (!loaded.ok) return jsonError(loaded.error, loaded.status);
-  if (event.stateVersion !== loaded.stateVersion || event.recommendationId !== playNextRecommendationId(event.stateVersion)) {
+  if (
+    event.stateVersion !== loaded.stateVersion ||
+    event.recommendationId !== playNextRecommendationId(event.stateVersion)
+  ) {
     return jsonError("Stale recommendation event", 409);
   }
 
