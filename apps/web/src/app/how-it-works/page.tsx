@@ -88,8 +88,8 @@ export default function HowItWorksPage() {
             </h2>
             <p>
               Search the catalog, save strong picks to Playfit Picks, check your evolving taste
-              signals, and inspect recommendation details before saving it. Every rating or
-              status change improves the next read.
+              signals, and inspect recommendation details before saving it. Every rating or status
+              change improves the next read.
             </p>
           </section>
           <section className="grid gap-3">
