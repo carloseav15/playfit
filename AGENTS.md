@@ -26,25 +26,16 @@ YYYYMMDDNNNN_description.sql
 Each migration must be idempotent (`if not exists`, `create or replace`, etc.).
 
 ### Down migrations
-Each migration includes a `-- Down:` comment block at the bottom. The file
-`20260612999999_down_migration.sql` reverts all audit fixes if needed.
+Not every migration includes a `-- Down:` block — only add one when a migration needs to
+be reversible during active development. Check the current `supabase/migrations/`
+directory for what actually exists; do not assume a specific down-migration file without
+verifying it first.
 
-### Key migration: 20260612000001
-- `profiles.user_id` type: text → uuid (matches `auth.uid()`)
-- RLS: removed `::text` casts on `auth.uid()` comparisons
-- New tables: `rate_limits` (persistent rate limiter)
-- New functions: `get_profile`, `upsert_profile`, `delete_profile`, `migrate_profile` (SECURITY DEFINER)
-- Sync trigger: `game_aliases` INSERT/DELETE → `games.aliases[]`
-- `tags.name` column added and populated
-
-### Migrations 20260613 — Security, Performance, Maintenance
-- `20260613000001_rls_and_user_id_type` — RLS en `rate_limits` y `audit_log`, `user_id` → uuid
-- `20260613000002_api_cache_and_indexes` — `api_cache` table (Postgres cache entre serverless), funciones `get_cache`/`set_cache`, índices compuestos en `user_game_states`, cleanup helpers
-- `20260613000003_fts_search_document_extended` — FTS index extendido a series + genre names
-- `20260613000004_updated_at_triggers` — Triggers `updated_at` en genres, series, tags, join tables, user_game_states
-
-### Down migration
-`20260612999999_down_migration.sql` reverts all migrations. Reescrita para evitar bugs de orden (drop table antes de alter column).
+The migration history was squashed on 2026-07-16; the current baseline starts at
+`20260707115959_drop_legacy_schemas_for_squash.sql`. For the full backup/restore/squash
+flow see `docs/MIGRATIONS_SQUASH_GUIDE.md`; for the consolidated current schema see
+`docs/SCHEMA.md`. Do not rely on migration filenames or numbers mentioned in other docs
+or old commits — verify against the live directory.
 
 ## Supabase Auth Architecture
 

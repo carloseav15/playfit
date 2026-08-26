@@ -1,6 +1,14 @@
 # Scripts Reference
 
-All entries live in `scripts/` and are run from the `product/` root. The directory currently contains 80 files: 69 `.mjs`, 7 `.sh`, 2 `.sql`, one HTML utility, and one historical log. Read a script's header and run its dry-run mode where available before allowing writes.
+All entries live in `scripts/` and are run from the `product/` root. The directory currently
+contains 51 files: 37 `.mjs`, 9 `.sh`, 3 `.ts`, 2 `.sql`. Read a script's header and run its
+dry-run mode where available before allowing writes.
+
+IGDB is the only external catalog source in active use. The web-scraping era (GamesDatabase,
+PSXDataCenter, RAWG, Wikipedia, TheGamesDB) was retired 2026-08-25 — those scripts produced
+data that is already in `games_library`, and none of them are wired into `package.json` or CI.
+If similar coverage gaps come up again, extend the IGDB pipeline below rather than reviving a
+scraper for a different source.
 
 ## Environment and safety
 
@@ -33,29 +41,24 @@ npm run igdb:mirror:backup
 npm run igdb:mirror:restore
 ```
 
-## External catalog acquisition
+## External data import (non-scraping)
 
-### GamesDatabase
+These operate on datasets or reports staged by hand, not live scraping — kept separate from
+the retired scraper family above:
 
-- Scrape metadata: `scrape-gamesdatabase-ds.mjs`, `scrape-gamesdatabase-gba.mjs`, `scrape-gamesdatabase-ps1.mjs`, `scrape-gamesdatabase-ps2.mjs`, `scrape-gamesdatabase-psp.mjs`, `scrape-gamesdatabase-saturn.mjs`, `scrape-gamesdatabase-snes.mjs`.
-- Match to Playfit: `match-gamesdatabase-ds.mjs`, `match-gamesdatabase-gba.mjs`, `match-gamesdatabase-ps1.mjs`, `match-gamesdatabase-ps2.mjs`, `match-gamesdatabase-psp.mjs`, `match-gamesdatabase-saturn.mjs`, `match-gamesdatabase-snes.mjs`.
-- Download covers: `download-gamesdatabase-covers.mjs` (parameterized by platform: `ds`, `gba`, `ps1`, `psp`, `saturn`, `snes`).
-- Generate/import: `generate-gamesdatabase-migration.mjs`, `backfill-thegamesdb.mjs`, `backfill-thegamesdb-images.mjs`.
-
-### PSXDataCenter and other sources
-
-- `scrape-psxdatacenter.mjs`, `scrape-psxdatacenter-ps1.mjs`, `match-psxdatacenter.mjs`, `match-psxdatacenter-ps1.mjs`, `download-psxdatacenter-covers.mjs`, `download-psxdatacenter-ps1-covers.mjs`.
-- `scrape-rawg.mjs` imports/enriches from RAWG and requires `RAWG_API_KEY`.
-- `wikipedia-scrape.mjs` is a supplemental source.
-- `import-external-catalog-data.sh`, `import-metacritic-review-sentiment.sh`, and `export-external-catalog-match-report.sh` operate on staged external datasets/reports.
+- `import-external-catalog-data.sh`, `import-metacritic-review-sentiment.sh`, and
+  `export-external-catalog-match-report.sh` operate on staged external datasets/reports
+  (e.g. a manually downloaded Metacritic export) for review-sentiment and cross-catalog
+  matching, independent of IGDB.
 
 ## Catalog maintenance
 
 | Area | Scripts |
 |---|---|
-| Taxonomy and assignments | `assign-series.mjs`, `assign-tags.mjs`, `cleanup-series.mjs`, `enrich-genres.mjs`, `enrich-platforms.mjs`, `enrich-series.mjs`, `enrich-tags.mjs`, `seed-platforms.mjs` |
-| Covers | `backfill-covers.mjs`, `link-covers.mjs`, `check-cover-integrity.mjs` |
-| Legacy backfills/generation | `backfill-years.mjs`, `generate-snes-sql.mjs`, `seed-catalog.sh` |
+| Taxonomy and assignments | `assign-series.mjs`, `assign-tags.mjs`, `cleanup-series.mjs`, `enrich-series.mjs`, `seed-platforms.mjs` |
+| Covers | `link-covers.mjs`, `check-cover-integrity.mjs` |
+| Catalog seeding | `seed-catalog.sh` |
+| Game identity | `generate-game-identity-candidates.ts` — read-only candidate generation for `edition_of` review |
 | User cleanup | `cleanup-users.sql` |
 
 Run the cover check with:
@@ -87,21 +90,29 @@ npm run quality
 |---|---|
 | `backup-schema.mjs` / `restore-schema.mjs` | Back up or restore one large local schema, including `games_library` and `igdb_raw` |
 | `report-catalog-quality.mjs` | Read-only report of catalog rows with missing metadata or leading punctuation |
+| `backup-all.sh` / `restore-all.sh` | Whole-catalog backup/restore across the managed schemas |
+| `backup-local.mjs` / `backup-runtime-catalog.mjs` / `restore-runtime-catalog.mjs` | Local and runtime-catalog-only backup/restore variants |
+| `verify-playfit-backups.mjs` | Checks a backup's integrity |
+| `recover-enriched-local.sh` | Recovers a previously enriched local catalog dump |
+| `restore-data.sql` | SQL restore helper; inspect before manual execution |
+| `generate-data-migration.sh` | Dumps local `games_library`/`games_library_private` data as a plain-SQL migration, safe for `supabase db push --linked` |
+| `validate-migrations.sh` | Validate migration naming and SQL safety conventions |
+| `validate-canonical-undo-local.ts` | Validates the canonical undo flow against a local DB |
 
 To inspect `PlayfitProvider` render cost locally, run the app with
 `NEXT_PUBLIC_PROFILE_RENDERS=1`. Development logs will include `react_render`
 events with actual and base render duration; production builds keep this disabled.
-| `backup-all.sh` / `restore-all.sh` | Whole-catalog backup/restore across the managed schemas |
-| `restore-data.sql` | SQL restore helper; inspect before manual execution |
-| `validate-migrations.sh` | Validate migration naming and SQL safety conventions |
+
+`generate-landing-demo.ts` is a one-time/occasional code generator, not a maintenance
+script — it writes `apps/web/src/components/playfit/landing/demo-data.ts`, which the
+marketing landing page imports directly. Re-run it whenever the pinned demo taste
+profile or its recommendation results should be refreshed.
 
 ```bash
 npm run catalog:backup
 npm run catalog:restore
 npm run validate:migrations
 ```
-
-`grove.html` is an internal static utility, not a Node script. `scrape-ps1.log` is historical output and must not be executed or treated as a source of truth.
 
 To regenerate the inventory:
 

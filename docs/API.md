@@ -453,3 +453,76 @@ Build adaptive profile from onboarding data and game states.
   }
 }
 ```
+
+---
+
+## GET /api/platforms
+
+Public list of platforms. Reads directly from `games_library.platforms` with the anon
+client — no auth, no caching layer.
+
+**Response** `200`: array of `{ platformId, displayName, family, kind, activeStatus, sortOrder }`,
+validated against `platformsResponseSchema` in `lib/api-contracts.ts`.
+
+---
+
+## POST /api/decisions
+
+The canonical, server-authoritative endpoint for taste and started decisions — the
+implementation backing `usePlayfit().applyDecisionFeedback()`. Applies
+`applyProductTasteAction`, `applyProductStartedAction`, or `applyProductTasteUndo` from
+`@playfit/core/domain` depending on the request body, validated against
+`productCanonicalDecisionRequestSchema`. See `docs/CANONICAL_TASTE_FEEDBACK.md` for the full
+contract — operation IDs, `expectedStateVersion`, retry/offline/conflict semantics, and the
+undo transition — rather than duplicating it here.
+
+**Auth:** SSR cookie or bearer JWT (no `device_id` fallback — this route requires a real
+Supabase session).
+
+**Response:** `ProductCanonicalDecisionResponse` — includes the updated `ProductGameState`
+and, when relevant, an updated `ProductPlayNextModel`.
+
+---
+
+## POST /api/core-loop-events
+
+Records a core-loop telemetry event (e.g. a recommendation was shown, accepted, or skipped),
+validated against `coreLoopClientEventSchema`. Rejects with `409` if the event's
+`stateVersion`/`recommendationId` doesn't match the caller's current recommendation — this
+guards against events attributed to a stale recommendation. See
+`docs/CORE_LOOP_INSTRUMENTATION.md` for the event catalog.
+
+**Auth:** SSR cookie or bearer JWT.
+
+---
+
+## POST /api/recommendations/model
+
+Returns the full `ProductPlayNextModel` for the caller's session — the same session-scoped
+resolution and `score_today_recommendations()` scoring as `/api/recommendations/today`, but
+returning the complete model rather than the today-shaped subset. Response validated against
+`recommendationModelSchema`.
+
+**Auth (resolution order):** same as `/api/recommendations/today` — SSR cookie, bearer JWT,
+or `device_id`.
+
+---
+
+## GET /api/recommendations/picks
+
+Scores and returns the games currently marked `inPlayfitPicks` in the caller's profile.
+Returns `[]` if onboarding isn't complete or there's no profile yet — this is not an error
+state. Cached for 5 minutes (`PICKS_CACHE_TTL`). Response validated against
+`picksResponseSchema`.
+
+**Auth (resolution order):** same as `/api/recommendations/today`.
+
+---
+
+## GET /api/recommendations/game/:gameId
+
+Recommendation entry (`RankedSeedGame`) for a single game, scored against the caller's
+current session state. Returns `404` if the game isn't found. Response:
+`{ entry: RankedSeedGame, stateVersion: string }`.
+
+**Auth (resolution order):** same as `/api/recommendations/today`.

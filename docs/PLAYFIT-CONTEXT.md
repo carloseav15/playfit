@@ -1,23 +1,27 @@
 # PlayfitContext — Frontend State Management
 
-PlayfitContext is the **central state manager** for the Playfit app shell (`(play)` route group, promoted to the root `/` entry point). It handles auth, profile persistence, game state, UI state, and search.
+PlayfitContext is the **central state manager** for the Playfit app shell (`(play)` route
+group, promoted to the root `/` entry point). It handles auth, profile persistence, game
+state, UI state, and search. This file was rewritten from the current source
+(`apps/web/src/components/playfit/`) on 2026-08-25 — it previously described a multi-tab
+model (`library`/`finder`/`upcoming`/`profile`) that no longer exists.
 
 ## Architecture
 
 ```
 PlayLayoutClient (apps/web/src/app/(play)/layout-client.tsx)
   └── PlayfitProvider (playfit-context.tsx)
-        └── PlayfitContext.Provider
-              └── usePlayfit() hook (consumer API)
+        ├── usePlayfitAuth()        — session/anonymous auth
+        ├── usePlayfitBoot()        — loads persisted state, builds a profile if missing
+        ├── useQueuedProfileSave()  — debounced, sequenced saves to the server
+        └── useProductTabNavigation() — syncs activeTab with the URL hash
+              └── PlayfitContext.Provider (state context + ui context)
+                    └── usePlayfit() hook (consumer API)
 ```
 
-## Provider Props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `platforms` | `ProductPlatformOption[]` | required | Available platforms from Supabase |
-| `localFirst` | `boolean` | `false` | Skip auth, use device ID immediately |
-| `children` | `ReactNode` | required | App content |
+State is split into two React contexts — `PlayfitStateContextValue` (persisted product state
+and mutators) and `PlayfitUiContextValue` (ephemeral UI state) — both defined in
+`playfit-context-types.ts`, which is the authoritative source for the shapes below.
 
 ## Boot Sequence
 
@@ -25,26 +29,33 @@ PlayLayoutClient (apps/web/src/app/(play)/layout-client.tsx)
 PlayfitProvider mounts
   ├── usePlayfitAuth()
   │     ├── Check existing Supabase session
-  │     ├── Subscribe to onAuthStateChange
-  │     └── Returns { authUser, authBusy, useLocalProfile, ... }
+  │     ├── If none and localFirst: try anonymous sign-in, else fall back to local profile
+  │     └── Subscribe to onAuthStateChange
   │
   ├── If authBusy → show <Spinner />
-  │
   ├── If !authUser && !useLocalProfile → show <AuthPanel />
   │
-  └── If authUser || useLocalProfile → boot()
-        ├── loadProductState() from @playfit/core/store (IndexedDB)
-        ├── ensureGamesCached() — prefetch game IDs from user state
-        ├── If onboarding complete but no profile:
+  └── If authUser || useLocalProfile → usePlayfitBoot()
+        ├── loadProductState() from @playfit/core/store, apply default platform selection
+        │   if onboarding hasn't started (withDefaultPlatforms)
+        ├── If the loaded state has no data but the browser previously had some
+        │   (localStorage "playfit_had_data" flag): clear the game cache and use the
+        │   fresh empty state as-is — this is the boot path for a signed-out/reset device
+        ├── Otherwise, prefetch cached games for onboarding + game-state IDs
+        ├── If onboarding is complete but there's no profile yet:
         │     ├── Try POST /api/recommendations/profile (server build)
-        │     └── Fallback: buildAdaptiveProfile() (local build)
-        ├── setState() + setUi(initialUi())
-        └── enqueueSave() (persist to server)
+        │     └── Fallback: buildAdaptiveProfileFromCache() (local build)
+        │     └── enqueueSave({ profile }) either way
+        └── setState(loadedState) + setUi(initialUi(loadedState))
 ```
+
+`initialUi()` (in `playfit-provider-helpers.ts`) also resolves the initial tab from the URL
+hash: `onboarding` if onboarding isn't complete yet, otherwise whatever valid tab the hash
+names, defaulting to `today`.
 
 ## State Shape
 
-### `ProductState` (persisted)
+### `ProductState` (persisted — unchanged shape, see `@playfit/core/types`)
 
 ```typescript
 interface ProductState {
@@ -59,119 +70,91 @@ interface ProductState {
 }
 ```
 
-### `ProductUiState` (ephemeral, not persisted)
+### `ProductUiState` (ephemeral, not persisted — current shape, 6 fields)
 
 | Field | Type | Purpose |
 |---|---|---|
-| `activeTab` | `ProductTab` | Current tab: today, library, finder, upcoming, profile, onboarding |
+| `activeTab` | `"today" \| "onboarding"` | The only two tabs the app shell has today |
 | `onboardingQuery` | `string` | Current onboarding search query |
-| `finderQuery` | `string` | Current finder/discover search query |
-| `libraryQuery` | `string` | Current library search query |
-| `libraryTab` | `"all" \| "backlog" \| "wishlist"` | Library sub-filter |
-| `librarySort` | `"title" \| "rating-desc" \| "rating-asc" \| "status"` | Library sort order |
-| `profileMode` | `"overview" \| "edit"` | Profile view mode |
 | `statusMessage` | `string \| null` | Toast message |
 | `saveStatus` | `"idle" \| "saving" \| "saved" \| "error"` | Profile save state |
-| `upcomingPlatformFilters` | `Set<string>` | Active platform filters for upcoming view |
-| `startBannerDismissed` | `boolean` | Whether start banner was dismissed |
+| `onboardingCompletionPhase` | `"idle" \| "finding"` | Short-lived handoff between finishing onboarding and the first Play Next result |
+| `undoAction` | `(() => void) \| null` | When set, the status toast shows an "Undo" action that runs this and clears itself |
+
+There is no `library`/`finder`/`upcoming`/`profile` tab, no `libraryTab`/`librarySort`, no
+`profileMode`, no `upcomingPlatformFilters`, no `startBannerDismissed`. That entire surface
+was removed in a product simplification that predates this rewrite.
 
 ## Context API (`usePlayfit()`)
 
-### State Readers
+Full surface from `playfit-context-types.ts` — treat this file, not this table, as the source
+of truth if they ever diverge again.
 
-| Method | Returns | Description |
-|---|---|---|
-| `seedData` | `ProductSeedData` | Seed data (platforms, games) |
-| `state` | `ProductState` | Full persisted state |
-| `ui` | `ProductUiState` | Ephemeral UI state |
-| `isPending` | `boolean` | Whether initial load is in progress |
-| `isSaving` | `boolean` | Whether profile save is in flight |
+### State readers / mutators (`PlayfitStateContextValue`)
 
-### State Mutators
+| Member | Purpose |
+|---|---|
+| `seedData`, `state`, `isSaving`, `authUser`, `useLocalProfile` | Read-only state |
+| `setUseLocalProfile` | Switch to local-only profile mode |
+| `updateState` / `updateStateAndSave` | Mutate persisted state; the latter also awaits the save and returns its `SaveStateResult` |
+| `getSeedGame`, `getOrCreateGameState` | Catalog/game-state lookups |
+| `buildProfileFromCurrentData`, `refreshAdaptiveProfile` | Rebuild the taste profile from current data |
+| `toggleFlag`, `setPlayStatus`, `setRating` | Direct game-state mutators |
+| `applyDecisionFeedback(gameId, feedback, onUndo?)` | Server-authoritative decision — returns `Promise<ProductTasteActionClientResult>`, not a synchronous local update. See `docs/CANONICAL_TASTE_FEEDBACK.md` for the full contract (conflict handling, undo, offline retry) instead of duplicating it here |
+| `setPlayfitPick`, `startPlayfitPick`, `removeTasteSignal`, `excludeGame` | Pick and taste-signal mutators |
+| `resetLocalState`, `resetTasteProfile`, `deleteAccount`, `signOut`, `linkGoogleAccount` | Account-level actions |
 
-| Method | Signature | Description |
-|---|---|---|
-| `setUi` | `(updater: SetStateAction<ProductUiState>) => void` | Update UI state |
-| `updateState` | `(updater: (draft: ProductState) => void) => void` | Mutate persisted state (auto-saves) |
-| `toggleFlag` | `(gameId: string, flag: "inBacklog" \| "inWishlist") => void` | Toggle backlog/wishlist flag |
-| `setPlayStatus` | `(gameId: string, status?: ProductGameState["status"]) => void` | Set play status (undefined = remove) |
-| `setRating` | `(gameId: string, rating?: ProductRating) => void` | Set rating (0/undefined = remove) |
-| `applyDecisionFeedback` | `(gameId: string, feedback: ProductDecisionFeedback) => void` | Apply decision feedback + rebuild profile |
-| `excludeGame` | `(gameId: string) => void` | Exclude game from recommendations |
-| `setStatusMessage` | `(message: string \| null) => void` | Show/hide status toast |
-| `retrySave` | `() => Promise<void>` | Retry failed profile save |
-| `resetLocalState` | `() => void` | Reset all local state to initial |
-| `signOut` | `() => Promise<void>` | Sign out + clear state |
+### UI state (`PlayfitUiContextValue`)
 
-### Helper Methods
+| Member | Purpose |
+|---|---|
+| `ui`, `setUi` | Ephemeral UI state (see `ProductUiState` above) |
+| `setStatusMessage` | Show/hide the status toast |
+| `onboardingSearchError`, `onboardingSearchPending`, `retryOnboardingSearch` | Onboarding search request state |
+| `searchGames(query)` | Cached search results for the onboarding query |
+| `flushSave`, `retrySave` | Force a pending save now / retry after a failure |
 
-| Method | Signature | Description |
-|---|---|---|
-| `getSeedGame` | `(gameId: string) => SeedGame \| null` | Lookup game in local cache |
-| `searchGames` | `(query: string) => SeedGame[]` | Return cached search results for query |
-| `buildProfileFromCurrentData` | `() => ProductProfile` | Build profile from current state (non-destructive) |
-| `refreshAdaptiveProfile` | `() => void` | Rebuild profile + show status message |
-| `getOrCreateGameState` | `(gameId: string, source?) => ProductGameState \| null` | Get existing state or create default |
-| `openDossier` | `(gameId: string) => void` | Navigate to game dossier page |
-| `closeDossier` | `() => void` | Navigate back to app shell |
+## Tab Navigation
+
+`useProductTabNavigation()` (new since the previous version of this doc) keeps `activeTab` in
+sync with the URL hash on the `/play` route: `today` maps to no hash, any other tab maps to
+`#<tab>`. On `/` it strips any hash instead. A `sessionStorage` marker
+(`LANDING_REDIRECT_MARKER`) suppresses this when the user just arrived from the marketing
+landing page or Settings, so the redirect itself doesn't fight with the hash sync.
 
 ## Save Queue
 
-Profile saves are **debounced and queued** via `useQueuedProfileSave()`:
+`useQueuedProfileSave()` debounces and sequences saves against the single authoritative
+source of truth (read fresh at save time, not at call time):
 
-1. Each `updateState()` call increments a sequence counter
-2. Saves run sequentially (promise chain)
-3. If a newer save is queued, stale results are discarded
-4. On auth expiry, local state is silently cleared
-5. On network error, UI shows `saveStatus: "error"` with retry option
-
-### Decision Feedback Flow
-
-```
-applyDecisionFeedback(gameId, feedback)
-  ├── "play"          → set status="playing", clear backlog/picks/excluded
-  ├── "later"         → set status="shelved", set inBacklog=true, clear excluded
-  ├── "loved"         → set rating=5, rebuild profile
-  ├── "liked"         → set rating=4, rebuild profile
-  ├── "mixed"         → set rating=3, rebuild profile
-  ├── "not_for_me"    → set rating=2, set excluded=true, rebuild profile
-  ├── "played_loved"  → set status="completed", set rating=5, rebuild profile
-  ├── "played_liked"  → set status="completed", set rating=4, rebuild profile
-  ├── "played_mixed"  → set status="completed", set rating=3, no taste evidence or maturity change
-  └── "played_dropped" → set status="abandoned", set rating=2, set excluded=true, rebuild profile
-```
-
-`played_*` variants are produced by the "already played this?" flow (marking a game as
-previously played, independent of the "play"/"later" pick decisions above) — see
-`packages/core/src/domain/feedback.ts` for the authoritative mapping.
+1. Each call increments a sequence counter and chains onto `saveQueueRef`, so a save only
+   starts once any prior in-flight save has fully resolved — nothing is dropped or reordered.
+2. A failed save's data is never rolled back locally; it rides along in whatever state the
+   *next* successful save submits.
+3. `describeSaveFailure()` maps failure reasons (`network_error`, `auth_expired`, `conflict`,
+   `rate_limited`, `invalid_state`) to user-facing copy — only `network_error` uses
+   connectivity language, since it's the one case where whether the write persisted is
+   genuinely unknown.
 
 ## Auth Flow
 
 ```
-usePlayfitAuth()
-  ├── On mount: check supabase.auth.getSession()
+usePlayfitAuth(localFirst)
+  ├── On mount: supabase.auth.getSession()
+  ├── If a session exists: setCachedAuth(), setAuthUser()
+  ├── Else if localFirst: try supabase.auth.signInAnonymously()
+  │     ├── Success → setAuthUser() (isAnonymous: true)
+  │     └── Failure → useLocalProfile = true, authUser stays null
   ├── Subscribe to onAuthStateChange (session refresh, sign out)
-  ├── If localFirst and unauthenticated:
-  │     ├── Try anonymous Supabase auth
-  │     └── Fall back to local profile when anonymous auth is unavailable
-  ├── If authenticated:
-  │     ├── setCachedAuth(access_token, user.id)
-  │     ├── setAuthUser({ id, email })
-  │     └── useLocalProfile = false
-  └── If not authenticated:
-        ├── AuthPanel shown to user
-        ├── "Continue locally" → useLocalProfile = true
-        └── "Sign in" → handleAuth(userId, email)
+  └── authUser.email is "Guest profile" for anonymous sessions, the real email otherwise
 ```
 
 ## Persistence
 
-State is persisted to two layers:
-
 | Layer | Storage | When |
 |---|---|---|
-| IndexedDB (local) | `@playfit/core/store` | On every `updateState()` |
-| Supabase (server) | `POST /api/profile` | Via `enqueueSave()` in save queue |
+| IndexedDB (local) | `@playfit/core/store` (`loadProductState`/`saveProductState`) | On every `updateState()` |
+| Supabase (server) | `POST /api/profile` via the save queue | Debounced, sequenced |
 | Auth session | Supabase SSR cookie | Read by client/provider and API routes |
 
 ## Error States
@@ -181,5 +164,4 @@ State is persisted to two layers:
 | `authBusy` | Full-screen `<Spinner />` |
 | No auth + no local | `<AuthPanel />` (sign in / continue locally) |
 | `bootError` | Error card with message |
-| `value === null` | Loading spinner + "Loading Playfit" |
-| `saveStatus === "error"` | StatusDot shows warning + retry option |
+| `saveStatus === "error"` | StatusDot shows warning + retry option (`retrySave`) |

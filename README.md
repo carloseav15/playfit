@@ -153,13 +153,19 @@ title groups for manual review.
 | GET | `/api/games?q=&platform=&genre=&page=&pageSize=` | Search / browse / filter game catalog | None |
 | GET | `/api/games/:gameId` | Game detail (resolves redirects) | None |
 | POST | `/api/games/batch` | Batch lookup (max 500 game IDs) | None |
+| GET | `/api/platforms` | List platforms | None |
 | GET | `/api/profile?device_id=` | Read user profile | Cookie / Bearer / deviceId |
 | POST | `/api/profile` | Save user profile | Cookie / Bearer / deviceId |
 | DELETE | `/api/profile?device_id=` | Reset user profile | Cookie / Bearer / deviceId |
 | PATCH | `/api/profile/games/:gameId` | Update game state (status, rating, etc.) | Cookie / Bearer / deviceId |
 | DELETE | `/api/profile/games/:gameId` | Delete game state | Cookie / Bearer / deviceId |
 | POST | `/api/auth/mark-returning` | Mark an authenticated session as returning (skips the marketing landing on next visit) | Bearer |
+| POST | `/api/decisions` | Canonical taste/started decision (loved, liked, not_for_me, dropped, undo — see `docs/CANONICAL_TASTE_FEEDBACK.md`) | Cookie / Bearer |
+| POST | `/api/core-loop-events` | Record a core-loop telemetry event (recommendation exposure/outcome) | Cookie / Bearer |
 | POST | `/api/recommendations/today` | Today's recommendation (session-scoped, cached scoring) | Cookie / Bearer / deviceId |
+| POST | `/api/recommendations/model` | Full Play Next model for the session (used by the client scoring cache) | Cookie / Bearer / deviceId |
+| GET | `/api/recommendations/picks` | Scored list of the user's saved Playfit Picks | Cookie / Bearer / deviceId |
+| GET | `/api/recommendations/game/:gameId` | Recommendation entry for a single game | Cookie / Bearer / deviceId |
 | POST | `/api/recommendations/similar` | Similar + series games for a game ID | None |
 | POST | `/api/recommendations/profile` | Build adaptive profile from onboarding + states | Cookie / Bearer |
 
