@@ -97,3 +97,37 @@ Before merging, verify:
 - `.env` is gitignored; secrets use GitHub Actions secrets + Vercel env vars
 - Never commit `SUPABASE_SERVICE_KEY` or any secret to git
 - `.env.example` documents required vars with placeholder values
+
+## Agent Autonomy
+
+See `docs/OWNERSHIP.md` for who implements/reviews/decides on each surface.
+
+**Can do without asking:** read/explore anything; edit code within a single task's scope;
+run typecheck/lint/test/build; run `supabase db reset --local` and reseed against the local
+stack; create local commits (not push).
+
+**Needs explicit approval:** `git push` / opening or merging PRs; any deploy (Vercel
+staging/production); any migration or write against remote/production Supabase; adding a new
+dependency; changing a CI workflow file; anything under `supabase/` — see
+`supabase/AGENTS.md`.
+
+**Never do automatically:** destructive operations against production Supabase (drop, reset,
+bulk delete); commit secrets; force-push or rewrite git history without a separate, explicit
+sign-off for that specific action; disable a CI check to make something pass.
+
+## Review Discipline
+
+Errors here have historically been the kind that compile and pass tests while being wrong —
+stale docs, dead scripts, dead-feature copy shipped to users, drift nobody caught because
+nothing was actively re-checking it. Concretely:
+
+- **If a change makes another doc, comment, or `AGENTS.md` claim false, fix that claim in the
+  same change.** Don't defer it to a future audit — that's exactly how the drift above
+  happened in the first place.
+- **Verify claims against the actual current code/DB/file state before acting on them** —
+  including claims from another agent, another AI tool's report, or this file itself. A
+  filename, endpoint, or convention mentioned anywhere (including here) can be stale; check
+  before relying on it for anything consequential.
+- **"Compiles" and "tests pass" are not the definition of done.** Confirm the actual claim
+  being made (a script runs, an endpoint returns what the doc says, a UI copy matches a real
+  feature) against real behavior, not against what was assumed true.

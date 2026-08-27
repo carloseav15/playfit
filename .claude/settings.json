@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "SubagentStop": [
+      {
+        "matcher": "product-engineer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude\" && touch \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa\""
+          }
+        ]
+      },
+      {
+        "matcher": "qa",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-qa.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

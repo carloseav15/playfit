@@ -19,8 +19,12 @@ coverage/
 # IDE
 .idea/
 
-# Agent artifacts
-.claude/
+# Agent artifacts (local session state, launch config) -- but agent role
+# definitions are shared project config, not local state
+.claude/*
+!.claude/agents/
+!.claude/hooks/
+!.claude/settings.json
 .playwright-mcp/
 
 # Local scraper inputs
