@@ -136,7 +136,8 @@ nothing was actively re-checking it. Concretely:
   feature) against real behavior, not against what was assumed true.
 - **For high-risk changes (agents/hooks infra, auth, shared contracts, migrations,
   production, cross-platform), an independent second-pass review from another tool is worth
-  getting**, recommended not mandatory. For it to be worth anything: the reviewer confirms
+  getting**, recommended not mandatory, and it doesn't replace `qa` or the human's final
+  decision — it's in addition to both. For it to be worth anything: the reviewer confirms
   current repo/branch/`HEAD`/worktree state before saying anything, reproduces checks rather
   than re-reading a prior report, and a conflicting verdict goes to the human, not to whichever
   tool sounds more confident. Full version, if available: `../roles/external-review-policy.md`
