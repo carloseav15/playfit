@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude\"; C=$(cat \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa-count\" 2>/dev/null || echo 0); echo $((C + 1)) > \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa-count\""
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa\" && mktemp \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa/run.XXXXXX\" > /dev/null"
           }
         ]
       },
