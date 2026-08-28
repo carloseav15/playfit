@@ -134,6 +134,10 @@ nothing was actively re-checking it. Concretely:
 - **"Compiles" and "tests pass" are not the definition of done.** Confirm the actual claim
   being made (a script runs, an endpoint returns what the doc says, a UI copy matches a real
   feature) against real behavior, not against what was assumed true.
-- **For high-risk changes, an independent second-pass review from another tool is worth
-  getting** — see `../roles/external-review-policy.md` for what makes that actually worth
-  something (confirm current state first, reproduce rather than re-read) versus just noise.
+- **For high-risk changes (agents/hooks infra, auth, shared contracts, migrations,
+  production, cross-platform), an independent second-pass review from another tool is worth
+  getting**, recommended not mandatory. For it to be worth anything: the reviewer confirms
+  current repo/branch/`HEAD`/worktree state before saying anything, reproduces checks rather
+  than re-reading a prior report, and a conflicting verdict goes to the human, not to whichever
+  tool sounds more confident. Full version, if available: `../roles/external-review-policy.md`
+  — this checklist is copied here so it still holds if this repo is ever cloned on its own.
