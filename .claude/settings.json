@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude\" && touch \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa\""
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude\"; C=$(cat \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa-count\" 2>/dev/null || echo 0); echo $((C + 1)) > \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa-count\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "rm -f \"$CLAUDE_PROJECT_DIR/.claude/.pending-qa\""
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-qa-result.sh"
           }
         ]
       }

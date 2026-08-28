@@ -56,8 +56,11 @@ Flow:
 - Edge Function `migrate-profile` uses try/catch + sanitized error messages (no key leaks)
 
 ### Caching
-- `api_cache` table (Postgres) for shared cache between serverless instances
-- `get_cache`/`set_cache` SECURITY DEFINER functions (anon-accessible via RPC)
+- `api_cache` table (Postgres) for shared cache between serverless instances, with RLS enabled
+- `get_cache`/`set_cache` are `SECURITY DEFINER` but **`service_role`-only since migration
+  `20260708000000_restrict_api_cache_access.sql`** — `anon`/`authenticated`/`public` execute
+  was explicitly revoked (cache poisoning / reading other users' cached payloads was possible
+  before that). Only server-side code can call these now; do not design around anon access.
 - Used by `/api/recommendations/today` and `similar` for catalog data (TTL 5min)
 
 ## UI Kit
