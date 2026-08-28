@@ -134,3 +134,6 @@ nothing was actively re-checking it. Concretely:
 - **"Compiles" and "tests pass" are not the definition of done.** Confirm the actual claim
   being made (a script runs, an endpoint returns what the doc says, a UI copy matches a real
   feature) against real behavior, not against what was assumed true.
+- **For high-risk changes, an independent second-pass review from another tool is worth
+  getting** — see `../roles/external-review-policy.md` for what makes that actually worth
+  something (confirm current state first, reproduce rather than re-read) versus just noise.
