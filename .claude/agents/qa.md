@@ -48,13 +48,21 @@ per `docs/PLAY-MVP.md` — that's a real defect, not a style note.
 
 ## Reporting your verdict (required)
 
-Before finishing, always run exactly one of these — it's the one sanctioned use of `Bash` to
-write a file, and it's what the `Stop` hook checks to decide whether the implementer's change
-is actually cleared, not just "qa ran":
+Each `product-engineer` run creates its own file under `.claude/.pending-qa/` when it
+finishes. Whoever invoked you should tell you that file's exact path — if they didn't, run
+`ls -t "$CLAUDE_PROJECT_DIR/.claude/.pending-qa/"` and use the most recent one, but say
+explicitly in your report that you inferred it rather than were told it, since with more than
+one pending file this is a guess, not a guarantee (ask the invoker instead of guessing if it
+matters).
+
+Before finishing, write your verdict **into that specific file** — this is the one sanctioned
+use of `Bash` to write a file, and it's what the `Stop` hook checks. There is no shared result
+file anymore; each pending file is self-contained, so two `qa` runs verifying two different
+changes at the same time don't interfere with each other:
 
 - Everything you checked verified correctly:
-  `echo '{"result":"pass"}' > "$CLAUDE_PROJECT_DIR/.claude/.qa-result"`
-- You found a real problem, or couldn't verify something that matters:
-  `echo '{"result":"fail"}' > "$CLAUDE_PROJECT_DIR/.claude/.qa-result"`
+  `echo -n "PASS" > "$CLAUDE_PROJECT_DIR/.claude/.pending-qa/<that exact filename>"`
+- You found a real problem, or couldn't verify something that matters: leave the file as-is
+  (empty), or write anything other than exactly `PASS` — either way it stays pending.
 
 Not writing this file is treated as a fail — the gate stays closed by default, not open.
