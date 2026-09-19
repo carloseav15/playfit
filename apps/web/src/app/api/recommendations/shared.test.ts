@@ -307,10 +307,36 @@ describe("recommendation scoring helpers", () => {
 
   it("scores one game and returns null for missing profile or game", async () => {
     const { scoreOneGame } = await import("./shared");
-    await expect(scoreOneGame({ gameId: "hades", state })).resolves.toBe(ranked);
+    mocks.rpc.mockResolvedValue({ data: [ranked], error: null });
+    await expect(scoreOneGame({ gameId: "hades", state })).resolves.toEqual(ranked);
     const noProfile = { ...state, user: { ...state.user, profile: null } };
     await expect(scoreOneGame({ gameId: "hades", state: noProfile })).resolves.toBeNull();
-    mocks.fetchGamesByIds.mockResolvedValue({ ok: false, rows: [] });
+    mocks.rpc.mockResolvedValue({ data: [], error: null });
     await expect(scoreOneGame({ gameId: "unknown", state })).resolves.toBeNull();
+  });
+  it("preserves SQL scores when explanation hydration produces different local scores", async () => {
+    const sqlEntry = { ...ranked, affinityScore: 91, riskScore: 17 };
+    mocks.rpc.mockResolvedValue({ data: [sqlEntry], error: null });
+    mocks.scoreSeedGame.mockReturnValue({ ...ranked, affinityScore: 20, riskScore: 90 });
+    const { scoreGamesByIds } = await import("./shared");
+    const result = await scoreGamesByIds(["hades"], state);
+    expect(result[0]).toMatchObject({
+      affinityScore: 91,
+      riskScore: 17,
+      fitReasons: ranked.fitReasons,
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "score_recommendation_games",
+      expect.objectContaining({
+        p_game_ids: ["hades"],
+        p_rated_count: profile.ratedCount,
+      }),
+    );
+  });
+
+  it("does not silently substitute local scoring when SQL fails", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "unavailable" } });
+    const { scoreGamesByIds } = await import("./shared");
+    await expect(scoreGamesByIds(["hades"], state)).rejects.toThrow("unavailable");
   });
 });

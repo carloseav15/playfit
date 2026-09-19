@@ -81,4 +81,13 @@ describe("game recommendation API route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Recommendation game not found" });
     expect(response.status).toBe(404);
   });
+  it("returns a recoverable error when the shared scorer fails", async () => {
+    mocks.scoreOneGame.mockRejectedValue(new Error("internal database detail"));
+    const { GET } = await loadRoute();
+    const response = await GET(request(), { params: Promise.resolve({ gameId: "hades" }) });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Recommendation temporarily unavailable",
+    });
+  });
 });

@@ -1,7 +1,8 @@
 import { createInitialState } from "@playfit/core/store";
 import type { ProductGameState, ProductState, RankedSeedGame, SeedGame } from "@playfit/core/types";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type ChildrenProps = { children?: React.ReactNode };
 
@@ -24,7 +25,11 @@ vi.mock("@/components/ui/badge", () => ({
 }));
 
 vi.mock("@/components/ui/button", () => ({
-  Button: ({ children }: ChildrenProps) => <button type="button">{children}</button>,
+  Button: ({ children, onClick }: ChildrenProps & { onClick?: () => void }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
 }));
 
 vi.mock("@/components/ui/card", () => ({
@@ -164,6 +169,7 @@ function renderDossier(state: ProductState, entryOverride: RankedSeedGame = entr
 }
 
 describe("DecisionDossier", () => {
+  afterEach(() => cleanup());
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -174,6 +180,8 @@ describe("DecisionDossier", () => {
 
     const html = renderToStaticMarkup(<DecisionDossier gameId={game.gameId} />);
 
+    expect(html).toContain("Match Affinity: 24/100");
+    expect(html).toContain("not probabilities");
     expect(html).toContain("Recommended");
     expect(html).toContain("No decision yet");
     expect(html).toContain("Too early to tell");
@@ -236,5 +244,28 @@ describe("DecisionDossier", () => {
     // so the full CTA set (not the collapsed "Change verdict" state) should still show.
     expect(html).toContain("Already Played");
     expect(html).not.toContain("Change verdict");
+  });
+  it("waits for server scoring instead of inventing a local estimate", async () => {
+    renderDossier(buildState());
+    mocks.getCachedRecommendation.mockReturnValue(null);
+    const { DecisionDossier } = await loadDecisionDossier();
+    const html = renderToStaticMarkup(<DecisionDossier gameId={game.gameId} />);
+    expect(html).toContain("Preparing your recommendation");
+    expect(html).not.toContain("Match Affinity");
+  });
+  it("recovers from unavailable server scoring through Try again", async () => {
+    renderDossier(buildState());
+    mocks.getCachedRecommendation.mockReturnValue(null);
+    const { DecisionDossier } = await loadDecisionDossier();
+    const { authenticatedFetch } = await import("@playfit/core/store");
+    vi.mocked(authenticatedFetch)
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ entry }));
+    render(<DecisionDossier gameId={game.gameId} />);
+    await waitFor(() => expect(screen.getByText("Recommendation unavailable")).toBeTruthy());
+    expect(screen.queryByText(/Match Affinity:/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.getByText(/Match Affinity: 24\/100/)).toBeTruthy());
+    expect(authenticatedFetch).toHaveBeenCalledTimes(2);
   });
 });

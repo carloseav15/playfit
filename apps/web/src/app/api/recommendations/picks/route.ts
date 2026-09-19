@@ -1,10 +1,9 @@
-import { scoreSeedGame } from "@playfit/core/domain";
-import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
+import type { RankedSeedGame } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
 import { picksResponseSchema } from "@/lib/api-contracts";
 import { jsonData, jsonError } from "@/lib/api-errors";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
-import { buildStateForScoring, fetchFullGamesById, loadRecommendationState } from "../shared";
+import { loadRecommendationState, RECOMMENDATION_MODEL_VERSION, scoreGamesByIds } from "../shared";
 
 const PICKS_CACHE_TTL = 300;
 
@@ -35,19 +34,17 @@ async function getPicks(request: Request) {
     return Response.json([]);
   }
 
-  const cacheKey = `recs:picks:${loaded.userId}:${pickIds.join(",")}`;
+  const cacheKey = `recs:picks:${loaded.userId}:${loaded.stateVersion}:${RECOMMENDATION_MODEL_VERSION}:${pickIds.join(",")}`;
   const cached = await getCache<RankedSeedGame[]>(cacheKey);
   if (cached) return jsonData(picksResponseSchema, cached);
 
   try {
-    const gamesById = await fetchFullGamesById(pickIds);
-    const scoringState = buildStateForScoring(loaded.state, profile, loaded.state.user.onboarding);
-
-    const picks: RankedSeedGame[] = pickIds
-      .map((id) => gamesById.get(id))
-      .filter((g): g is SeedGame => !!g)
-      .map((game) => scoreSeedGame(game, scoringState, profile))
-      .sort((a, b) => b.affinityScore - a.affinityScore);
+    const picks = (await scoreGamesByIds(pickIds, loaded.state)).sort(
+      (a, b) =>
+        b.affinityScore - a.affinityScore ||
+        a.riskScore - b.riskScore ||
+        a.game.gameId.localeCompare(b.game.gameId),
+    );
 
     void setCache(cacheKey, picks, PICKS_CACHE_TTL);
 

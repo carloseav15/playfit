@@ -1,6 +1,5 @@
 "use client";
 
-import { scoreSeedGame } from "@playfit/core/domain";
 import { authenticatedFetch } from "@playfit/core/store";
 import type { RankedSeedGame, SeedGame } from "@playfit/core/types";
 import { ArrowLeft, Check, CheckCircle2, ListPlus, XCircle } from "lucide-react";
@@ -190,13 +189,14 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
     getCachedRecommendation(gameId),
   );
   const [loadingRecommendation, setLoadingRecommendation] = useState(!recommendationEntry);
+  const [recommendationRetry, setRecommendationRetry] = useState(0);
   const cachedGame = getSeedGame(gameId);
   const [fetchedGame, setFetchedGame] = useState<SeedGame | null>(null);
   const [loadingGame, setLoadingGame] = useState(!recommendationEntry && !cachedGame);
   const game = recommendationEntry?.game ?? cachedGame ?? fetchedGame;
 
   useEffect(() => {
-    const cachedEntry = getCachedRecommendation(gameId);
+    const cachedEntry = recommendationRetry === 0 ? getCachedRecommendation(gameId) : null;
     if (cachedEntry) {
       setRecommendationEntry(cachedEntry);
       setLoadingRecommendation(false);
@@ -230,7 +230,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
     return () => {
       cancelled = true;
     };
-  }, [gameId]);
+  }, [gameId, recommendationRetry]);
 
   useEffect(() => {
     if (recommendationEntry?.game || cachedGame) {
@@ -259,14 +259,7 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
     };
   }, [gameId, cachedGame, recommendationEntry?.game]);
 
-  const localEntry = useMemo(
-    () =>
-      !recommendationEntry && game && state.user.profile
-        ? scoreSeedGame(game, state, state.user.profile)
-        : null,
-    [game, state, recommendationEntry],
-  );
-  const entry = recommendationEntry ?? localEntry;
+  const entry = recommendationEntry;
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
   const gameState = game ? state.user.gameStates[game.gameId] : null;
   // `excluded` is the same flag CurrentUserState reads to show "Not for me" -- it's set for
@@ -334,7 +327,31 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   }
 
   if (!entry) {
-    return null;
+    return (
+      <Container as="main" size="sm" className="grid min-h-screen place-items-center py-8">
+        <Card>
+          <CardHeader>
+            <h1 className="font-display text-2xl font-semibold leading-tight">
+              {loadingRecommendation
+                ? "Preparing your recommendation"
+                : "Recommendation unavailable"}
+            </h1>
+            <CardDescription>
+              {loadingRecommendation
+                ? "Checking this game against your taste."
+                : "Your game is available, but its recommendation could not be loaded."}
+            </CardDescription>
+          </CardHeader>
+          {!loadingRecommendation && (
+            <CardContent>
+              <Button type="button" onClick={() => setRecommendationRetry((value) => value + 1)}>
+                Try again
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      </Container>
+    );
   }
 
   const validCautions = filterUsefulCautions(entry.cautionReasons);
@@ -451,14 +468,14 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                 <RecommendationMetric
                   label="Match Affinity"
-                  value={`${entry.affinityScore}%`}
+                  value={`${entry.affinityScore}/100`}
                   numericValue={entry.affinityScore}
                   colorClass="bg-gradient-to-r from-accent to-indigo-600"
                   labelClassName="text-[9px]"
                 />
                 <RecommendationMetric
                   label="Watch-out Score"
-                  value={`${entry.riskScore}%`}
+                  value={`${entry.riskScore}/100`}
                   numericValue={entry.riskScore}
                   colorClass={watchOutColorClass(entry.riskScore)}
                   labelClassName="text-[9px]"
@@ -471,6 +488,12 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
                   labelClassName="text-[9px]"
                 />
               </div>
+
+              <p className="text-xs text-muted-foreground">
+                Match and watch-outs are estimates on a 0–100 scale, not probabilities. Confidence
+                reflects how much rating evidence is available, not a guarantee you will enjoy the
+                game.
+              </p>
 
               <div className={cn("grid gap-3.5", hasCautions ? "md:grid-cols-2" : "grid-cols-1")}>
                 <RecommendationReasons
