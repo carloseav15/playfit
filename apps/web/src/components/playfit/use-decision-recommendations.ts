@@ -141,7 +141,8 @@ export function useDecisionRecommendations({
       onNeedsResync: resetLocalState,
     });
 
-  const isInitialLoading = loading && !model;
+  const applyingModel = !!model && model.stateVersion !== poolStateVersionRef.current;
+  const isInitialLoading = (loading && !model) || applyingModel;
   const isWaitingForCandidates = decisionPending || recommendationRefreshPending || refreshing;
 
   useEffect(() => {

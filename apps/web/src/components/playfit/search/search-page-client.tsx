@@ -4,7 +4,7 @@ import type { ProductPlatformOption, SeedGame } from "@playfit/core/types";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { DesktopAppNav } from "@/components/playfit/desktop-app-nav";
 import { MobileBottomNav } from "@/components/playfit/mobile-bottom-nav";
 import { SearchResultRow, SearchStatusPanel } from "@/components/playfit/search-result-row";
@@ -12,6 +12,7 @@ import { useGameSearch } from "@/components/playfit/use-game-search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GenreOption } from "@/lib/games-db";
+import { PlayfitStateContext } from "../playfit-context";
 import { SearchFilterBar } from "./search-filter-bar";
 
 const PAGE_SIZE = 24;
@@ -22,7 +23,13 @@ export function SearchPageClient({
   initialQuery,
   initialFamily,
   initialGenre,
+  filtersReady = true,
+  filtersError = false,
+  onRetryFilters,
 }: {
+  filtersReady?: boolean;
+  filtersError?: boolean;
+  onRetryFilters?: () => void;
   platforms: ProductPlatformOption[];
   genres: GenreOption[];
   initialQuery: string;
@@ -30,6 +37,10 @@ export function SearchPageClient({
   initialGenre: string | null;
 }) {
   const router = useRouter();
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
+  const appState = useContext(PlayfitStateContext);
+  const hasAppNavigation = !!appState?.state.user.onboardingCompletedAt;
 
   const [query, setQuery] = useState(initialQuery);
   const [family, setFamily] = useState<string | null>(initialFamily);
@@ -41,8 +52,9 @@ export function SearchPageClient({
     ? platforms.filter((p) => p.family === family).map((p) => p.platformId)
     : [];
 
-  const { results, total, pending, error, resolvedKey } = useGameSearch({
+  const { results, total, pending, error, resolvedKey, retry } = useGameSearch({
     query,
+    enabled: !family || (filtersReady && platformIds.length > 0),
     filters: { platform: platformIds, genre: genre ?? undefined },
     page,
     pageSize: PAGE_SIZE,
@@ -60,8 +72,8 @@ export function SearchPageClient({
     if (family) params.set("family", family);
     if (genre) params.set("genre", genre);
     const qs = params.toString();
-    router.replace(qs ? `/search?${qs}` : "/search", { scroll: false });
-  }, [query, family, genre, router]);
+    window.history.replaceState(null, "", qs ? `/search?${qs}` : "/search");
+  }, [query, family, genre]);
 
   useEffect(() => {
     // resolvedKey guards against a stale `results` array answering a *different*
@@ -98,42 +110,44 @@ export function SearchPageClient({
 
   return (
     <main className="min-h-screen pb-20 md:pb-0">
-      <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="relative mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-5 px-6">
-          <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center md:hidden">
-            <span className="font-display text-base font-black tracking-tight text-foreground">
-              Search
-            </span>
-          </div>
-          <Link href="/" className="hidden items-center gap-2.5 no-underline md:flex">
-            <Image
-              src="/playfit_logo_light.png"
-              alt="Playfit Logo"
-              width={28}
-              height={28}
-              className="object-contain dark:hidden"
-              priority
-            />
-            <Image
-              src="/playfit_logo_dark.png"
-              alt="Playfit Logo"
-              width={28}
-              height={28}
-              className="hidden object-contain dark:block"
-              priority
-            />
-            <span className="grid leading-tight">
-              <strong className="font-display text-sm tracking-tight font-black text-foreground">
-                Playfit
-              </strong>
-              <span className="text-[10px] text-muted-foreground">
-                Game decisions you can trust
+      {!hasAppNavigation && (
+        <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+          <div className="relative mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-5 px-6">
+            <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center md:hidden">
+              <span className="font-display text-base font-black tracking-tight text-foreground">
+                Search
               </span>
-            </span>
-          </Link>
-          <DesktopAppNav />
-        </div>
-      </header>
+            </div>
+            <Link href="/" className="hidden items-center gap-2.5 no-underline md:flex">
+              <Image
+                src="/playfit_logo_light.png"
+                alt="Playfit Logo"
+                width={28}
+                height={28}
+                className="object-contain dark:hidden"
+                priority
+              />
+              <Image
+                src="/playfit_logo_dark.png"
+                alt="Playfit Logo"
+                width={28}
+                height={28}
+                className="hidden object-contain dark:block"
+                priority
+              />
+              <span className="grid leading-tight">
+                <strong className="font-display text-sm tracking-tight font-black text-foreground">
+                  Playfit
+                </strong>
+                <span className="text-[10px] text-muted-foreground">
+                  Game decisions you can trust
+                </span>
+              </span>
+            </Link>
+            <DesktopAppNav />
+          </div>
+        </header>
+      )}
 
       <div className="mx-auto grid w-[min(980px,calc(100%-2rem))] gap-8 py-10 md:py-16">
         <div className="grid gap-2">
@@ -152,10 +166,35 @@ export function SearchPageClient({
           id="search-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          disabled={!interactive}
           placeholder="Search by title..."
-          className="text-base"
+          className="text-base border border-border bg-card"
         />
 
+        {!filtersReady ? (
+          <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
+            {filtersError
+              ? "Filters are unavailable. You can still search by title."
+              : "Loading filters…"}
+            {filtersError && (
+              <Button type="button" variant="secondary" size="sm" onClick={onRetryFilters}>
+                Retry filters
+              </Button>
+            )}
+          </div>
+        ) : null}
+        {family && (!filtersReady || platformIds.length === 0) ? (
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              {filtersReady
+                ? "This platform filter is unavailable."
+                : "The selected platform filter needs catalog metadata."}
+            </span>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setFamily(null)}>
+              Clear platform filter
+            </Button>
+          </div>
+        ) : null}
         <SearchFilterBar
           platforms={platforms}
           genres={genres}
@@ -177,14 +216,20 @@ export function SearchPageClient({
           </div>
         )}
 
-        {accumulated.length === 0 && (
+        {accumulated.length === 0 && (!family || (filtersReady && platformIds.length > 0)) && (
           <SearchStatusPanel
-            pending={pending}
+            pending={pending || (!!family && !filtersReady && !filtersError)}
             error={error}
             catalogEmpty={false}
             hasQuery={hasQuery}
           />
         )}
+
+        {error ? (
+          <Button type="button" variant="secondary" disabled={pending} onClick={retry}>
+            {pending ? "Retrying…" : "Retry search"}
+          </Button>
+        ) : null}
 
         {hasMore && (
           <Button
@@ -198,7 +243,7 @@ export function SearchPageClient({
           </Button>
         )}
       </div>
-      <MobileBottomNav />
+      {!hasAppNavigation && <MobileBottomNav />}
     </main>
   );
 }

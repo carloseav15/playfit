@@ -201,7 +201,7 @@ export async function getDistinctGenres(supabase: SupabaseClient): Promise<Genre
     .select("genre_id, genre:genre_ref(name)")
     .not("genre_id", "is", null);
 
-  if (error || !data) return [];
+  if (error || !data) throw new Error("Genre catalog unavailable");
 
   const seen = new Map<string, string>();
   for (const row of data as { genre_id: string | null; genre: unknown }[]) {

@@ -18,6 +18,7 @@ export function useRecommendationFetch<T>(errorMessage: string, initialData: T |
       options: {
         background?: boolean;
         keepStaleOnError?: boolean;
+        reportStaleError?: boolean;
         onSuccess?: (data: T) => void;
       } = {},
     ) => {
@@ -43,7 +44,7 @@ export function useRecommendationFetch<T>(errorMessage: string, initialData: T |
         } catch (error) {
           if (requestId !== requestIdRef.current) return;
           if (options.keepStaleOnError && dataRef.current) {
-            setLoadError(null);
+            setLoadError(options.reportStaleError ? getErrorMessage(error, errorMessage) : null);
           } else {
             dataRef.current = null;
             setData(null);

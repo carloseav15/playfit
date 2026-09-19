@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { SearchPageClient } from "@/components/playfit/search/search-page-client";
-import { getDistinctGenres } from "@/lib/games-db";
-import { fetchPlatforms } from "@/lib/supabase/platforms";
-import { createAnonClient } from "@/lib/supabase/server";
+import { SearchRouteClient } from "@/components/playfit/search/search-route-client";
 
 export const metadata: Metadata = {
   title: "Search the Catalog",
@@ -15,14 +12,9 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string; family?: string; genre?: string }>;
 }) {
   const params = await searchParams;
-  const supabase = createAnonClient();
-
-  const [platforms, genres] = await Promise.all([fetchPlatforms(), getDistinctGenres(supabase)]);
 
   return (
-    <SearchPageClient
-      platforms={platforms}
-      genres={genres}
+    <SearchRouteClient
       initialQuery={params.q ?? ""}
       initialFamily={params.family ?? null}
       initialGenre={params.genre ?? null}

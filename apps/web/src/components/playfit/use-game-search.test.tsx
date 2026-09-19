@@ -32,6 +32,28 @@ describe("useGameSearch", () => {
     vi.unstubAllGlobals();
   });
 
+  it("waits for filter metadata instead of issuing an unfiltered search", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ games: [], total: 0 }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender } = renderHook(
+      ({ enabled }) =>
+        useGameSearch({ query: "Hades", enabled, filters: { platform: enabled ? ["pc"] : [] } }),
+      { initialProps: { enabled: false } },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    rerender({ enabled: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock.mock.calls[0][0]).toContain("platform=pc");
+  });
+
   it("starts pending and renders an empty successful result", async () => {
     vi.useFakeTimers();
     const fetchMock = vi
@@ -94,6 +116,35 @@ describe("useGameSearch", () => {
       error: "Search could not load. Try again.",
       results: [],
       total: 0,
+    });
+  });
+
+  it("retries the same query once after rapid clicks and recovers", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true, json: async () => ({ games: [game], total: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useGameSearch({ query: "Hades" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(result.current.error).toBeTruthy();
+    act(() => {
+      result.current.retry();
+      result.current.retry();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]).toEqual([fetchMock.mock.calls[0][0], { cache: "reload" }]);
+    expect(result.current).toMatchObject({
+      pending: false,
+      error: null,
+      results: [game],
+      total: 1,
     });
   });
 

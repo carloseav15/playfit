@@ -532,7 +532,7 @@ export function DecisionShell({
                             variant="secondary"
                             className="bg-positive-bg text-positive border border-positive/20 text-[10px] font-extrabold"
                           >
-                            {entry.affinityScore}% Match
+                            {entry.affinityScore}/100 Match
                           </Badge>
                           <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                         </div>

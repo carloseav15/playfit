@@ -1,7 +1,7 @@
 "use client";
 
 import type { SeedGame } from "@playfit/core/types";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface GameSearchFilters {
   platform?: string[];
@@ -9,6 +9,7 @@ export interface GameSearchFilters {
 }
 
 interface UseGameSearchParams {
+  enabled?: boolean;
   query: string;
   filters?: GameSearchFilters;
   page?: number;
@@ -16,6 +17,7 @@ interface UseGameSearchParams {
 }
 
 interface UseGameSearchResult {
+  retry: () => void;
   results: SeedGame[];
   total: number;
   pending: boolean;
@@ -51,15 +53,20 @@ function buildSearchUrl(
   return `/api/games?${params.toString()}`;
 }
 
-// Standalone from use-playfit-search.ts (reuses its debounce + request-id-race-guard
-// pattern) because that hook is tightly coupled to PlayfitContext state that only
-// exists inside PlayfitProvider -- /search deliberately lives outside it.
 export function useGameSearch({
   query,
+  enabled = true,
   filters,
   page = 1,
   pageSize,
 }: UseGameSearchParams): UseGameSearchResult {
+  const [retryToken, setRetryToken] = useState(0);
+  const retryPending = useRef(false);
+  const retry = useCallback(() => {
+    if (retryPending.current) return;
+    retryPending.current = true;
+    setRetryToken((value) => value + 1);
+  }, []);
   const [results, setResults] = useState<SeedGame[]>([]);
   const [total, setTotal] = useState(0);
   const [pending, setPending] = useState(false);
@@ -81,7 +88,8 @@ export function useGameSearch({
 
     // No query and no filters: this is the blank initial state, not "browse everything."
     // Skip the fetch entirely instead of dumping the full catalog A-Z.
-    if (!hasSearchIntent) {
+    if (!hasSearchIntent || !enabled) {
+      retryPending.current = false;
       setPending(false);
       setError(null);
       setResults([]);
@@ -96,7 +104,7 @@ export function useGameSearch({
     timerRef.current = setTimeout(async () => {
       try {
         const url = buildSearchUrl(query, platformKey, genreKey, page, pageSize);
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: retryToken ? "reload" : "default" });
         if (!res.ok) {
           if (requestId !== requestCounterRef.current) return;
           setError("Search could not load. Try again.");
@@ -123,13 +131,25 @@ export function useGameSearch({
         setResolvedPage(page);
         setResolvedKey(requestKey);
         setPending(false);
+      } finally {
+        if (requestId === requestCounterRef.current) retryPending.current = false;
       }
     }, 250);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [query, platformKey, genreKey, page, pageSize, hasSearchIntent, requestKey]);
+  }, [
+    retryToken,
+    enabled,
+    query,
+    platformKey,
+    genreKey,
+    page,
+    pageSize,
+    hasSearchIntent,
+    requestKey,
+  ]);
 
-  return { results, total, pending, error, resolvedPage, resolvedKey };
+  return { results, total, pending, error, resolvedPage, resolvedKey, retry };
 }

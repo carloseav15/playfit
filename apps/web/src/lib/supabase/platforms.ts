@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export async function fetchPlatforms(): Promise<ProductPlatformOption[]> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/platforms?select=*&order=id.asc`, {
+    signal: AbortSignal.timeout(5_000),
     headers: {
       apikey: SUPABASE_ANON_KEY,
       "Accept-Profile": "games_library",

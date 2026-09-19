@@ -4,6 +4,7 @@ import { buildTasteModel } from "@playfit/core/domain";
 import type { ProductTasteMapTrait } from "@playfit/core/types";
 import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +89,7 @@ export function TasteShell() {
     loadError: recsLoadError,
     retry: retryRecs,
   } = useTodayRecommendations({
-    enabled: profileReady,
+    enabled: profileReady && (requiredIds.length > 0 || !!profile?.ratedCount),
     profile,
     gameStates: state.user.gameStates,
     onboarding: state.user.onboarding,
@@ -145,7 +146,25 @@ export function TasteShell() {
     return null;
   }
 
-  if (hydrating || (missingIds.length > 0 && !hydratedOnce)) {
+  if (requiredIds.length === 0 && model.evidenceCount === 0 && !profile?.ratedCount) {
+    return (
+      <Container as="main" size="md" className="grid gap-4 py-8">
+        <h1 className="font-display text-3xl font-bold">Your Taste</h1>
+        <section className="grid gap-4 rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-xl font-semibold">Start with a game you know</h2>
+          <p className="max-w-xl text-muted-foreground">
+            Tell Playfit what you enjoyed or what did not work for you. Your preferences and history
+            will appear here as you add feedback.
+          </p>
+          <Button asChild className="w-fit">
+            <Link href="/search">Find a game to rate</Link>
+          </Button>
+        </section>
+      </Container>
+    );
+  }
+
+  if (!hydratedOnce && (hydrating || missingIds.length > 0)) {
     return (
       <Container as="main" size="md" className="grid gap-4 py-8">
         <Skeleton className="h-8 w-48 rounded-xl" />

@@ -1,25 +1,32 @@
 "use client";
 
-import { authenticatedFetch } from "@playfit/core/store";
+import { authenticatedFetch, getCachedAuthUserId } from "@playfit/core/store";
 import type { ProductGameState, ProductProfile, RankedSeedGame } from "@playfit/core/types";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
+import { cachePicks, getCachedPicks } from "./recommendation-cache";
 import { useRecommendationFetch } from "./use-recommendation-fetch";
 
 export function usePicksRecommendations({
   enabled,
+  stateVersion,
   profile,
   gameStates,
   errorMessage,
 }: {
   enabled: boolean;
+  stateVersion: string;
   profile: ProductProfile | null | undefined;
   gameStates: Record<string, ProductGameState>;
   errorMessage: string;
 }) {
-  const { data, loading, loadError, execute, reset, abandonInFlight } =
-    useRecommendationFetch<RankedSeedGame[]>(errorMessage);
-  const picks = data ?? [];
+  const userId = getCachedAuthUserId();
+  const identity = JSON.stringify([userId, stateVersion]);
+  const [dataIdentity, setDataIdentity] = useState(identity);
+  const { data, loading, refreshing, loadError, execute, reset, abandonInFlight } =
+    useRecommendationFetch<RankedSeedGame[]>(errorMessage, getCachedPicks(userId, stateVersion));
+  const currentData = dataIdentity === identity ? data : null;
+  const picks = currentData ?? [];
   const serializedRef = useRef("");
 
   const serializedKey = useMemo(() => {
@@ -38,9 +45,18 @@ export function usePicksRecommendations({
         if (!res.ok) throw new Error(errorMessage);
         return (await res.json()) as RankedSeedGame[];
       },
-      { onSuccess: (data) => addGamesToCache(data.map((p) => p.game)) },
+      {
+        background: dataIdentity === identity,
+        keepStaleOnError: dataIdentity === identity,
+        reportStaleError: true,
+        onSuccess: (data) => {
+          setDataIdentity(identity);
+          cachePicks(userId, stateVersion, data);
+          addGamesToCache(data.map((p) => p.game));
+        },
+      },
     );
-  }, [errorMessage, execute]);
+  }, [errorMessage, execute, identity, dataIdentity, userId, stateVersion]);
 
   useEffect(() => {
     if (!enabled || !profile) {
@@ -51,19 +67,35 @@ export function usePicksRecommendations({
     const changed = serializedKey !== serializedRef.current;
     serializedRef.current = serializedKey;
 
-    if (!changed && picks.length > 0) return;
+    if (!changed && picks.length > 0 && dataIdentity === identity) return;
 
     void runFetch();
 
     return () => {
       abandonInFlight();
     };
-  }, [enabled, profile, serializedKey, picks.length, runFetch, reset, abandonInFlight]);
+  }, [
+    enabled,
+    profile,
+    serializedKey,
+    picks.length,
+    runFetch,
+    reset,
+    abandonInFlight,
+    dataIdentity,
+    identity,
+  ]);
 
   const retry = useCallback(() => {
     if (!enabled || !profile) return Promise.resolve();
     return runFetch();
   }, [enabled, profile, runFetch]);
 
-  return { picks, loading, loadError, retry };
+  return {
+    picks,
+    loading: loading || (enabled && !currentData && !loadError),
+    refreshing,
+    loadError,
+    retry,
+  };
 }

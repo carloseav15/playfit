@@ -70,8 +70,9 @@ export function PicksShell() {
     if (!profileReady) redirectToMarketingLanding();
   }, [profileReady]);
 
-  const { picks, loading, loadError, retry } = usePicksRecommendations({
+  const { picks, loading, refreshing, loadError, retry } = usePicksRecommendations({
     enabled: profileReady,
+    stateVersion: state.stateVersion,
     profile: state.user.profile,
     gameStates: state.user.gameStates,
     errorMessage: "Playfit Picks could not be refreshed.",
@@ -117,6 +118,11 @@ export function PicksShell() {
               Your saved recommendations, ready when you are.
             </p>
           </div>
+          {refreshing ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Updating picks…
+            </p>
+          ) : null}
           {loadError ? (
             <Alert
               variant="warning"
