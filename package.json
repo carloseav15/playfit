@@ -40,10 +40,12 @@
     "catalog:restore": "node scripts/restore-schema.mjs --schema games_library",
     "catalog:import-external": "bash scripts/import-external-catalog-data.sh",
     "catalog:import-review-sentiment": "bash scripts/import-metacritic-review-sentiment.sh",
-    "catalog:report-external": "bash scripts/export-external-catalog-match-report.sh"
+    "catalog:report-external": "bash scripts/export-external-catalog-match-report.sh",
+    "validate:scoring:local": "node scripts/validate-recommendation-scoring.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@vitest/coverage-v8": "^4.1.11",
     "cheerio": "^1.2.0",
     "tsx": "^4.23.0",
     "typescript": "^5.9.0"

@@ -1,5 +1,9 @@
 # Playfit
 
+Part of the [Playfit portfolio](https://github.com/carloseav15/playfit-workspace).
+See the [reviewer guide](https://github.com/carloseav15/playfit-workspace/blob/main/docs/PORTFOLIO.md)
+for shared rules, platform differences and verification limits.
+
 [![CI](https://github.com/carloseav15/playfit/actions/workflows/ci.yml/badge.svg)](https://github.com/carloseav15/playfit/actions/workflows/ci.yml)
 
 ![Playfit product preview](apps/web/public/og.webp)
@@ -34,8 +38,8 @@ Live demo: [playfit-gold.vercel.app](https://playfit-gold.vercel.app)
 - `@playfit/core` workspace package for domain logic, schema validation, seed loading, and profile persistence
 - Biome for linting and Vitest/Playwright for automated checks
 
-Next is pinned to `16.3.0-canary.34` intentionally because this repo tracks the App Router behavior
-needed by the product. Dependency health is checked with `npm audit --audit-level=moderate`.
+Next is pinned to `16.3.3` in the web workspace. Dependency health is checked with
+`npm audit --audit-level=moderate`.
 
 ## Commands
 
@@ -101,6 +105,9 @@ migrations and removes existing local data.
 
 ## Architecture
 
+Read the [operational model](docs/RECOMMENDATION-MODEL.md) for scoring, cache identity,
+confidence and known evaluation limits.
+
 - `apps/web` contains the Next.js app, route handlers, UI, and Playwright e2e tests.
 - `packages/core` contains shared domain logic, Zod schemas, Supabase seed loading, and browser profile persistence.
 - Prefer focused core entrypoints:
@@ -108,7 +115,6 @@ migrations and removes existing local data.
   - `@playfit/core/types` for shared types
   - `@playfit/core/store` for browser profile persistence
   - `@playfit/core/data` for catalog/tag seed helpers used inside this monorepo
-  - `@playfit/core/supabase` for the browser Supabase client
 
 The root `@playfit/core` entrypoint remains for compatibility, but new imports should use the
 focused entrypoints to avoid pulling browser/database infrastructure into pure domain code.
@@ -133,11 +139,15 @@ as the main app backend.
 Profile API behavior:
 
 - Authenticated users are resolved through Supabase `auth.getUser(jwt)`.
-- Anonymous mode uses a browser `deviceId` and persists through `/api/profile` via SECURITY DEFINER
-  Postgres functions.
-- `deviceId` is a convenience identifier for local/private use, not a strong security boundary.
-- The service role key is reserved for scripts, CI, migrations, and Supabase Edge Functions. It is
-  not required as normal Vercel runtime configuration.
+- Anonymous browsing does not require an account. Recommendation and decision routes require
+  a verified anonymous or authenticated Supabase session; a device ID does not authorize them.
+- Server-side cache helpers use the service-role client. Never expose its key to client code.
+- Operational scores for Play Next, Picks and dossiers share SQL calculation after applying
+  migration `20260912204151_share_recommendation_scoring.sql`. TypeScript hydrates catalog
+  details and human-readable reasons without replacing server scores.
+- `npm run validate:scoring:local` compares discovery and detail scores against a small
+  transactional fixture catalog in the local Docker database. It rolls back all changes and
+  does not establish full-catalog performance or deployment readiness.
 
 ## Data Quality
 
@@ -153,14 +163,17 @@ title groups for manual review.
 | GET | `/api/games?q=&platform=&genre=&page=&pageSize=` | Search / browse / filter game catalog | None |
 | GET | `/api/games/:gameId` | Game detail (resolves redirects) | None |
 | POST | `/api/games/batch` | Batch lookup (max 500 game IDs) | None |
-| GET | `/api/profile?device_id=` | Read user profile | Cookie / Bearer / deviceId |
-| POST | `/api/profile` | Save user profile | Cookie / Bearer / deviceId |
-| DELETE | `/api/profile?device_id=` | Reset user profile | Cookie / Bearer / deviceId |
-| PATCH | `/api/profile/games/:gameId` | Update game state (status, rating, etc.) | Cookie / Bearer / deviceId |
-| DELETE | `/api/profile/games/:gameId` | Delete game state | Cookie / Bearer / deviceId |
+| GET | `/api/profile?device_id=` | Read user profile | Cookie / Bearer |
+| POST | `/api/profile` | Save user profile | Cookie / Bearer |
+| DELETE | `/api/profile?device_id=` | Reset user profile | Cookie / Bearer |
+| PATCH | `/api/profile/games/:gameId` | Update game state (status, rating, etc.) | Cookie / Bearer |
+| DELETE | `/api/profile/games/:gameId` | Delete game state | Cookie / Bearer |
 | POST | `/api/auth/mark-returning` | Mark an authenticated session as returning (skips the marketing landing on next visit) | Bearer |
-| POST | `/api/recommendations/today` | Today's recommendation (session-scoped, cached scoring) | Cookie / Bearer / deviceId |
+| POST | `/api/recommendations/today` | Today's recommendation (session-scoped, cached scoring) | Cookie / Bearer |
 | POST | `/api/recommendations/similar` | Similar + series games for a game ID | None |
+| POST | `/api/decisions` | Versioned taste, Started and Undo transitions | Cookie / Bearer |
+| GET | `/api/recommendations/picks` | Saved games scored by current taste version | Cookie / Bearer |
+| GET | `/api/recommendations/game/:gameId` | Shared SQL score for one game | Cookie / Bearer |
 | POST | `/api/recommendations/profile` | Build adaptive profile from onboarding + states | Cookie / Bearer |
 
 ## Deployment
