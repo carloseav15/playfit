@@ -313,7 +313,7 @@ export function PlayNextCard({
             )}
           >
             <ListPlus className="size-4 mr-2" />
-            {inPlayfitPicks ? "Saved in Playfit Picks" : "Save to Picks"}
+            {inPlayfitPicks ? "Saved in My Picks" : "Save to Picks"}
           </Button>
 
           <div className="flex flex-col gap-2 p-2.5 sm:p-3 rounded-2xl bg-secondary/50 border border-border/50">

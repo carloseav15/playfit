@@ -1,6 +1,10 @@
 import type { SeedGame } from "@playfit/core/types";
 import { describe, expect, it } from "vitest";
-import { buildAvailablePlatformList, getSafeSearchReturnTo } from "./decision-dossier-helpers";
+import {
+  buildAvailablePlatformList,
+  getSafePicksReturnTo,
+  getSafeSearchReturnTo,
+} from "./decision-dossier-helpers";
 
 const game: SeedGame = {
   gameId: "game-1",
@@ -24,6 +28,14 @@ describe("decision-dossier-helpers", () => {
     expect(getSafeSearchReturnTo("/search?family=jrpg")).toBe("/search?family=jrpg");
     expect(getSafeSearchReturnTo("https://example.com/redirect")).toBeNull();
     expect(getSafeSearchReturnTo("/settings")).toBeNull();
+  });
+
+  it("allows only internal picks return paths", () => {
+    expect(getSafePicksReturnTo("/picks")).toBe("/picks");
+    expect(getSafePicksReturnTo("/picks?view=grid")).toBe("/picks?view=grid");
+    expect(getSafePicksReturnTo("/picksfoo")).toBeNull();
+    expect(getSafePicksReturnTo("https://example.com/picks")).toBeNull();
+    expect(getSafePicksReturnTo("/search")).toBeNull();
   });
 
   it("falls back to platform ids when a display name is missing", () => {

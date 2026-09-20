@@ -82,7 +82,7 @@ function RouteHeader({ pathname, headerConfig }: { pathname: string; headerConfi
 
   const routeTitle =
     pathname === "/picks"
-      ? "Saved Picks"
+      ? "My Picks"
       : pathname === "/taste"
         ? "My Taste"
         : pathname.startsWith("/game/")

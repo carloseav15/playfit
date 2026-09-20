@@ -238,13 +238,33 @@ describe("DecisionDossier", () => {
     const html = renderToStaticMarkup(<DecisionDossier gameId={game.gameId} />);
 
     expect(html).toContain("Recommended");
-    expect(html).toContain("In Playfit Picks");
+    expect(html).toContain("In My Picks");
     expect(html).toContain("Remove from Picks");
     // Being saved to Picks isn't a played/rejected verdict -- the decision is still pending,
     // so the full CTA set (not the collapsed "Change verdict" state) should still show.
     expect(html).toContain("Already Played");
     expect(html).not.toContain("Change verdict");
   });
+  it("offers Remove from Picks from live state even when the cached recommendation is stale", async () => {
+    renderDossier(buildState({ inPlayfitPicks: true }), { ...entry, inPlayfitPicks: false });
+    const { DecisionDossier } = await loadDecisionDossier();
+
+    const html = renderToStaticMarkup(<DecisionDossier gameId={game.gameId} />);
+
+    expect(html).toContain("Remove from Picks");
+    expect(html).not.toContain("Save to Picks");
+  });
+
+  it("offers Save to Picks from live state after the game was removed from Picks", async () => {
+    renderDossier(buildState({ inPlayfitPicks: false }), { ...entry, inPlayfitPicks: true });
+    const { DecisionDossier } = await loadDecisionDossier();
+
+    const html = renderToStaticMarkup(<DecisionDossier gameId={game.gameId} />);
+
+    expect(html).toContain("Save to Picks");
+    expect(html).not.toContain("Remove from Picks");
+  });
+
   it("waits for server scoring instead of inventing a local estimate", async () => {
     renderDossier(buildState());
     mocks.getCachedRecommendation.mockReturnValue(null);

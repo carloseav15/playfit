@@ -163,7 +163,7 @@ export function TasteHistory({
                 : "text-muted-foreground hover:text-foreground hover:bg-white/[0.02]",
             )}
           >
-            Saved Picks{" "}
+            My Picks{" "}
             <Badge className="rounded-lg ml-0.5" variant="secondary">
               {activeCount}
             </Badge>

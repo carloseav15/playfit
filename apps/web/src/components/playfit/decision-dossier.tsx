@@ -28,7 +28,11 @@ import {
 } from "../playfit/product-utils";
 import { StatusToast } from "../playfit/status-toast";
 import { type AlreadyPlayedFeedback, AlreadyPlayedPanel } from "./already-played-panel";
-import { buildAvailablePlatformList, getSafeSearchReturnTo } from "./decision-dossier-helpers";
+import {
+  buildAvailablePlatformList,
+  getSafePicksReturnTo,
+  getSafeSearchReturnTo,
+} from "./decision-dossier-helpers";
 import { addRecommendationsToSessionCache, getCachedRecommendation } from "./recommendation-cache";
 import { RecommendationMetric } from "./recommendation-metric";
 import { filterUsefulCautions, RecommendationReasons } from "./recommendation-reasons";
@@ -45,7 +49,7 @@ function CurrentUserState({
   inPlayfitPicks?: boolean;
 }) {
   const labels = [
-    inPlayfitPicks ? "In Playfit Picks" : null,
+    inPlayfitPicks ? "In My Picks" : null,
     status ? `Status: ${status.replaceAll("_", " ")}` : null,
     rating ? `Rating: ${rating}` : null,
     excluded ? "Not for me" : null,
@@ -77,9 +81,9 @@ function DossierActions({
   editingVerdict: boolean;
   onEditingVerdictChange: (next: boolean) => void;
 }) {
-  const { applyDecisionFeedback, setPlayfitPick } = usePlayfitState();
+  const { applyDecisionFeedback, setPlayfitPick, state } = usePlayfitState();
   const [showAlreadyPlayed, setShowAlreadyPlayed] = useState(false);
-  const isPicked = entry.inPlayfitPicks;
+  const isPicked = state.user.gameStates[entry.game.gameId]?.inPlayfitPicks ?? entry.inPlayfitPicks;
   const alreadyPlayedPanelId = `dossier-already-played-${entry.game.gameId}`;
   // Once a game already has a verdict, don't re-present the full pending CTA set --
   // that reads as if Playfit forgot the decision. Collapse to a single "Change verdict"
@@ -171,11 +175,17 @@ export function DecisionDossier({ gameId, returnTo }: { gameId: string; returnTo
   const { getSeedGame, state } = usePlayfitState();
   const router = useRouter();
   const searchReturnTo = getSafeSearchReturnTo(returnTo);
-  const backLabel = searchReturnTo ? "Back to Search" : "Back to Play Next";
+  const picksReturnTo = getSafePicksReturnTo(returnTo);
+  const safeReturnTo = searchReturnTo ?? picksReturnTo;
+  const backLabel = searchReturnTo
+    ? "Back to Search"
+    : picksReturnTo
+      ? "Back to My Picks"
+      : "Back to Play Next";
 
   function goBack() {
-    if (searchReturnTo) {
-      router.push(searchReturnTo);
+    if (safeReturnTo) {
+      router.push(safeReturnTo);
       return;
     }
 

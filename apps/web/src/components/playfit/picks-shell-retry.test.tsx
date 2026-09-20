@@ -56,14 +56,14 @@ describe("PicksShell: recoverable load error", () => {
     mocks.usePicksRecommendations.mockReturnValue({
       picks: [],
       loading: false,
-      loadError: "Playfit Picks could not be refreshed.",
+      loadError: "My Picks could not be refreshed.",
       retry: vi.fn(),
     });
     const { PicksShell } = await loadPicksShell();
 
     render(<PicksShell />);
 
-    expect(screen.getByText("Playfit Picks could not be refreshed.")).toBeTruthy();
+    expect(screen.getByText("My Picks could not be refreshed.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
@@ -72,7 +72,7 @@ describe("PicksShell: recoverable load error", () => {
     mocks.usePicksRecommendations.mockReturnValue({
       picks: [],
       loading: false,
-      loadError: "Playfit Picks could not be refreshed.",
+      loadError: "My Picks could not be refreshed.",
       retry,
     });
     const { PicksShell } = await loadPicksShell();
@@ -94,7 +94,7 @@ describe("PicksShell: recoverable load error", () => {
     mocks.usePicksRecommendations.mockReturnValue({
       picks: [],
       loading: false,
-      loadError: "Playfit Picks could not be refreshed.",
+      loadError: "My Picks could not be refreshed.",
       retry,
     });
     const { PicksShell } = await loadPicksShell();

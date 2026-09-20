@@ -34,7 +34,7 @@ describe("AppHeader", () => {
   it("renders the route title and shared brand without duplicating markup", () => {
     render(<AppHeader pathname="/picks" headerConfig={{}} picksCount={2} />);
 
-    expect(screen.getByText("Saved Picks")).toBeInTheDocument();
+    expect(screen.getByText("My Picks")).toBeInTheDocument();
     expect(screen.getByText("Playfit")).toBeInTheDocument();
     expect(screen.getByText("picks:2")).toBeInTheDocument();
   });

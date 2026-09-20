@@ -109,11 +109,11 @@ describe("PicksShell", () => {
       </TooltipProvider>,
     );
 
-    expect(html).toContain("h-44");
-    expect(html).not.toContain("No saved picks yet");
+    expect(html).toContain("aspect-[3/4]");
+    expect(html).not.toContain("Nothing saved yet");
   });
 
-  it("renders the existing empty state when loading completes without picks", async () => {
+  it("renders the empty state when loading completes without picks", async () => {
     mocks.usePlayfitState.mockReturnValue({
       state: readyState(),
       applyDecisionFeedback: vi.fn(),
@@ -128,11 +128,11 @@ describe("PicksShell", () => {
       </TooltipProvider>,
     );
 
-    expect(html).toContain("No saved picks yet");
+    expect(html).toContain("Nothing saved yet");
     expect(html).toContain("Find Recommendations");
   });
 
-  it("renders saved pick content after loading", async () => {
+  it("renders the saved picks as a poster grid that links to each game's dossier", async () => {
     mocks.usePlayfitState.mockReturnValue({
       state: readyState(),
       applyDecisionFeedback: vi.fn(),
@@ -151,7 +151,36 @@ describe("PicksShell", () => {
       </TooltipProvider>,
     );
 
+    expect(html).toContain("My Picks");
+    expect(html).toContain("1 saved pick · best match first");
     expect(html).toContain("Hades");
-    expect(html).not.toContain("No saved picks yet");
+    expect(html).toContain("90 out of 100 match");
+    expect(html).toContain("returnTo=%2Fpicks");
+    expect(html).toContain('href="/game/hades?');
+    expect(html).not.toContain("Already Played It");
+    expect(html).not.toContain("Nothing saved yet");
+  });
+
+  it("pluralizes the saved picks count", async () => {
+    mocks.usePlayfitState.mockReturnValue({
+      state: readyState(),
+      applyDecisionFeedback: vi.fn(),
+      setPlayfitPick: vi.fn(),
+    });
+    mocks.usePicksRecommendations.mockReturnValue({
+      picks: [pick, { ...pick, game: { ...pick.game, gameId: "celeste", title: "Celeste" } }],
+      loading: false,
+      loadError: null,
+    });
+    const { PicksShell } = await loadPicksShell();
+
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <PicksShell />
+      </TooltipProvider>,
+    );
+
+    expect(html).toContain("2 saved picks · best match first");
+    expect(html).toContain("Celeste");
   });
 });

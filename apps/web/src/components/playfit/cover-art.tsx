@@ -1,7 +1,6 @@
 import type { SeedGame } from "@playfit/core/types";
-import Image from "next/image";
-
 import { cn } from "@/lib/utils";
+import { CoverImage } from "./cover-image";
 
 const IGDB_LOW_RES_SIZES = /\/(t_thumb|t_micro|t_cover_small|t_cover_big)\//;
 
@@ -63,6 +62,21 @@ export function CoverArt({
     background: `linear-gradient(135deg, hsl(${hue}, 40%, 18%), hsl(${(hue + 50) % 360}, 30%, 26%))`,
   };
 
+  const fallback = decorative ? (
+    <div aria-hidden="true" className={placeholderClassName} style={placeholderStyle}>
+      {placeholder}
+    </div>
+  ) : (
+    <div
+      role="img"
+      aria-label={`${game.title} cover art`}
+      className={placeholderClassName}
+      style={placeholderStyle}
+    >
+      {placeholder}
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -71,39 +85,16 @@ export function CoverArt({
       )}
     >
       {src ? (
-        src.startsWith("http") ? (
-          <Image
-            src={src}
-            alt={alt}
-            className="h-full w-full object-cover"
-            width={264}
-            height={352}
-            priority={priority}
-            unoptimized
-          />
-        ) : (
-          <Image
-            src={src}
-            alt={alt}
-            className="h-full w-full object-cover"
-            width={264}
-            height={352}
-            priority={priority}
-          />
-        )
-      ) : decorative ? (
-        <div aria-hidden="true" className={placeholderClassName} style={placeholderStyle}>
-          {placeholder}
-        </div>
+        <CoverImage
+          key={src}
+          src={src}
+          alt={alt}
+          priority={priority}
+          unoptimized={src.startsWith("http")}
+          fallback={fallback}
+        />
       ) : (
-        <div
-          role="img"
-          aria-label={`${game.title} cover art`}
-          className={placeholderClassName}
-          style={placeholderStyle}
-        >
-          {placeholder}
-        </div>
+        fallback
       )}
     </div>
   );
