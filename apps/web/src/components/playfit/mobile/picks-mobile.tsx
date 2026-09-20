@@ -122,7 +122,7 @@ export function PicksMobile({
           </h3>
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[10px] font-extrabold text-accent">
-              {entry.affinityScore}% Match
+              {entry.affinityScore}/100 Match
             </span>
           </div>
         </div>

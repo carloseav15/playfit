@@ -56,3 +56,15 @@ export function setLastPlayNextModel(userId: string, model: ProductPlayNextModel
 export function clearLastPlayNextModel() {
   lastEntry = null;
 }
+
+let lastPicks: { userId: string; stateVersion: string; entries: RankedSeedGame[] } | null = null;
+
+export function getCachedPicks(userId: string | null, stateVersion: string) {
+  return userId && lastPicks?.userId === userId && lastPicks.stateVersion === stateVersion
+    ? lastPicks.entries
+    : null;
+}
+
+export function cachePicks(userId: string | null, stateVersion: string, entries: RankedSeedGame[]) {
+  if (userId) lastPicks = { userId, stateVersion, entries };
+}

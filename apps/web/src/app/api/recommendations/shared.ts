@@ -20,7 +20,7 @@ import { buildIdentityExpandedGameStates } from "./identity-equivalents";
 export type { LoadedRecommendationState, PersistedProfilePayload } from "./state-loader";
 export { loadRecommendationState, loadRecommendationStateFromContext } from "./state-loader";
 
-const CATALOG_VERSION = "20260705030000";
+export const RECOMMENDATION_MODEL_VERSION = "20260912-shared-sql";
 const RECS_CACHE_TTL = 3600;
 
 function buildRecsCacheKey({
@@ -32,7 +32,7 @@ function buildRecsCacheKey({
   stateVersion: string;
   scope: "play-next" | "model";
 }) {
-  return `recs:${scope}:${userId}:${stateVersion}:${CATALOG_VERSION}`;
+  return `recs:${scope}:${userId}:${stateVersion}:${RECOMMENDATION_MODEL_VERSION}`;
 }
 
 export async function fetchFullGamesById(gameIds: string[]): Promise<Map<string, SeedGame>> {
@@ -75,6 +75,25 @@ function normalizeModel(model: unknown): ProductTodayModel {
   };
 }
 
+function scoringParams(state: ProductState) {
+  const profile = state.user.profile;
+  if (!profile) throw new Error("Taste profile is not ready");
+  const accessiblePlatformIds = state.user.onboarding.platforms
+    .filter((platform) => platform.status === "available" || platform.status === "limited")
+    .map((platform) => platform.platformId);
+  const likedTags = buildLikedTagsFromProfile(profile);
+  const dislikedTags = buildDislikedTagsFromProfile(profile);
+  return {
+    p_liked_tags: likedTags as Record<string, number>,
+    p_disliked_tags: dislikedTags as Record<string, number>,
+    p_liked_genres: profile.likedGenres,
+    p_avoided_genres: profile.avoidedGenres,
+    p_rated_count: profile.ratedCount,
+    p_accessible_platform_ids: accessiblePlatformIds,
+    p_game_states: state.user.gameStates as Record<string, unknown>,
+  };
+}
+
 async function callScoringRpc(
   state: ProductState,
   skipBuckets: string[] = [],
@@ -86,19 +105,8 @@ async function callScoringRpc(
   }
 
   const supabase = createAnonClient();
-  const accessiblePlatformIds = state.user.onboarding.platforms
-    .filter((platform) => platform.status === "available" || platform.status === "limited")
-    .map((platform) => platform.platformId);
-  const likedTags = buildLikedTagsFromProfile(profile);
-  const dislikedTags = buildDislikedTagsFromProfile(profile);
-
   const { data, error } = await supabase.rpc("score_today_recommendations", {
-    p_liked_tags: likedTags as Record<string, number>,
-    p_disliked_tags: dislikedTags as Record<string, number>,
-    p_liked_genres: profile.likedGenres,
-    p_avoided_genres: profile.avoidedGenres,
-    p_rated_count: profile.ratedCount,
-    p_accessible_platform_ids: accessiblePlatformIds,
+    ...scoringParams(state),
     p_onboarding_liked_ids: state.user.onboarding.likedGameIds,
     p_onboarding_disliked_ids: state.user.onboarding.dislikedGameIds ?? [],
     p_game_states: gameStatesOverride ?? (state.user.gameStates as Record<string, unknown>),
@@ -125,6 +133,27 @@ export function buildStateForScoring(
       onboarding,
     },
   };
+}
+
+function hydrateScoredEntries(
+  entries: RankedSeedGame[],
+  state: ProductState,
+  gamesById: Map<string, SeedGame>,
+): RankedSeedGame[] {
+  const profile = state.user.profile;
+  if (!profile) return entries;
+  return entries.map((entry) => {
+    const game = gamesById.get(entry.game.gameId);
+    if (!game) return entry;
+    const reasons = scoreSeedGame(game, state, profile);
+    return {
+      ...entry,
+      game,
+      fitReasons: reasons.fitReasons,
+      cautionReasons: reasons.cautionReasons,
+      similarGames: reasons.similarGames,
+    };
+  });
 }
 
 export async function scoreTodayModel({
@@ -161,26 +190,11 @@ export async function scoreTodayModel({
 
   const scoringState = buildStateForScoring(state, profile, state.user.onboarding);
 
-  function hydrate(entries: RankedSeedGame[], p: ProductProfile) {
-    return entries.map((entry) => {
-      const fullGame = gamesById.get(entry.game.gameId);
-      if (!fullGame) return entry;
-      const scored = scoreSeedGame(fullGame, scoringState, p);
-      return {
-        ...entry,
-        game: fullGame,
-        fitReasons: scored.fitReasons,
-        cautionReasons: scored.cautionReasons,
-        similarGames: scored.similarGames,
-      };
-    });
-  }
-
   const hydrated: ProductTodayModel = {
-    currentRun: hydrate(model.currentRun, profile),
-    nextUp: hydrate(model.nextUp, profile),
-    resume: hydrate(model.resume, profile),
-    picks: hydrate(model.picks, profile),
+    currentRun: hydrateScoredEntries(model.currentRun, scoringState, gamesById),
+    nextUp: hydrateScoredEntries(model.nextUp, scoringState, gamesById),
+    resume: hydrateScoredEntries(model.resume, scoringState, gamesById),
+    picks: hydrateScoredEntries(model.picks, scoringState, gamesById),
   };
 
   void setCache(cacheKey, hydrated, RECS_CACHE_TTL);
@@ -243,18 +257,7 @@ export async function buildPlayNextModel({
   const gamesById = await fetchFullGamesById(batch.map((entry) => entry.game.gameId));
   const scoringState = buildStateForScoring(state, profile, state.user.onboarding);
 
-  const hydrated = batch.map((entry) => {
-    const fullGame = gamesById.get(entry.game.gameId);
-    if (!fullGame) return entry;
-    const scored = scoreSeedGame(fullGame, scoringState, profile);
-    return {
-      ...entry,
-      game: fullGame,
-      fitReasons: scored.fitReasons,
-      cautionReasons: scored.cautionReasons,
-      similarGames: scored.similarGames,
-    };
-  });
+  const hydrated = hydrateScoredEntries(batch, scoringState, gamesById);
 
   const playNextModel: ProductPlayNextModel = {
     primary: hydrated[0] ?? null,
@@ -284,9 +287,27 @@ export async function scoreOneGame({
   const profile = state.user.profile;
   if (!profile) return null;
 
-  const gamesById = await fetchFullGamesById([gameId]);
-  const game = gamesById.get(gameId);
-  if (!game) return null;
+  const entries = await scoreGamesByIds([gameId], state);
+  return entries[0] ?? null;
+}
 
-  return scoreSeedGame(game, state, profile);
+export async function scoreGamesByIds(
+  gameIds: string[],
+  state: ProductState,
+): Promise<RankedSeedGame[]> {
+  if (!state.user.profile || gameIds.length === 0) return [];
+  const ids = [...new Set(gameIds)];
+  const supabase = createAnonClient();
+  const entries: RankedSeedGame[] = [];
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const { data, error } = await supabase.rpc("score_recommendation_games", {
+      ...scoringParams(state),
+      p_game_ids: ids.slice(offset, offset + 100),
+    });
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data)) throw new Error("Recommendation RPC returned invalid entries");
+    entries.push(...(data as RankedSeedGame[]));
+  }
+  const games = await fetchFullGamesById(ids);
+  return hydrateScoredEntries(entries, state, games);
 }

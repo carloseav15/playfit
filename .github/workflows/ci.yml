@@ -50,14 +50,13 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      # The e2e suite mocks every request the *browser* makes (page.route() against
-      # rest/v1/* and api/*), but Server Components (search/page.tsx's fetchPlatforms,
-      # (play)/layout.tsx) fetch directly from Node during SSR, which page.route() can't
-      # intercept -- that needs a real Postgres/PostgREST to respond, or those routes
-      # throw ("fetch failed") and every test that renders them fails immediately.
+      # Browser fixtures do not cover every server-side catalog request.
+      # Keep local Supabase available for SQL parity and unmocked metadata APIs.
       - name: Start local Supabase
         run: supabase start
-      - name: Seed the platform row Server Components render on first load
+      - name: Verify shared SQL scoring on a transactional fixture catalog
+        run: npm run validate:scoring:local
+      - name: Seed the platform row used by catalog metadata
         run: |
           supabase db query --local "
             insert into games_library.platforms (id, name, family, vendor, kind, gen)
