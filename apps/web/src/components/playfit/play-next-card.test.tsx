@@ -40,7 +40,7 @@ const entry: RankedSeedGame = {
 };
 
 describe("PlayNextCard", () => {
-  it("uses Playfit Picks as the primary save action", () => {
+  it("uses My Picks as the primary save action", () => {
     const html = renderToStaticMarkup(
       <PlayNextCard
         entry={entry}
@@ -69,8 +69,8 @@ describe("PlayNextCard", () => {
       />,
     );
 
-    expect(html).toContain("Saved in Playfit Picks");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>.*Saved in Playfit Picks/s);
+    expect(html).toContain("Saved in My Picks");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>.*Saved in My Picks/s);
   });
 
   it("says 'Play this next' with no close-call note when the top pick is clearly ahead", () => {

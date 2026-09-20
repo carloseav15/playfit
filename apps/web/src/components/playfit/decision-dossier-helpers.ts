@@ -4,6 +4,10 @@ export function getSafeSearchReturnTo(returnTo?: string) {
   return returnTo === "/search" || returnTo?.startsWith("/search?") ? returnTo : null;
 }
 
+export function getSafePicksReturnTo(returnTo?: string) {
+  return returnTo === "/picks" || returnTo?.startsWith("/picks?") ? returnTo : null;
+}
+
 export function buildAvailablePlatformList(game: SeedGame | null | undefined) {
   const ids = game?.availablePlatformIds ?? [];
   const names = game?.availablePlatformNames ?? [];

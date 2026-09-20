@@ -1,6 +1,5 @@
 "use client";
 
-import type { RankedSeedGame } from "@playfit/core/types";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -12,59 +11,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { usePlayfitState } from "../playfit/playfit-context";
 import { StatusToast } from "../playfit/status-toast";
-import type { AlreadyPlayedFeedback } from "./already-played-panel";
-import { PicksDesktop } from "./desktop/picks-desktop";
-import { PicksMobile } from "./mobile/picks-mobile";
+import { PICKS_POSTER_GRID_CLASS_NAME, PicksPosterGrid } from "./picks-poster-grid";
 import { usePicksRecommendations } from "./use-picks-recommendations";
 
-function PickCard({
-  entry,
-  expandedId,
-  onToggleAlreadyPlayed,
-  onCloseAlreadyPlayed,
-  onAlreadyPlayed,
-  onNotForMe,
-  onRemove,
-}: {
-  entry: RankedSeedGame;
-  expandedId: string | null;
-  onToggleAlreadyPlayed: () => void;
-  onCloseAlreadyPlayed: () => void;
-  onAlreadyPlayed: (gameId: string, feedback: AlreadyPlayedFeedback) => void;
-  onNotForMe: (gameId: string) => void;
-  onRemove: (gameId: string) => void;
-}) {
-  return (
-    <>
-      <div className="hidden min-w-0 md:block">
-        <PicksDesktop
-          entry={entry}
-          expandedId={expandedId}
-          onToggleAlreadyPlayed={onToggleAlreadyPlayed}
-          onCloseAlreadyPlayed={onCloseAlreadyPlayed}
-          onAlreadyPlayed={onAlreadyPlayed}
-          onNotForMe={onNotForMe}
-          onRemove={onRemove}
-        />
-      </div>
-      <div className="block min-w-0 md:hidden">
-        <PicksMobile
-          entry={entry}
-          expandedId={expandedId}
-          onToggleAlreadyPlayed={onToggleAlreadyPlayed}
-          onCloseAlreadyPlayed={onCloseAlreadyPlayed}
-          onAlreadyPlayed={onAlreadyPlayed}
-          onNotForMe={onNotForMe}
-          onRemove={onRemove}
-        />
-      </div>
-    </>
-  );
-}
+const POSTER_SKELETON_KEYS = Array.from({ length: 12 }, (_, i) => `poster-skeleton-${i}`);
 
 export function PicksShell() {
-  const { applyDecisionFeedback, setPlayfitPick, state } = usePlayfitState();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { state } = usePlayfitState();
   const profileReady = !!state.user.onboardingCompletedAt && !!state.user.profile;
   useEffect(() => {
     if (!profileReady) redirectToMarketingLanding();
@@ -75,7 +28,7 @@ export function PicksShell() {
     stateVersion: state.stateVersion,
     profile: state.user.profile,
     gameStates: state.user.gameStates,
-    errorMessage: "Playfit Picks could not be refreshed.",
+    errorMessage: "My Picks could not be refreshed.",
   });
   const [isRetrying, setIsRetrying] = useState(false);
   const handleRetry = useCallback(() => {
@@ -89,11 +42,19 @@ export function PicksShell() {
 
   if (loading) {
     return (
-      <Container as="main" size="md" className="grid gap-4 py-8">
-        <Skeleton className="h-8 w-52 rounded-xl" />
-        <Skeleton className="h-6 w-96 rounded-lg" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
+      <Container as="main" size="lg" className="flex flex-col gap-6 py-6 lg:py-8">
+        <div className="grid gap-2">
+          <Skeleton className="h-9 w-40 rounded-xl" />
+          <Skeleton className="h-5 w-56 rounded-lg" />
+        </div>
+        <div className={PICKS_POSTER_GRID_CLASS_NAME}>
+          {POSTER_SKELETON_KEYS.map((key) => (
+            <div key={key} className="grid gap-2.5">
+              <Skeleton className="aspect-[3/4] w-full rounded-sm" />
+              <Skeleton className="h-4 w-3/4 rounded-md" />
+            </div>
+          ))}
+        </div>
       </Container>
     );
   }
@@ -109,20 +70,24 @@ export function PicksShell() {
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[350px] rounded-full bg-indigo-500/5 blur-[90px]" />
 
       <div className="min-h-[calc(100vh-4rem)] text-foreground">
-        <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
+        <Container as="main" size="lg" className="flex flex-col gap-6 py-6 lg:py-8">
           <div>
             <h1 className="font-display text-3xl font-black tracking-tight text-foreground">
-              Playfit Picks
+              My Picks
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your saved recommendations, ready when you are.
+              {picks.length > 0
+                ? `${picks.length} saved ${picks.length === 1 ? "pick" : "picks"} · best match first`
+                : "Games you save from Play Next show up here."}
             </p>
           </div>
-          {refreshing ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Updating picks…
-            </p>
-          ) : null}
+          <p
+            role="status"
+            aria-live="polite"
+            className="-mb-2 -mt-4 h-5 text-sm text-muted-foreground"
+          >
+            {refreshing ? "Updating picks…" : ""}
+          </p>
           {loadError ? (
             <Alert
               variant="warning"
@@ -146,10 +111,11 @@ export function PicksShell() {
               <Card className="rounded-3xl border border-border bg-card p-6 text-center">
                 <CardHeader className="px-0 pt-0">
                   <CardTitle as="h2" className="text-xl font-bold">
-                    No saved picks yet
+                    Nothing saved yet
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1">
-                    Save recommendations here when they match your gaming criteria.
+                    Save games from Play Next and they'll show up here, ranked by how well they fit
+                    you.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0 pb-0 pt-4">
@@ -163,27 +129,7 @@ export function PicksShell() {
                 </CardContent>
               </Card>
             ) : (
-              <section className="grid gap-4 pb-4">
-                {picks.map((entry) => (
-                  <PickCard
-                    key={entry.game.gameId}
-                    entry={entry}
-                    expandedId={expandedId}
-                    onToggleAlreadyPlayed={() =>
-                      setExpandedId((current) =>
-                        current === entry.game.gameId ? null : entry.game.gameId,
-                      )
-                    }
-                    onCloseAlreadyPlayed={() => setExpandedId(null)}
-                    onAlreadyPlayed={(gameId, feedback) => {
-                      applyDecisionFeedback(gameId, feedback);
-                      setExpandedId(null);
-                    }}
-                    onNotForMe={(gameId) => applyDecisionFeedback(gameId, "not_for_me")}
-                    onRemove={(gameId) => setPlayfitPick(gameId, false)}
-                  />
-                ))}
-              </section>
+              <PicksPosterGrid picks={picks} />
             )}
           </div>
         </Container>

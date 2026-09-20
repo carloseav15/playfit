@@ -3,6 +3,26 @@
 All notable project-facing changes are tracked here. This project uses practical release notes
 rather than strict semantic-version releases while it is prepared as a portfolio repository.
 
+## 2026-09-20
+
+### Changed
+
+- Redesigned web **My Picks** as a poster grid: cover, title and a match badge per game, with the
+  whole card linking to the game dossier. Per-card actions (Already Played, Not for me, Remove
+  Pick) now live only in the dossier, and going back from the dossier returns to My Picks.
+- Unified the feature name to "My Picks" across the navigation, page title, headings and status
+  messages, and dropped the `%` suffix on match scores in favor of the 0-100 scale the dossier uses.
+- `CoverArt` now falls back to its initials placeholder when a cover image fails to load.
+
+### Fixed
+
+- The dossier's Save/Remove Picks button read a stale session-cached recommendation instead of live
+  state, so a game saved from Play Next offered "Save to Picks" again after opening it from My Picks.
+
+### Removed
+
+- The list-style Picks cards (`PicksDesktop`, `PicksMobile`) and their per-card actions.
+
 ## 2026-06-22
 
 ### Added

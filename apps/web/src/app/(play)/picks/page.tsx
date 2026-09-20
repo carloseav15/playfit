@@ -3,8 +3,8 @@ import { PicksShell } from "@/components/playfit/picks-shell";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
-  title: "Picks — Your Saved Game Recommendations",
-  description: "Manage your personalized game recommendations and active gameplay runs.",
+  title: "My Picks",
+  description: "Games you saved from Play Next, best match first.",
 };
 
 export default async function PicksPage() {

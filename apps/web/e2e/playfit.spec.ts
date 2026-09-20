@@ -384,7 +384,10 @@ async function mockSupabase(page: Page) {
       body: JSON.stringify(
         row
           ? {
-              entry: rankedGame(row),
+              entry: {
+                ...rankedGame(row),
+                inPlayfitPicks: getCurrentGameStates()[gameId]?.inPlayfitPicks === true,
+              },
               stateVersion: String(savedProfiles.length),
             }
           : { error: "Recommendation game not found" },
@@ -1042,16 +1045,27 @@ test("playfit picks saves a recommendation and removes it from queue", async ({ 
     page.getByRole("link", { name: /Picks/ }).click(),
   ]);
 
-  await expect(page.getByRole("heading", { name: "Final Fantasy VI" }).first()).toBeVisible({
-    timeout: 15_000,
-  });
-  const managePickBtn = page.getByRole("button", { name: "Manage pick" });
-  if ((await managePickBtn.count()) > 0 && (await managePickBtn.isVisible())) {
-    await managePickBtn.click();
-  }
-  await page.getByRole("button", { name: /Remove recommendation|Remove Pick/ }).click();
+  await expect(page.getByRole("heading", { name: "My Picks" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("1 saved pick · best match first")).toBeVisible();
+  await page.getByRole("link", { name: /Final Fantasy VI/ }).click();
 
-  await expect(page.getByText("Removed from Playfit Picks.")).toBeVisible();
+  await page.getByRole("button", { name: "Remove from Picks" }).click();
+  await expect(page.getByText("Removed from My Picks.")).toBeVisible();
+  await expect
+    .poll(() => {
+      const latest = savedProfiles.at(-1) as
+        | { gameStates?: Record<string, { inPlayfitPicks?: boolean }> }
+        | undefined;
+      return latest?.gameStates?.final_fantasy_vi?.inPlayfitPicks !== true;
+    })
+    .toBe(true);
+
+  await page.getByRole("button", { name: "Back to My Picks" }).click();
+  await expect(page).toHaveURL(/\/picks$/);
+  await expect(page.getByRole("heading", { name: "My Picks" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Nothing saved yet")).toBeVisible({ timeout: 15_000 });
 });
 
 test("play next feedback excludes a bad fit", async ({ page }) => {

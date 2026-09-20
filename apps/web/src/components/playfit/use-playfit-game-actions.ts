@@ -193,7 +193,7 @@ export function usePlayfitGameActions({
           current
             ? {
                 ...current,
-                statusMessage: "Playfit Picks is full. Remove one before adding more.",
+                statusMessage: "My Picks is full. Remove one before adding more.",
               }
             : current,
         );
@@ -221,7 +221,7 @@ export function usePlayfitGameActions({
           current
             ? {
                 ...current,
-                statusMessage: picked ? "Added to Playfit Picks." : "Removed from Playfit Picks.",
+                statusMessage: picked ? "Added to My Picks." : "Removed from My Picks.",
               }
             : current,
         );

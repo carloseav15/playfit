@@ -59,7 +59,7 @@ describe("game-action-helpers", () => {
     expect(isTerminalGameState(createState({ status: "playing" }))).toBe(false);
   });
 
-  it("counts only active Playfit Picks", () => {
+  it("counts only active My Picks", () => {
     expect(
       activePlayfitPickCount({
         active: createState({ inPlayfitPicks: true }),

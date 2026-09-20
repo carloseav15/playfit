@@ -535,12 +535,12 @@ describe("useQueuedProfileSave: unchanged failure-classification behavior", () =
 
     await act(async () => {
       await result.current.saveNow(setPickPatch("pick_game", true), {
-        successMessage: "Added to Playfit Picks.",
+        successMessage: "Added to My Picks.",
       });
     });
 
     expect(result.current.ui?.saveStatus).toBe("saved");
-    expect(result.current.ui?.statusMessage).toBe("Added to Playfit Picks.");
+    expect(result.current.ui?.statusMessage).toBe("Added to My Picks.");
   });
 
   it("returns invalid_state and does not call saveProductState when no authoritative state is available", async () => {
