@@ -3,6 +3,17 @@
 All notable project-facing changes are tracked here. This project uses practical release notes
 rather than strict semantic-version releases while it is prepared as a portfolio repository.
 
+## 2026-09-21
+
+### Changed
+
+- Play Next now moves to the next candidate immediately after "Not for me", "Loved" and "Liked"
+  (including their "already played" variants) instead of replacing the screen with a loading
+  skeleton until `/api/decisions` answers (about 4 s in production). The decided game is hidden at
+  once, the server's authoritative ranking replaces the pool when it arrives without swapping the
+  card the user is looking at, and a decision that fails to save brings the game back. Undo restores
+  the game. Decisions made in quick succession still run in order.
+
 ## 2026-09-20
 
 ### Changed
