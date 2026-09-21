@@ -4,6 +4,7 @@ import { authenticatedFetch, getCachedAuthUserId } from "@playfit/core/store";
 import type { ProductPlayNextModel, RankedSeedGame } from "@playfit/core/types";
 import { useCallback, useEffect, useRef } from "react";
 import { addGamesToCache } from "@/lib/game-cache";
+import { takeStartupPrefetch } from "@/lib/startup-prefetch";
 import { getOnboardingFlowHeaders, markOnboardingPhase } from "./onboarding-flow-tracing";
 import {
   addRecommendationsToSessionCache,
@@ -72,15 +73,21 @@ export function usePlayNextRecommendations({
     ({ background = false }: { background?: boolean } = {}) => {
       if (!enabled) return Promise.resolve();
 
+      let prefetched = background ? null : takeStartupPrefetch("today");
+
       const requestOnce = async () => {
         markOnboardingPhase("recommendation_request_start");
-        const res = await authenticatedFetch("/api/recommendations/today", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...getOnboardingFlowHeaders("recommendation_fetch"),
-          },
-        });
+        const early = prefetched;
+        prefetched = null;
+        const res =
+          (await early?.catch(() => null)) ??
+          (await authenticatedFetch("/api/recommendations/today", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...getOnboardingFlowHeaders("recommendation_fetch"),
+            },
+          }));
         markOnboardingPhase("recommendation_response", { status: res.status });
 
         const body = (await res.json()) as ProductPlayNextModel & { needsResync?: boolean };

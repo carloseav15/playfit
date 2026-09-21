@@ -13,6 +13,11 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   once, the server's authoritative ranking replaces the pool when it arrives without swapping the
   card the user is looking at, and a decision that fails to save brings the game back. Undo restores
   the game. Decisions made in quick succession still run in order.
+- Opening Play Next as a returning visitor now requests the profile and today's recommendations as
+  soon as a session exists, in parallel with the platform list, instead of waiting for each step
+  in turn (`platforms`, then `profile`, then `games/batch`, then `today`). The early requests are
+  single-use, expire after 15 s and are ignored if the signed-in user changed; the app falls back
+  to its normal requests if they fail.
 
 ### Fixed
 
@@ -20,6 +25,9 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   skeleton and stay there until a reload. The fetched model looked "newer than the pool" to the
   loading check because the decision response had already advanced the pool, and nothing refreshed
   it any more; a fetched model older than the applied pool is no longer treated as pending.
+- My Taste headings no longer skip a level: "Taste Map" and "Decisions & Activity" are `h2` (they
+  were `h3` straight after the page `h1`) and the headings inside them moved down one level, which
+  an accessibility scan flagged once the page loaded fast enough to be scanned with its content.
 
 ## 2026-09-20
 

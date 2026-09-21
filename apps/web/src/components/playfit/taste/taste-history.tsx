@@ -126,7 +126,9 @@ export function TasteHistory({
     <Card className="rounded-3xl border border-border bg-card shadow-lg">
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4">
         <div className="grid gap-1">
-          <CardTitle className="text-lg font-black text-foreground">Decisions & Activity</CardTitle>
+          <CardTitle as="h2" className="text-lg font-black text-foreground">
+            Decisions & Activity
+          </CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
             Manage your saved picks and historical preferences.
           </CardDescription>
@@ -234,9 +236,9 @@ export function TasteHistory({
                     </div>
                     <div className="min-w-0 flex-1 grid gap-1.5">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <h4 className="text-sm font-extrabold text-foreground truncate max-w-[200px] sm:max-w-xs leading-none">
+                        <h3 className="text-sm font-extrabold text-foreground truncate max-w-[200px] sm:max-w-xs leading-none">
                           {entry.title}
-                        </h4>
+                        </h3>
                         <span className="text-[10px] font-mono text-muted-foreground/50">
                           {dateLabel}
                         </span>

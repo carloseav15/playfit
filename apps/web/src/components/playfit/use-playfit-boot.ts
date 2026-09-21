@@ -1,8 +1,9 @@
-import { loadProductState } from "@playfit/core/store";
+import { createInitialState, loadProductState } from "@playfit/core/store";
 import type { ProductPlatformOption, ProductProfile, ProductState } from "@playfit/core/types";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/api-errors";
 import { clearGameCache, ensureGamesCached } from "@/lib/game-cache";
+import { takeStartupPrefetch } from "@/lib/startup-prefetch";
 import type { ProductUiState } from "./playfit-context-types";
 import { initialUi, withDefaultPlatforms } from "./playfit-provider-helpers";
 import { buildAdaptiveProfileFromCache } from "./profile-cache-helpers";
@@ -34,7 +35,14 @@ export function usePlayfitBoot({
 
     async function boot() {
       try {
-        const loadedState = withDefaultPlatforms(await loadProductState(), platforms);
+        const prefetched = takeStartupPrefetch("state");
+        const initialState = prefetched
+          ? await prefetched.then(
+              (state) => state ?? createInitialState(),
+              () => loadProductState(),
+            )
+          : await loadProductState();
+        const loadedState = withDefaultPlatforms(initialState, platforms);
         if (cancelled) return;
 
         const hadDataFlag = localStorage.getItem("playfit_had_data");
