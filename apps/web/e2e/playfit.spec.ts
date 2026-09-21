@@ -934,6 +934,18 @@ test("picks route redirects new users to the marketing landing", async ({ page }
   ).toBeVisible();
 });
 
+async function openTasteActivity(page: Page) {
+  const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
+  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
+    await decisionsTabBtn.click();
+    return;
+  }
+  await page
+    .getByRole("navigation", { name: "Taste sections" })
+    .getByRole("link", { name: /Activity/ })
+    .click();
+}
+
 test("taste route explains onboarding signals and lets users remove one", async ({ page }) => {
   await mockSupabase(page);
 
@@ -957,10 +969,7 @@ test("taste route explains onboarding signals and lets users remove one", async 
   });
   await expect(page.getByText("Preferences").filter({ visible: true }).first()).toBeVisible();
 
-  const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
-    await decisionsTabBtn.click();
-  }
+  await openTasteActivity(page);
 
   await Promise.all([
     page.waitForURL(/\/game\//, { timeout: 15_000, waitUntil: "domcontentloaded" }),
@@ -971,10 +980,10 @@ test("taste route explains onboarding signals and lets users remove one", async 
   });
 
   await Promise.all([
-    page.waitForURL(/\/taste$/, { timeout: 15_000, waitUntil: "domcontentloaded" }),
+    page.waitForURL(/\/taste(\?.*)?$/, { timeout: 15_000, waitUntil: "domcontentloaded" }),
     page.getByRole("button", { name: "Back" }).first().click(),
   ]);
-  await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Your Taste" })).toBeVisible({
     timeout: 15_000,
   });
 });
@@ -1134,10 +1143,7 @@ test("already played loved marks completed and rotates the recommendation", asyn
   await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
     timeout: 15_000,
   });
-  const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
-    await decisionsTabBtn.click();
-  }
+  await openTasteActivity(page);
   await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({
     timeout: 15_000,
   });
@@ -1186,10 +1192,7 @@ test("already played dropped marks abandoned and stays out after reload", async 
   await expect(page.getByText("Profile Summary").filter({ visible: true }).first()).toBeVisible({
     timeout: 15_000,
   });
-  const decisionsTabBtn = page.getByRole("button", { name: /Decisions/ });
-  if ((await decisionsTabBtn.count()) > 0 && (await decisionsTabBtn.isVisible())) {
-    await decisionsTabBtn.click();
-  }
+  await openTasteActivity(page);
   await expect(page.getByText("Final Fantasy VI").filter({ visible: true }).first()).toBeVisible({
     timeout: 15_000,
   });

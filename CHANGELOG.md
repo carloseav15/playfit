@@ -10,6 +10,10 @@ rather than strict semantic-version releases while it is prepared as a portfolio
 - Redesigned web **My Picks** as a poster grid: cover, title and a match badge per game, with the
   whole card linking to the game dossier. Per-card actions (Already Played, Not for me, Remove
   Pick) now live only in the dossier, and going back from the dossier returns to My Picks.
+- Reorganized web **My Taste** on desktop into a section menu (Taste DNA, Visual map, Activity)
+  instead of two nested tab bars, with the active section in the URL (`/taste?section=...`), a
+  one-line summary per entry, and the profile summary and stats inside Taste DNA. Selecting a trait
+  still jumps to Activity filtered by that trait. Mobile keeps its existing menu.
 - Unified the feature name to "My Picks" across the navigation, page title, headings and status
   messages, and dropped the `%` suffix on match scores in favor of the 0-100 scale the dossier uses.
 - `CoverArt` now falls back to its initials placeholder when a cover image fails to load.
