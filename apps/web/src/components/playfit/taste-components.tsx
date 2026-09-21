@@ -184,7 +184,9 @@ export function TasteMap({
   return (
     <Card className="rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
       <CardHeader>
-        <CardTitle className="text-lg font-black text-foreground">Taste Map</CardTitle>
+        <CardTitle as="h2" className="text-lg font-black text-foreground">
+          Taste Map
+        </CardTitle>
         <CardDescription className="text-xs text-muted-foreground mt-0.5">
           Your Gaming DNA represents scorable preferences calculated from your taste baseline and
           catalog activity.
@@ -200,9 +202,9 @@ export function TasteMap({
             {/* Radar Chart Section */}
             {radarData && (
               <div className="grid gap-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground/60 border-b border-border/40 pb-1">
+                <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground/60 border-b border-border/40 pb-1">
                   Gaming DNA
-                </h4>
+                </h3>
                 <div className="flex justify-center items-center py-4 bg-secondary/10 rounded-3xl border border-white/5 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent blur-3xl" />
                   <svg
@@ -370,15 +372,15 @@ export function TasteMap({
             {/* Pillars/Clouds Section */}
             <div className="grid gap-6 md:grid-cols-2">
               <div className="grid gap-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-positive border-b border-border/40 pb-1">
+                <h3 className="text-xs font-black uppercase tracking-wider text-positive border-b border-border/40 pb-1">
                   Loved Pillars
-                </h4>
+                </h3>
                 {renderPillCloud(lovedTraits, "loved")}
               </div>
               <div className="grid gap-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-negative border-b border-border/40 pb-1">
+                <h3 className="text-xs font-black uppercase tracking-wider text-negative border-b border-border/40 pb-1">
                   Avoided Signals
-                </h4>
+                </h3>
                 {renderPillCloud(avoidedTraits, "avoided")}
               </div>
             </div>

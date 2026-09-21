@@ -25,6 +25,9 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   skeleton and stay there until a reload. The fetched model looked "newer than the pool" to the
   loading check because the decision response had already advanced the pool, and nothing refreshed
   it any more; a fetched model older than the applied pool is no longer treated as pending.
+- My Taste headings no longer skip a level: "Taste Map" and "Decisions & Activity" are `h2` (they
+  were `h3` straight after the page `h1`) and the headings inside them moved down one level, which
+  an accessibility scan flagged once the page loaded fast enough to be scanned with its content.
 
 ## 2026-09-20
 
