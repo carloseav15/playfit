@@ -15,10 +15,10 @@ import { redirectToMarketingLanding } from "@/lib/redirect-to-landing";
 import { useHeader } from "../playfit/header-context";
 import { usePlayfitState, usePlayfitUi } from "../playfit/playfit-context";
 import { StatusToast } from "../playfit/status-toast";
-import { SettingsDesktop } from "./desktop/settings-desktop";
+import { SettingsDesktop, type SettingsSection } from "./desktop/settings-desktop";
 import { SettingsMobile } from "./mobile/settings-mobile";
 
-export function SettingsShell() {
+export function SettingsShell({ section = "platforms" }: { section?: SettingsSection }) {
   const {
     state,
     authUser,
@@ -223,6 +223,116 @@ export function SettingsShell() {
     }
   };
 
+  const renderResetAction = () => (
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/20 border border-border/40">
+      <div className="flex flex-col gap-1 max-w-md">
+        <span className="text-sm font-extrabold text-foreground">Reset Taste Profile</span>
+        <span className="text-xs text-muted-foreground leading-relaxed">
+          Deletes all taste preferences, ratings, library history, and platform selection. Your
+          active account session stays, and you will restart calibration.
+        </span>
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {confirmReset ? (
+          <>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleReset}
+              disabled={actionPending}
+              loading={actionPending}
+              className="text-xs font-bold h-10 px-4 rounded-xl"
+            >
+              Confirm Reset
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConfirmReset(false)}
+              disabled={actionPending}
+              className="text-xs font-bold h-10 px-3 rounded-xl"
+            >
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmReset(true)}
+            className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+          >
+            Reset Profile
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderDeleteAction = () =>
+    authUser ? (
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-destructive/5 border border-destructive/10">
+        <div className="flex flex-col gap-1 max-w-md">
+          <span className="text-sm font-extrabold text-destructive">Delete Cloud Profile</span>
+          <span className="text-xs text-muted-foreground leading-relaxed">
+            Permanently deletes your Playfit profile and synchronized taste data, clears local
+            Playfit data, and signs you out. Your account sign-in credentials are not deleted.
+          </span>
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {confirmDelete ? (
+            <>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={actionPending}
+                loading={actionPending}
+                className="text-xs font-bold h-10 px-4 rounded-xl"
+              >
+                Confirm Delete
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setConfirmDelete(false)}
+                disabled={actionPending}
+                className="text-xs font-bold h-10 px-3 rounded-xl"
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmDelete(true)}
+              className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+            >
+              Delete Cloud Profile
+            </Button>
+          )}
+        </div>
+      </div>
+    ) : null;
+
+  const renderLegalLinks = () => (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 pt-1">
+      <Link
+        href="/legal/privacy"
+        className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        Privacy Policy
+      </Link>
+      <Link
+        href="/legal/terms"
+        className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        Terms of Service
+      </Link>
+    </div>
+  );
+
   const renderPrivacyCard = () => (
     <Card className="rounded-3xl border border-border bg-card shadow-lg">
       <CardHeader>
@@ -234,114 +344,22 @@ export function SettingsShell() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/20 border border-border/40">
-            <div className="flex flex-col gap-1 max-w-md">
-              <span className="text-sm font-extrabold text-foreground">Reset Taste Profile</span>
-              <span className="text-xs text-muted-foreground leading-relaxed">
-                Deletes all taste preferences, ratings, library history, and platform selection.
-                Your active account session stays, and you will restart calibration.
-              </span>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              {confirmReset ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={handleReset}
-                    disabled={actionPending}
-                    loading={actionPending}
-                    className="text-xs font-bold h-10 px-4 rounded-xl"
-                  >
-                    Confirm Reset
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setConfirmReset(false)}
-                    disabled={actionPending}
-                    className="text-xs font-bold h-10 px-3 rounded-xl"
-                  >
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setConfirmReset(true)}
-                  className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                >
-                  Reset Profile
-                </Button>
-              )}
-            </div>
+        {renderLegalLinks()}
+        <section
+          aria-labelledby="settings-danger-zone"
+          className="flex flex-col gap-4 rounded-2xl border border-destructive/30 p-4"
+        >
+          <div className="flex flex-col gap-1">
+            <h3 id="settings-danger-zone" className="text-sm font-black text-destructive">
+              Danger zone
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              These actions delete data and cannot be undone.
+            </p>
           </div>
-
-          {authUser && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-destructive/5 border border-destructive/10">
-              <div className="flex flex-col gap-1 max-w-md">
-                <span className="text-sm font-extrabold text-destructive">
-                  Delete Cloud Profile
-                </span>
-                <span className="text-xs text-muted-foreground leading-relaxed">
-                  Permanently deletes your Playfit profile and synchronized taste data, clears local
-                  Playfit data, and signs you out. Your account sign-in credentials are not deleted.
-                </span>
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
-                {confirmDelete ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={handleDelete}
-                      disabled={actionPending}
-                      loading={actionPending}
-                      className="text-xs font-bold h-10 px-4 rounded-xl"
-                    >
-                      Confirm Delete
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setConfirmDelete(false)}
-                      disabled={actionPending}
-                      className="text-xs font-bold h-10 px-3 rounded-xl"
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setConfirmDelete(true)}
-                    className="text-xs font-bold h-10 px-4 rounded-xl hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                  >
-                    Delete Cloud Profile
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 pt-1">
-            <Link
-              href="/legal/privacy"
-              className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/legal/terms"
-              className="text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Terms of Service
-            </Link>
-          </div>
-        </div>
+          {renderResetAction()}
+          {renderDeleteAction()}
+        </section>
       </CardContent>
     </Card>
   );
@@ -381,6 +399,14 @@ export function SettingsShell() {
 
           {/* Desktop Layout */}
           <SettingsDesktop
+            section={section}
+            accountLabel={authUser ? "Account" : "Cloud sync"}
+            summaries={{
+              appearance: `Theme: ${theme ? theme.charAt(0).toUpperCase() + theme.slice(1) : "System"}`,
+              platforms: `${state.user.onboarding.platforms.length} ${state.user.onboarding.platforms.length === 1 ? "system" : "systems"} selected`,
+              account: authUser?.email ?? "Sign in to sync",
+              privacy: "Reset or delete your data",
+            }}
             renderThemeCard={renderThemeCard}
             renderAccountCard={renderAccountCard}
             renderPrivacyCard={renderPrivacyCard}

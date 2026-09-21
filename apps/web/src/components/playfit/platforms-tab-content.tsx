@@ -149,7 +149,9 @@ export function PlatformsTabContent() {
   return (
     <Card className="rounded-3xl border border-border bg-card shadow-sm">
       <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-bold">Systems you play on</CardTitle>
+        <CardTitle as="h2" className="text-xl font-bold">
+          Systems you play on
+        </CardTitle>
         <CardDescription className="text-xs text-muted-foreground">
           Select consoles, handhelds, or computer systems to see recommendations matching what you
           own or play.

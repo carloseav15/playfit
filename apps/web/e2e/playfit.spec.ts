@@ -753,6 +753,11 @@ test.describe("auth and logout navigation inventory", () => {
     await gotoApp(page, "/settings");
     if ((page.viewportSize()?.width ?? 0) < 768) {
       await page.getByRole("button", { name: /Your Account/ }).click();
+    } else {
+      await page
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link", { name: /Account/ })
+        .click();
     }
     await expect(page.getByRole("button", { name: "Sign Out" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Sign Out" }).click();

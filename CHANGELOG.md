@@ -7,6 +7,10 @@ rather than strict semantic-version releases while it is prepared as a portfolio
 
 ### Changed
 
+- Reorganized web **Settings** into a section menu (Your platforms, Account, Appearance, Data &
+  privacy, ordered by importance) that shows one section at a time, with the active section in the
+  URL (`/settings?section=...`) and a one-line summary per entry. Destructive actions are grouped
+  in a "Danger zone". The mobile menu now uses the same order.
 - Redesigned web **My Picks** as a poster grid: cover, title and a match badge per game, with the
   whole card linking to the game dossier. Per-card actions (Already Played, Not for me, Remove
   Pick) now live only in the dossier, and going back from the dossier returns to My Picks.
