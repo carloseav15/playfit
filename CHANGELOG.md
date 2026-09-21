@@ -18,6 +18,11 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   in turn (`platforms`, then `profile`, then `games/batch`, then `today`). The early requests are
   single-use, expire after 15 s and are ignored if the signed-in user changed; the app falls back
   to its normal requests if they fail.
+- A returning user with a finished onboarding and a saved profile now sees Play Next as soon as the
+  profile arrives; the batch that downloads their games' details (`/api/games/batch`) keeps loading
+  in the background instead of blocking the screen (it is still awaited when the onboarding is
+  unfinished or the profile has to be rebuilt). Requests for games that are already being
+  downloaded now wait for that batch instead of asking for the same games again.
 
 ### Fixed
 
