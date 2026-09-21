@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   ensureGamesCached: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock("@/lib/game-cache", () => ({
   ensureGamesCached: mocks.ensureGamesCached,
 }));
@@ -89,7 +91,7 @@ describe("TasteShell", () => {
     expect(html).toBe("");
   });
 
-  it("renders the taste map and activity tab for a ready profile", async () => {
+  it("renders the taste DNA section and the section menu for a ready profile", async () => {
     const liked = createGame("chrono_trigger", "Chrono Trigger");
     const disliked = createGame("resident_evil_4", "Resident Evil 4", {
       primaryGenre: "horror",
@@ -134,8 +136,11 @@ describe("TasteShell", () => {
     const html = renderToStaticMarkup(<TasteShell />);
 
     expect(html).toContain("Your Taste");
-    expect(html).toContain("Interactive Affinity Map");
+    expect(html).toContain('aria-label="Taste sections"');
+    expect(html).toContain("Taste DNA");
+    expect(html).toContain("Visual map");
     expect(html).toContain("Activity");
+    expect(html).toContain("Gaming profile");
     expect(html).toContain("Liked");
     expect(html).toContain("Avoided");
     expect(html).toContain("Preferences");
@@ -190,7 +195,7 @@ describe("TasteShell", () => {
       const freshTasteModel = await import("./taste-model");
       const spy = vi.spyOn(freshTasteModel, "getSeedGamesById");
 
-      const { rerender } = render(<TasteShell />);
+      const { rerender } = render(<TasteShell section="map" />);
 
       // Both the desktop and mobile trees mount at once in jsdom (only CSS
       // media queries hide one of them), so every query below matches twice.
@@ -205,7 +210,7 @@ describe("TasteShell", () => {
       // scratch every time -- that unbounded, repeated synchronous work is
       // what produced the freeze/blank symptom at scale.
       for (let i = 0; i < 5; i++) {
-        rerender(<TasteShell />);
+        rerender(<TasteShell section="map" />);
       }
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -242,7 +247,7 @@ describe("TasteShell", () => {
       });
 
       const { TasteShell } = await loadTasteShell();
-      render(<TasteShell />);
+      render(<TasteShell section="map" />);
 
       expect(screen.getAllByText("Interactive Affinity Map").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Liked / Playing (1)").length).toBeGreaterThan(0);

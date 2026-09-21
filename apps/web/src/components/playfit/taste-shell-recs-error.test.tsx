@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   ensureGamesCached: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock("@/lib/game-cache", () => ({
   ensureGamesCached: mocks.ensureGamesCached,
 }));

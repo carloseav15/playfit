@@ -2,12 +2,10 @@
 
 import { buildTasteModel } from "@playfit/core/domain";
 import type { ProductTasteMapTrait } from "@playfit/core/types";
-import { Layers, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +17,7 @@ import { StatusToast } from "../playfit/status-toast";
 
 import { TasteDesktop } from "./desktop/taste-desktop";
 import { TasteMobile } from "./mobile/taste-mobile";
+import type { TasteSection } from "./taste/taste-sections";
 import {
   buildHistoryAndActivityEntries,
   getMissingGameIds,
@@ -29,15 +28,13 @@ import { useTodayRecommendations } from "./use-today-recommendations";
 
 export { PlatformsTabContent } from "./platforms-tab-content";
 
-export function TasteShell() {
+export function TasteShell({ section = "dna" }: { section?: TasteSection }) {
   const { state, getSeedGame, applyDecisionFeedback, removeTasteSignal, setPlayfitPick } =
     usePlayfitState();
   const [cacheVersion, setCacheVersion] = useState(0);
   const [hydrating, setHydrating] = useState(false);
   const [hydratedOnce, setHydratedOnce] = useState(false);
   const [changingId, setChangingId] = useState<string | null>(null);
-  const [activeMainTab, setActiveMainTab] = useState<"taste" | "activity">("taste");
-  const [mapView, setMapView] = useState<"visual" | "list">("visual");
   const [subView, setSubView] = useState<"menu" | "map" | "list" | "activity">("menu");
   const [traitFilter, setTraitFilter] = useState<{ id: string; label: string } | null>(null);
 
@@ -46,7 +43,6 @@ export function TasteShell() {
   // guess which entry in a long history list is the one responsible.
   const handleSelectTrait = useCallback((trait: ProductTasteMapTrait) => {
     setTraitFilter({ id: trait.id, label: trait.label });
-    setActiveMainTab("activity");
     setSubView("activity");
   }, []);
   const handleClearTraitFilter = useCallback(() => setTraitFilter(null), []);
@@ -67,7 +63,7 @@ export function TasteShell() {
   // unrelated to which games are tracked), and cacheVersion is the explicit
   // signal that ensureGamesCached() populated new entries. Recomputing on
   // every render (unmemoized) forced a full affinity-map + model rebuild on
-  // every unrelated re-render (e.g. switching mapView/subView tabs).
+  // every unrelated re-render (e.g. switching the mobile subView).
   // biome-ignore lint/correctness/useExhaustiveDependencies: cacheVersion isn't read in the body, but its bump is the signal that getSeedGame's underlying cache gained entries and gamesById must be re-derived.
   const gamesById = useMemo(
     () => getSeedGamesById(requiredIds, getSeedGame),
@@ -185,45 +181,10 @@ export function TasteShell() {
       <div className="pointer-events-none absolute right-1/4 bottom-1/4 size-[350px] rounded-full bg-indigo-500/5 blur-[90px]" />
 
       <div className="w-full">
-        <Container as="main" size="md" className="flex flex-col gap-6 py-6 lg:py-8">
+        <Container as="main" size="lg" className="flex flex-col gap-6 py-6 lg:py-8">
           <h1 className="sr-only md:not-sr-only md:font-display md:text-4xl md:font-black md:tracking-tight">
             Your Taste
           </h1>
-          <div className="hidden md:flex items-center justify-end gap-2 shrink-0">
-            <Badge
-              variant="info"
-              className="bg-accent/10 text-accent border border-accent/30 text-[10px] font-bold py-1 px-3"
-            >
-              Based on {model.evidenceCount} preferences
-            </Badge>
-          </div>
-
-          <section className="hidden md:grid relative overflow-hidden gap-4 rounded-3xl border border-border bg-card p-6 shadow-md md:grid-cols-[minmax(0,1.15fr)_minmax(250px,0.85fr)] md:items-end shrink-0">
-            <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-accent/10 blur-xl" />
-            <div className="grid gap-2 relative z-10">
-              <div className="flex items-center gap-2 text-accent">
-                <Layers className="size-4" />
-                <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                  Gaming profile
-                </span>
-              </div>
-              <p className="max-w-2xl text-xs text-muted-foreground leading-relaxed mt-0.5">
-                What Playfit is learning from your active decisions. {model.confidenceLabel}.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-secondary/50 p-4 relative z-10">
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-accent flex items-center gap-1.5">
-                <ShieldCheck className="size-3.5" />
-                Profile Summary
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {model.positiveCount > model.negativeCount
-                  ? "Playfit leans toward your favorites, but still needs more signals to sharpen the edge cases."
-                  : "Playfit is still balancing your likes and misses; a few more decisions will make the next pick steadier."}
-              </p>
-            </div>
-          </section>
-
           {belowCalibration || missingIds.length > 0 ? (
             <Alert variant="warning" className="shrink-0">
               {belowCalibration && missingIds.length > 0
@@ -273,15 +234,12 @@ export function TasteShell() {
 
           {/* Desktop layout */}
           <TasteDesktop
+            section={section}
             model={model}
             historyAndActivityEntries={historyAndActivityEntries}
             gamesById={gamesById}
             gameStates={state.user.gameStates}
             recs={recs}
-            activeMainTab={activeMainTab}
-            setActiveMainTab={setActiveMainTab}
-            mapView={mapView}
-            setMapView={setMapView}
             changingId={changingId}
             setChangingId={setChangingId}
             applyDecisionFeedback={applyDecisionFeedback}
