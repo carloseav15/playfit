@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { platformsResponseSchema } from "@/lib/api-contracts";
 import type { GenreOption } from "@/lib/games-db";
+import { SEARCH_FILTERS_ENABLED } from "./search-config";
 import { SearchPageClient } from "./search-page-client";
 
 const filtersSchema = platformsResponseSchema.extend({
@@ -16,11 +17,20 @@ let cachedFilters: {
   expires: number;
 } | null = null;
 
-export function SearchRouteClient(props: {
+interface SearchRouteProps {
   initialQuery: string;
   initialFamily: string | null;
   initialGenre: string | null;
-}) {
+}
+
+export function SearchRouteClient(props: SearchRouteProps) {
+  if (!SEARCH_FILTERS_ENABLED) {
+    return <SearchPageClient {...props} platforms={[]} genres={[]} />;
+  }
+  return <SearchRouteWithFilters {...props} />;
+}
+
+function SearchRouteWithFilters(props: SearchRouteProps) {
   const [filters, setFilters] = useState(() =>
     cachedFilters && cachedFilters.expires > Date.now() ? cachedFilters : null,
   );

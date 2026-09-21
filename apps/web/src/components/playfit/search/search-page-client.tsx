@@ -4,7 +4,7 @@ import type { ProductPlatformOption, SeedGame } from "@playfit/core/types";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { DesktopAppNav } from "@/components/playfit/desktop-app-nav";
 import { MobileBottomNav } from "@/components/playfit/mobile-bottom-nav";
 import { SearchResultRow, SearchStatusPanel } from "@/components/playfit/search-result-row";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GenreOption } from "@/lib/games-db";
 import { PlayfitStateContext } from "../playfit-context";
+import { SEARCH_FILTERS_ENABLED, SEARCH_SUBTITLE } from "./search-config";
 import { SearchFilterBar } from "./search-filter-bar";
 
 const PAGE_SIZE = 24;
@@ -38,13 +39,22 @@ export function SearchPageClient({
 }) {
   const router = useRouter();
   const [interactive, setInteractive] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => setInteractive(true), []);
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!interactive || !input) return;
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [interactive]);
   const appState = useContext(PlayfitStateContext);
   const hasAppNavigation = !!appState?.state.user.onboardingCompletedAt;
 
   const [query, setQuery] = useState(initialQuery);
-  const [family, setFamily] = useState<string | null>(initialFamily);
-  const [genre, setGenre] = useState<string | null>(initialGenre);
+  const [family, setFamily] = useState<string | null>(
+    SEARCH_FILTERS_ENABLED ? initialFamily : null,
+  );
+  const [genre, setGenre] = useState<string | null>(SEARCH_FILTERS_ENABLED ? initialGenre : null);
   const [page, setPage] = useState(1);
   const [accumulated, setAccumulated] = useState<SeedGame[]>([]);
 
@@ -154,16 +164,18 @@ export function SearchPageClient({
           <h1 className="font-display text-3xl font-black tracking-tight md:text-5xl">
             Search the catalog
           </h1>
-          <p className="text-muted-foreground">
-            Browse every game in Playfit's library by title, platform, or genre.
-          </p>
+          <p className="text-muted-foreground">{SEARCH_SUBTITLE}</p>
         </div>
 
         <label htmlFor="search-query" className="sr-only">
           Search by title
         </label>
         <Input
+          ref={inputRef}
           id="search-query"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={!interactive}
@@ -171,38 +183,42 @@ export function SearchPageClient({
           className="text-base border border-border bg-card"
         />
 
-        {!filtersReady ? (
-          <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
-            {filtersError
-              ? "Filters are unavailable. You can still search by title."
-              : "Loading filters…"}
-            {filtersError && (
-              <Button type="button" variant="secondary" size="sm" onClick={onRetryFilters}>
-                Retry filters
-              </Button>
-            )}
-          </div>
+        {SEARCH_FILTERS_ENABLED ? (
+          <>
+            {!filtersReady ? (
+              <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
+                {filtersError
+                  ? "Filters are unavailable. You can still search by title."
+                  : "Loading filters…"}
+                {filtersError && (
+                  <Button type="button" variant="secondary" size="sm" onClick={onRetryFilters}>
+                    Retry filters
+                  </Button>
+                )}
+              </div>
+            ) : null}
+            {family && (!filtersReady || platformIds.length === 0) ? (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  {filtersReady
+                    ? "This platform filter is unavailable."
+                    : "The selected platform filter needs catalog metadata."}
+                </span>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setFamily(null)}>
+                  Clear platform filter
+                </Button>
+              </div>
+            ) : null}
+            <SearchFilterBar
+              platforms={platforms}
+              genres={genres}
+              selectedFamily={family}
+              selectedGenre={genre}
+              onFamilyChange={setFamily}
+              onGenreChange={setGenre}
+            />
+          </>
         ) : null}
-        {family && (!filtersReady || platformIds.length === 0) ? (
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>
-              {filtersReady
-                ? "This platform filter is unavailable."
-                : "The selected platform filter needs catalog metadata."}
-            </span>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setFamily(null)}>
-              Clear platform filter
-            </Button>
-          </div>
-        ) : null}
-        <SearchFilterBar
-          platforms={platforms}
-          genres={genres}
-          selectedFamily={family}
-          selectedGenre={genre}
-          onFamilyChange={setFamily}
-          onGenreChange={setGenre}
-        />
 
         {accumulated.length > 0 && (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

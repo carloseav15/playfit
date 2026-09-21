@@ -24,6 +24,7 @@ vi.mock("./search-page-client", () => ({
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
+  vi.doMock("./search-config", () => ({ SEARCH_FILTERS_ENABLED: true }));
 });
 
 describe("SearchRouteClient", () => {
@@ -46,5 +47,14 @@ describe("SearchRouteClient", () => {
     expect(screen.getByText("Filters failed")).toBeTruthy();
     fireEvent.click(screen.getByText("Retry"));
     await screen.findByText("Filters ready");
+  });
+
+  it("does not request filter metadata while filters are disabled", async () => {
+    vi.doMock("./search-config", () => ({ SEARCH_FILTERS_ENABLED: false }));
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { SearchRouteClient } = await import("./search-route-client");
+    render(<SearchRouteClient initialQuery="" initialFamily="playstation" initialGenre="jrpg" />);
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,8 @@ rather than strict semantic-version releases while it is prepared as a portfolio
 - Unified the feature name to "My Picks" across the navigation, page title, headings and status
   messages, and dropped the `%` suffix on match scores in favor of the 0-100 scale the dossier uses.
 - `CoverArt` now falls back to its initials placeholder when a cover image fails to load.
+- **Search** hides the platform and genre filters behind `SEARCH_FILTERS_ENABLED` (off), no longer
+  requests filter metadata, and focuses the search input when the page opens.
 
 ### Fixed
 

@@ -207,18 +207,31 @@ test("clicking a search result navigates to the game page, which is where the se
   await expect.poll(() => getSignupCalls(), { timeout: 15_000 }).toBeGreaterThan(0);
 });
 
-test("search accepts input while filters load and retries without losing the query", async ({
+test("search focuses the input on arrival and keeps the disabled filters hidden", async ({
   page,
 }) => {
   const getSignupCalls = await mockAuthAndSearch(page);
-  let releaseFilters!: () => void;
-  const filtersGate = new Promise<void>((resolve) => {
-    releaseFilters = resolve;
+  let filterRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/search/filters") filterRequests += 1;
   });
-  await page.route("**/api/search/filters", async (route) => {
-    await filtersGate;
-    await route.fulfill({ json: { platforms: [], genres: [] } });
-  });
+
+  await page.goto("/search?family=playstation&genre=jrpg", { waitUntil: "domcontentloaded" });
+
+  const input = page.getByRole("textbox", { name: "Search by title" });
+  await expect(input).toBeFocused({ timeout: 15_000 });
+  await expect(page.getByText("Platform", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Genre", { exact: true })).toHaveCount(0);
+
+  await page.keyboard.type("chrono");
+  await expect(page).toHaveURL(/\/search\?q=chrono$/);
+  await expect(page.getByText("Chrono Trigger")).toBeVisible();
+  expect(filterRequests).toBe(0);
+  expect(getSignupCalls()).toBe(0);
+});
+
+test("search retries a failed request without losing the query", async ({ page }) => {
+  const getSignupCalls = await mockAuthAndSearch(page);
   let attempts = 0;
   await page.route("**/api/games?**", async (route) => {
     attempts += 1;
@@ -238,5 +251,4 @@ test("search accepts input while filters load and retries without losing the que
   await expect(input).toHaveValue("chrono");
   expect(attempts).toBe(2);
   expect(getSignupCalls()).toBe(0);
-  releaseFilters();
 });
