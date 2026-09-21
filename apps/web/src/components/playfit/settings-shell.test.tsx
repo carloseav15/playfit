@@ -1,5 +1,5 @@
 import { createInitialState } from "@playfit/core/store";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,8 +48,8 @@ vi.mock("./mobile/settings-mobile", () => ({
   ),
 }));
 
-vi.mock("./desktop/settings-desktop", () => ({
-  SettingsDesktop: () => null,
+vi.mock("./platforms-tab-content", () => ({
+  PlatformsTabContent: () => <div>platforms-content</div>,
 }));
 
 vi.mock("../playfit/header-context", () => ({
@@ -135,5 +135,33 @@ describe("SettingsShell actions", () => {
 
     await waitFor(() => expect(mocks.deleteAccount).toHaveBeenCalledOnce());
     expect(mocks.routerPush).toHaveBeenCalledWith("/");
+  });
+
+  it("keeps the destructive actions together in a danger zone", async () => {
+    const user = userEvent.setup();
+    const { SettingsShell } = await loadSettingsShell();
+    render(<SettingsShell section="privacy" />);
+
+    const [dangerZone] = screen.getAllByRole("region", { name: "Danger zone" });
+    expect(within(dangerZone).getByRole("button", { name: "Reset Profile" })).toBeTruthy();
+    expect(within(dangerZone).getByRole("button", { name: "Delete Cloud Profile" })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" }).length).toBeGreaterThan(0);
+    expect(within(dangerZone).queryByRole("link", { name: "Privacy Policy" })).toBeNull();
+
+    await user.click(within(dangerZone).getByRole("button", { name: "Delete Cloud Profile" }));
+    await user.click(within(dangerZone).getByRole("button", { name: "Confirm Delete" }));
+    await waitFor(() => expect(mocks.deleteAccount).toHaveBeenCalledOnce());
+  });
+
+  it("summarizes each section in the sidebar menu", async () => {
+    const { SettingsShell } = await loadSettingsShell();
+    render(<SettingsShell />);
+
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(within(nav).getByText("Theme: System")).toBeTruthy();
+    expect(within(nav).getByText("0 systems selected")).toBeTruthy();
+    expect(within(nav).getByText("user@example.com")).toBeTruthy();
+    expect(within(nav).getByText("Reset or delete your data")).toBeTruthy();
+    expect(screen.getByText("platforms-content")).toBeTruthy();
   });
 });

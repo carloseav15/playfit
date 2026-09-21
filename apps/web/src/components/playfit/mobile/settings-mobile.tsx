@@ -42,31 +42,6 @@ export function SettingsMobile({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => setSubView("appearance")}
-            className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
-                {theme === "light" ? (
-                  <Sun className="size-5" />
-                ) : theme === "dark" ? (
-                  <Moon className="size-5" />
-                ) : (
-                  <Laptop className="size-5" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-extrabold text-foreground">App Appearance</span>
-                <span className="text-xs text-muted-foreground mt-0.5">
-                  Theme: {theme ? theme.charAt(0).toUpperCase() + theme.slice(1) : "System"}
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="size-4 text-muted-foreground/60" />
-          </button>
-
-          <button
-            type="button"
             onClick={() => setSubView("platforms")}
             className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left cursor-pointer"
           >
@@ -121,6 +96,31 @@ export function SettingsMobile({
               <ChevronRight className="size-4 text-accent/60" />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setSubView("appearance")}
+            className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-border/80 transition-all text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="size-10 rounded-xl bg-secondary/60 flex items-center justify-center text-muted-foreground">
+                {theme === "light" ? (
+                  <Sun className="size-5" />
+                ) : theme === "dark" ? (
+                  <Moon className="size-5" />
+                ) : (
+                  <Laptop className="size-5" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-extrabold text-foreground">App Appearance</span>
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  Theme: {theme ? theme.charAt(0).toUpperCase() + theme.slice(1) : "System"}
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground/60" />
+          </button>
 
           <button
             type="button"
