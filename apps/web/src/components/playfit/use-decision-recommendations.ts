@@ -92,14 +92,25 @@ function isOlderStateVersion(candidate: string, current: string | null) {
 export function visibleRecommendationPool({
   pool,
   excludedIds,
-  decisionPending,
 }: {
   pool: RankedSeedGame[];
   excludedIds: Set<string>;
-  decisionPending: boolean;
 }) {
-  if (decisionPending) return [];
   return pool.filter((entry) => !excludedIds.has(entry.game.gameId));
+}
+
+export function resolveStablePrimaryId({
+  pool,
+  excludedIds,
+  currentId,
+}: {
+  pool: RankedSeedGame[];
+  excludedIds: Set<string>;
+  currentId: string | null;
+}) {
+  const visible = visibleRecommendationPool({ pool, excludedIds });
+  if (currentId && visible.some((entry) => entry.game.gameId === currentId)) return currentId;
+  return visible[0]?.game.gameId ?? null;
 }
 
 export function useDecisionRecommendations({
@@ -127,10 +138,12 @@ export function useDecisionRecommendations({
   const previousSaveStatusRef = useRef<SaveStatus>(saveStatus);
   const [pool, setPool] = useState<RankedSeedGame[]>([]);
   const poolStateVersionRef = useRef<string | null>(null);
-  const [decisionPending, setDecisionPending] = useState(false);
+  const [pendingDecisions, setPendingDecisions] = useState(0);
   const [decisionRefreshError, setDecisionRefreshError] = useState<string | null>(null);
   const [stablePrimaryId, setStablePrimaryId] = useState<string | null>(null);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(() => new Set());
+  const excludedIdsRef = useRef(excludedIds);
+  excludedIdsRef.current = excludedIds;
   const initialPrimarySetRef = useRef(false);
   const exhaustedRef = useRef(false);
   const { model, loading, refreshing, loadError, refreshRecommendations } =
@@ -143,7 +156,7 @@ export function useDecisionRecommendations({
 
   const applyingModel = !!model && model.stateVersion !== poolStateVersionRef.current;
   const isInitialLoading = (loading && !model) || applyingModel;
-  const isWaitingForCandidates = decisionPending || recommendationRefreshPending || refreshing;
+  const isWaitingForCandidates = pendingDecisions > 0 || recommendationRefreshPending || refreshing;
 
   useEffect(() => {
     if (
@@ -187,8 +200,8 @@ export function useDecisionRecommendations({
   }, [isInitialLoading]);
 
   const visiblePool = useMemo(
-    () => visibleRecommendationPool({ pool, excludedIds, decisionPending }),
-    [pool, excludedIds, decisionPending],
+    () => visibleRecommendationPool({ pool, excludedIds }),
+    [pool, excludedIds],
   );
 
   const primary = useMemo(
@@ -294,10 +307,17 @@ export function useDecisionRecommendations({
       return;
     }
 
-    setDecisionPending(true);
     setDecisionRefreshError(null);
+    setExcludedIds((previousIds) => new Set([...previousIds, gameId]));
+    advancePrimaryPast(gameId);
+    setPendingDecisions((count) => count + 1);
     try {
       const result = await applyDecisionFeedback(gameId, feedback, (undoResult) => {
+        setExcludedIds((previousIds) => {
+          const nextIds = new Set(previousIds);
+          nextIds.delete(gameId);
+          return nextIds;
+        });
         if (undoResult.ok && undoResult.canonical) {
           const undoModel = undoResult.response.recommendationModel;
           const undoPool = recommendationEntries(undoModel);
@@ -317,7 +337,13 @@ export function useDecisionRecommendations({
         poolStateVersionRef.current = authoritativeModel.stateVersion;
         exhaustedRef.current = nextPool.length === 0;
         setPool(nextPool);
-        setStablePrimaryId(authoritativeModel.primary?.game.gameId ?? null);
+        setStablePrimaryId((currentId) =>
+          resolveStablePrimaryId({
+            pool: nextPool,
+            excludedIds: excludedIdsRef.current,
+            currentId,
+          }),
+        );
       } else if (!result.ok && result.canonical && result.decisionSaved) {
         poolStateVersionRef.current = result.stateVersion ?? poolStateVersionRef.current;
         exhaustedRef.current = true;
@@ -326,9 +352,16 @@ export function useDecisionRecommendations({
         setDecisionRefreshError(
           "Your decision was saved, but the updated Play Next ranking is temporarily unavailable.",
         );
+      } else if (!result.ok) {
+        setExcludedIds((previousIds) => {
+          const nextIds = new Set(previousIds);
+          nextIds.delete(gameId);
+          return nextIds;
+        });
+        setStablePrimaryId(gameId);
       }
     } finally {
-      setDecisionPending(false);
+      setPendingDecisions((count) => count - 1);
     }
   }
 
