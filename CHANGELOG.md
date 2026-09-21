@@ -14,6 +14,13 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   card the user is looking at, and a decision that fails to save brings the game back. Undo restores
   the game. Decisions made in quick succession still run in order.
 
+### Fixed
+
+- After an optimistic decision the Play Next screen could fall back to the "Finding recommendations"
+  skeleton and stay there until a reload. The fetched model looked "newer than the pool" to the
+  loading check because the decision response had already advanced the pool, and nothing refreshed
+  it any more; a fetched model older than the applied pool is no longer treated as pending.
+
 ## 2026-09-20
 
 ### Changed

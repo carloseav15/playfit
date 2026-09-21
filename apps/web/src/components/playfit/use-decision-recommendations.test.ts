@@ -197,6 +197,26 @@ describe("optimistic canonical decisions", () => {
     expect(hook.result.current.isWaitingForCandidates).toBe(false);
   });
 
+  it("does not fall back to the loading screen when the server ranking is newer than the fetched model", async () => {
+    const { hook, pending } = setup(model("1", ["a", "b", "c", "d"]));
+    expect(hook.result.current.isTransient).toBe(false);
+
+    let decision!: Promise<void>;
+    act(() => {
+      decision = hook.result.current.handleFeedback(entry("a"), "not_for_me");
+    });
+    expect(hook.result.current.isTransient).toBe(false);
+
+    await act(async () => {
+      pending[0].resolve(okResult(model("2", ["b", "c", "d", "e"])));
+      await decision;
+    });
+
+    expect(hook.result.current.isTransient).toBe(false);
+    expect(hook.result.current.isInitialLoading).toBe(false);
+    expect(hook.result.current.primary?.game.gameId).toBe("b");
+  });
+
   it("moves to the first new candidate if the one on screen is gone from the ranking", async () => {
     const { hook, pending } = setup(model("1", ["a", "b", "c"]));
     let decision!: Promise<void>;
