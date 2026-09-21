@@ -2,7 +2,10 @@ import { jsonError } from "@/lib/api-errors";
 import { coreLoopClientEventSchema, playNextRecommendationId } from "@/lib/core-loop-analytics";
 import { captureApiError, withApiTiming } from "@/lib/monitoring";
 import { createRequestSupabaseContext } from "@/lib/supabase/server";
-import { buildPlayNextModel, loadRecommendationStateFromContext } from "../recommendations/shared";
+import {
+  getCachedPlayNextModel,
+  loadRecommendationStateFromContext,
+} from "../recommendations/shared";
 
 async function postCoreLoopEvent(request: Request) {
   const context = await createRequestSupabaseContext(request);
@@ -21,11 +24,11 @@ async function postCoreLoopEvent(request: Request) {
   }
 
   try {
-    const model = await buildPlayNextModel({
-      state: loaded.state,
-      stateVersion: loaded.stateVersion,
+    const model = await getCachedPlayNextModel({
       userId: loaded.userId,
+      stateVersion: loaded.stateVersion,
     });
+    if (!model) return jsonError("Recommendation provenance unavailable", 409);
     const candidate = model.rankingMetadata.candidates.find(
       (value) => value.gameId === event.gameId && value.rank === event.rank,
     );

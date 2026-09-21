@@ -14,6 +14,7 @@ import type {
 } from "@playfit/core/types";
 import { getCache, setCache } from "@/lib/api-cache";
 import { fetchGamesByIds, mapRowsToSeedGames } from "@/lib/games-db";
+import { peekInFlight, singleFlight } from "@/lib/single-flight";
 import { createAnonClient } from "@/lib/supabase/server";
 import { buildIdentityExpandedGameStates } from "./identity-equivalents";
 
@@ -156,7 +157,21 @@ function hydrateScoredEntries(
   });
 }
 
-export async function scoreTodayModel({
+export function scoreTodayModel(input: {
+  state: ProductState;
+  stateVersion: string;
+  userId: string;
+  cacheScope: "model";
+}): Promise<ProductTodayModel> {
+  const key = buildRecsCacheKey({
+    userId: input.userId,
+    stateVersion: input.stateVersion,
+    scope: input.cacheScope,
+  });
+  return singleFlight(key, () => computeTodayModel(input));
+}
+
+async function computeTodayModel({
   state,
   stateVersion,
   userId,
@@ -215,7 +230,31 @@ function activeSavedPickIds(state: ProductState) {
     .sort();
 }
 
-export async function buildPlayNextModel({
+export function buildPlayNextModel(input: {
+  state: ProductState;
+  stateVersion: string;
+  userId: string;
+}): Promise<ProductPlayNextModel> {
+  const key = buildRecsCacheKey({
+    userId: input.userId,
+    stateVersion: input.stateVersion,
+    scope: "play-next",
+  });
+  return singleFlight(key, () => computePlayNextModel(input));
+}
+
+export function getCachedPlayNextModel({
+  userId,
+  stateVersion,
+}: {
+  userId: string;
+  stateVersion: string;
+}): Promise<ProductPlayNextModel | null> {
+  const key = buildRecsCacheKey({ userId, stateVersion, scope: "play-next" });
+  return peekInFlight<ProductPlayNextModel>(key) ?? getCache<ProductPlayNextModel>(key);
+}
+
+async function computePlayNextModel({
   state,
   stateVersion,
   userId,
@@ -250,7 +289,7 @@ export async function buildPlayNextModel({
         candidates: [],
       },
     };
-    void setCache(cacheKey, empty, RECS_CACHE_TTL);
+    await setCache(cacheKey, empty, RECS_CACHE_TTL);
     return empty;
   }
 
@@ -273,7 +312,7 @@ export async function buildPlayNextModel({
     },
   };
 
-  void setCache(cacheKey, playNextModel, RECS_CACHE_TTL);
+  await setCache(cacheKey, playNextModel, RECS_CACHE_TTL);
   return playNextModel;
 }
 

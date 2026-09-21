@@ -194,12 +194,18 @@ const ranked = {
   similarGames: [],
 } as unknown as RankedSeedGame;
 
+function scoringCalls() {
+  return mocks.rpc.mock.calls.filter(([name]) => name === "score_today_recommendations").length;
+}
+
 describe("recommendation scoring helpers", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     mocks.createAnonClient.mockReturnValue({ rpc: mocks.rpc });
     mocks.getCache.mockResolvedValue(null);
+    mocks.setCache.mockReset();
+    mocks.setCache.mockResolvedValue(undefined);
     mocks.buildLikedTagsFromProfile.mockReturnValue({ action: 2 });
     mocks.buildDislikedTagsFromProfile.mockReturnValue({ horror: 1 });
     mocks.fetchGamesByIds.mockResolvedValue({ ok: true, rows: [{ id: "hades" }] });
@@ -288,6 +294,124 @@ describe("recommendation scoring helpers", () => {
         { gameId: "other", rank: 2 },
       ],
     });
+  });
+
+  it("scores once when several requests ask for the same play-next model at the same time", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.rpc.mockImplementation(async () => {
+      await gate;
+      return { data: { currentRun: [], nextUp: [ranked], resume: [], picks: [] }, error: null };
+    });
+    const { buildPlayNextModel } = await import("./shared");
+
+    const pending = [1, 2, 3, 4].map(() =>
+      buildPlayNextModel({ state, stateVersion: "v1", userId: "u" }),
+    );
+    release();
+    const results = await Promise.all(pending);
+
+    expect(scoringCalls()).toBe(1);
+    expect(new Set(results).size).toBe(1);
+  });
+
+  it("finishes writing the play-next cache before returning the model", async () => {
+    let finishWrite!: () => void;
+    mocks.setCache.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
+    mocks.rpc.mockResolvedValue({
+      data: { currentRun: [], nextUp: [ranked], resume: [], picks: [] },
+      error: null,
+    });
+    const { buildPlayNextModel } = await import("./shared");
+
+    let returned = false;
+    const building = buildPlayNextModel({ state, stateVersion: "v1", userId: "u" }).then(
+      (model) => {
+        returned = true;
+        return model;
+      },
+    );
+    await vi.waitFor(() => expect(mocks.setCache).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(returned).toBe(false);
+
+    finishWrite();
+    await building;
+    expect(returned).toBe(true);
+  });
+
+  it("scores separately for different state versions", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { currentRun: [], nextUp: [ranked], resume: [], picks: [] },
+      error: null,
+    });
+    const { buildPlayNextModel } = await import("./shared");
+
+    await Promise.all([
+      buildPlayNextModel({ state, stateVersion: "v1", userId: "u" }),
+      buildPlayNextModel({ state, stateVersion: "v2", userId: "u" }),
+    ]);
+
+    expect(scoringCalls()).toBe(2);
+  });
+
+  it("scores once when several requests ask for the same today model at the same time", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { currentRun: [], nextUp: [ranked], resume: [], picks: [] },
+      error: null,
+    });
+    const { scoreTodayModel } = await import("./shared");
+
+    await Promise.all(
+      [1, 2, 3].map(() =>
+        scoreTodayModel({ state, stateVersion: "v1", userId: "u", cacheScope: "model" }),
+      ),
+    );
+
+    expect(scoringCalls()).toBe(1);
+  });
+
+  it("reads a cached play-next model without scoring", async () => {
+    const cached = { primary: null, alternatives: [], savedPickIds: [], stateVersion: "v1" };
+    mocks.getCache.mockResolvedValue(cached);
+    const { getCachedPlayNextModel } = await import("./shared");
+
+    await expect(getCachedPlayNextModel({ userId: "u", stateVersion: "v1" })).resolves.toBe(cached);
+    expect(mocks.getCache).toHaveBeenCalledWith("recs:play-next:u:v1:20260912-shared-sql");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns null when no play-next model is cached and never starts scoring", async () => {
+    const { getCachedPlayNextModel } = await import("./shared");
+
+    await expect(getCachedPlayNextModel({ userId: "u", stateVersion: "v9" })).resolves.toBeNull();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets a cached-model reader join a play-next computation that is already running", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.rpc.mockImplementation(async () => {
+      await gate;
+      return { data: { currentRun: [], nextUp: [ranked], resume: [], picks: [] }, error: null };
+    });
+    const { buildPlayNextModel, getCachedPlayNextModel } = await import("./shared");
+
+    const building = buildPlayNextModel({ state, stateVersion: "v1", userId: "u" });
+    const reading = getCachedPlayNextModel({ userId: "u", stateVersion: "v1" });
+    release();
+
+    await expect(reading).resolves.toBe(await building);
+    expect(scoringCalls()).toBe(1);
   });
 
   it("returns empty play-next model when scoring has no next-up entries", async () => {

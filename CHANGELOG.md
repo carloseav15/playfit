@@ -26,6 +26,14 @@ rather than strict semantic-version releases while it is prepared as a portfolio
 
 ### Fixed
 
+- Bursts of requests after a decision no longer pile up scoring work on the database. Concurrent
+  requests for the same recommendation model now share a single computation, the play-next cache is
+  written before the model is returned, and `/api/core-loop-events` checks an event against the
+  cached model instead of scoring recommendations again (an event with no cached model is now
+  rejected with 409 rather than recomputed). In production a burst of about 27 scoring calls had
+  driven `score_today_recommendations` to a 9.9 s median with statement timeouts; locally, 8
+  simultaneous requests now trigger 1 scoring call instead of 4 and finish in ~0.8 s instead of up
+  to ~4.6 s.
 - The dossier's Save/Remove Picks button read a stale session-cached recommendation instead of live
   state, so a game saved from Play Next offered "Save to Picks" again after opening it from My Picks.
 
