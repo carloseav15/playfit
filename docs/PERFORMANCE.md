@@ -30,6 +30,27 @@ Profile lookup uses `profiles.user_id` primary/unique indexes, and platform filt
 existing `game_platforms(platform_id, game_id)` indexes. No additional recommendation index was
 justified by the measured plans.
 
+## Production behavior (2026-09-21)
+
+Production runs on a Supabase **Nano** instance (shared CPU, up to 0.5 GB), in `us-east-1`, the
+same region as the Vercel functions (`iad1`). Measured from Vercel and Supabase logs plus an
+in-browser session:
+
+- One `score_today_recommendations` call takes about 0.45 s locally but about **2 s in
+  production** (4-5 s after idle). Score cost is per catalog scan, not per profile size, and the
+  `LIMIT 20` per bucket does not change it.
+- Concurrent calls saturate the instance: a burst of 27 calls in five minutes gave a 9.9 s
+  median, statement timeouts (`57014`) and even `get_profile` stalling for 11 s. Requests for the
+  same model are now coalesced per server instance and the core-loop analytics route no longer
+  scores.
+- Writes (`apply_profile_transition`, `save_profile`) take about 0.7 s each.
+- Play Next's first load used to chain `platforms`, `profile`, `games/batch` and `today`
+  (about 13.5 s cold, 2.5 s warm). The profile and today's recommendations are now requested as
+  soon as a session exists, in parallel with the platform list.
+
+Reading Vercel runtime logs with the CLI only reaches back a few minutes; Supabase `edge_logs`
+(`response.origin_time` per RPC) and `postgres_logs` cover longer windows.
+
 ## Next safe optimization
 
 If the empty-tag path becomes a user-facing latency problem, prefer one of these strategies:

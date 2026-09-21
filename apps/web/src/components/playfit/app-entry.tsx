@@ -7,8 +7,10 @@ import { PlayLayoutClient } from "@/app/(play)/layout-client";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { platformsResponseSchema } from "@/lib/api-contracts";
+import { startStartupPrefetch } from "@/lib/startup-prefetch";
 import { AppHeader } from "./app-header";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { getOnboardingFlowHeaders } from "./onboarding-flow-tracing";
 
 const AppEntryContext = createContext({
   started: false,
@@ -44,6 +46,14 @@ export function AppEntry({
     }),
     [started],
   );
+
+  useEffect(() => {
+    if (!active || platforms) return;
+    void startStartupPrefetch({
+      includeToday: pathname === "/",
+      headers: getOnboardingFlowHeaders("recommendation_fetch"),
+    });
+  }, [active, platforms, pathname]);
 
   useEffect(() => {
     if (!active || platforms) return;

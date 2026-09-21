@@ -13,6 +13,11 @@ rather than strict semantic-version releases while it is prepared as a portfolio
   once, the server's authoritative ranking replaces the pool when it arrives without swapping the
   card the user is looking at, and a decision that fails to save brings the game back. Undo restores
   the game. Decisions made in quick succession still run in order.
+- Opening Play Next as a returning visitor now requests the profile and today's recommendations as
+  soon as a session exists, in parallel with the platform list, instead of waiting for each step
+  in turn (`platforms`, then `profile`, then `games/batch`, then `today`). The early requests are
+  single-use, expire after 15 s and are ignored if the signed-in user changed; the app falls back
+  to its normal requests if they fail.
 
 ### Fixed
 
