@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { SEARCH_DESCRIPTION } from "@/components/playfit/search/search-config";
 import { SearchRouteClient } from "@/components/playfit/search/search-route-client";
 
 export const metadata: Metadata = {
   title: "Search the Catalog",
-  description: "Browse and search the full Playfit game catalog by title, platform, or genre.",
+  description: SEARCH_DESCRIPTION,
 };
 
 export default async function SearchPage({
