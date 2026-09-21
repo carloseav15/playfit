@@ -69,8 +69,10 @@ export function usePlayfitBoot({
           ...Object.keys(loadedState.user.gameStates),
         ]);
 
+        const needsGamesNow = !loadedState.user.onboardingCompletedAt || !loadedState.user.profile;
         if (gameIds.size > 0) {
-          await ensureGamesCached([...gameIds]);
+          const loadingGames = ensureGamesCached([...gameIds]);
+          if (needsGamesNow) await loadingGames;
         }
 
         if (loadedState.user.onboardingCompletedAt && !loadedState.user.profile) {

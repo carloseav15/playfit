@@ -36,6 +36,34 @@ function makeState(stateVersion: string): ProductState {
   };
 }
 
+function makeReadyState(stateVersion: string): ProductState {
+  const state = makeState(stateVersion);
+  state.user.onboardingCompletedAt = "2026-01-01T00:00:00.000Z";
+  state.user.profile = {
+    summary: "Ready",
+    likedGenres: [],
+    avoidedGenres: [],
+    likedTags: {},
+    dislikedTags: {},
+    ratedCount: 3,
+    signals: [],
+  };
+  state.user.onboarding.likedGameIds = ["hades"];
+  state.user.gameStates = {
+    celeste: {
+      gameId: "celeste",
+      title: "Celeste",
+      inBacklog: false,
+      inWishlist: false,
+      inPlayfitPicks: true,
+      source: "manual",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+  };
+  return state;
+}
+
 async function boot() {
   vi.resetModules();
   const { usePlayfitBoot } = await import("./use-playfit-boot");
@@ -105,5 +133,37 @@ describe("usePlayfitBoot startup prefetch", () => {
     await waitFor(() => expect(setState).toHaveBeenCalled());
     expect(setState.mock.calls[0][0].stateVersion).toBe("from-network");
     expect(mocks.loadProductState).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a returning user's app without waiting for their games to download", async () => {
+    mocks.takeStartupPrefetch.mockReturnValue(Promise.resolve(makeReadyState("ready")));
+    mocks.ensureGamesCached.mockReturnValue(new Promise(() => undefined));
+
+    const { setState } = await boot();
+
+    await waitFor(() => expect(setState).toHaveBeenCalled());
+    expect(setState.mock.calls[0][0].stateVersion).toBe("ready");
+    expect(mocks.ensureGamesCached).toHaveBeenCalledWith(["hades", "celeste"]);
+  });
+
+  it("still waits for the games while the onboarding is unfinished", async () => {
+    const midOnboarding = makeState("mid");
+    midOnboarding.user.onboarding.likedGameIds = ["hades"];
+    mocks.takeStartupPrefetch.mockReturnValue(Promise.resolve(midOnboarding));
+    let release!: () => void;
+    mocks.ensureGamesCached.mockReturnValue(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    const { setState } = await boot();
+
+    await waitFor(() => expect(mocks.ensureGamesCached).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(setState).not.toHaveBeenCalled();
+
+    release();
+    await waitFor(() => expect(setState).toHaveBeenCalled());
   });
 });
